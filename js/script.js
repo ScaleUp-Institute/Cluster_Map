@@ -589,6 +589,7 @@ function initSectorChipsFromMaster() {
   });
 
   var sectorsList = Array.from(sectorSet).sort();
+  populateSectorCheckboxes(sectorsList);
 }
 
 // Load University Data
@@ -2076,9 +2077,6 @@ function populateClusterCheckboxes() {
     });
   });
 }
-
-populateSectorCheckboxes();
-
 
 function convexHull(points) {
   if (points.length < 3) {
