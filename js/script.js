@@ -1619,7 +1619,11 @@ function computeSectorStatistics() {
     sectorStats[sector].totalIUKFunding += isNaN(iukFunding) ? 0 : iukFunding;
 
     // Female founded flag using helper
-    if (isFemaleFoundedFlag(company.WomenFounded)) {
+    const femaleFlagSource = company.WomenFounded != null
+      ? company.WomenFounded
+      : company.WomenLed;
+
+    if (isFemaleFoundedFlag(femaleFlagSource)) {
       sectorStats[sector].femaleFoundedCount += 1;
     }
   });
@@ -1852,15 +1856,25 @@ document.getElementById('deselect-all-sectors').addEventListener('click', () => 
   updateDisplayModeToggleVisibility();
 });
 
+// Function to interpret various "female founded" encodings
 function isFemaleFoundedFlag(value) {
-  // Handle numeric, boolean and string encodings
-  if (value === 1 || value === '1' || value === true) return true;
-  if (typeof value === 'string') {
-    const v = value.trim().toLowerCase();
-    return v === 'yes' || v === 'y' || v === 'true';
+  if (value === null || value === undefined) return false;
+
+  // Boolean TRUE / FALSE (Papa with dynamicTyping)
+  if (typeof value === 'boolean') {
+    return value === true;
   }
-  return false;
+
+  // Numeric 0 / 1
+  if (typeof value === 'number') {
+    return value === 1;
+  }
+
+  // Strings like "1", "true", "TRUE", "yes"
+  const s = String(value).trim().toLowerCase();
+  return s === '1' || s === 'true' || s === 'yes' || s === 'y';
 }
+
 
 function updateClusterLayers() {
   console.log('updateClusterLayers called');
@@ -1983,7 +1997,11 @@ function updateClusterLayers() {
         totalIUKFunding += iukFunding;
       }
 
-      if (isFemaleFoundedFlag(company.WomenFounded)) {
+      const femaleFlagSource = company.WomenFounded != null
+        ? company.WomenFounded
+        : company.WomenLed;
+
+      if (isFemaleFoundedFlag(femaleFlagSource)) {
         femaleFoundedCount++;
       }
 
