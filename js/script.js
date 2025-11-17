@@ -1585,83 +1585,87 @@ document.getElementById('deselect-all-clusters').addEventListener('click', funct
 
 
 function computeSectorStatistics() {
-  // Initialize the sectorStats object
+  // Reset
   sectorStats = {};
 
+  if (!Array.isArray(companyData) || companyData.length === 0) {
+    console.warn('computeSectorStatistics: no companyData available');
+    return;
+  }
+
   companyData.forEach(function(company) {
-    var sector = company.sector;
+    const sector = company.sector || company.Sector;
+    if (!sector) return;
+
     if (!sectorStats[sector]) {
       sectorStats[sector] = {
         companyCount: 0,
         totalEmployees: 0,
         totalTurnover: 0,
-        totalGrowthRate: 0,
-        validGrowthRateCount: 0,
         totalIUKFunding: 0,
-        femaleFoundedCount: 0,
         totalInvestment: 0,
-        averageGrowthRate: 0,
+        femaleFoundedCount: 0,
         femaleFoundedPercentage: 0
       };
     }
-    sectorStats[sector].companyCount += 1;
 
-    // Growth - we keep this in case you want it later,
-    // but will not display it anywhere for now
-    var growthRate = parseFloat(company.BestEstimateGrowthPercentagePerYear);
-    if (!isNaN(growthRate)) {
-      sectorStats[sector].totalGrowthRate += growthRate;
-      sectorStats[sector].validGrowthRateCount += 1;
-    }
+    const stats = sectorStats[sector];
+    stats.companyCount += 1;
 
-    // IUK funding
-    var iukFunding = parseFloat(company.TotalInnovateUKFunding);
-    sectorStats[sector].totalIUKFunding += isNaN(iukFunding) ? 0 : iukFunding;
+    // Employees
+    const emp = parseNumber(
+      company.BestEstimateEmployees ??
+      company.total_employees ??
+      company.TotalEmployees
+    );
+    stats.totalEmployees += emp;
 
-    // Female founded flag using helper
-    const femaleFlagSource = company.WomenFounded != null
-      ? company.WomenFounded
-      : company.WomenLed;
+    // Turnover
+    const turnover = parseNumber(
+      company.BestEstimateTurnover ??
+      company.total_turnover ??
+      company.TotalTurnover
+    );
+    stats.totalTurnover += turnover;
+
+    // Investment
+    const investment = parseNumber(
+      company.Investment_GBP ??
+      company.totalInvestment ??
+      company.total_Dealroom_PE
+    );
+    stats.totalInvestment += investment;
+
+    // Innovate UK funding
+    const iuk = parseNumber(
+      company.IUK_GBP ??
+      company.TotalInnovateUKFunding
+    );
+    stats.totalIUKFunding += iuk;
+
+    // Female founded or women led
+    const femaleFlagSource =
+      company.WomenLed != null
+        ? company.WomenLed
+        : (company.WomenFounded != null ? company.WomenFounded : null);
 
     if (isFemaleFoundedFlag(femaleFlagSource)) {
-      sectorStats[sector].femaleFoundedCount += 1;
+      stats.femaleFoundedCount += 1;
     }
   });
 
-  // Integrate employees, turnover and investment from clusterSummaryData if present
-  for (var sector in sectorStats) {
-    var totalEmployees = 0;
-    var totalTurnover  = 0;
-    var companyCount   = 0;
-
-    for (var clusterId in clusterSummaryData) {
-      if (clusterSummaryData[clusterId].sector === sector) {
-        totalEmployees += parseFloat(clusterSummaryData[clusterId].total_employees) || 0;
-        totalTurnover  += parseFloat(clusterSummaryData[clusterId].total_turnover) || 0;
-        companyCount   += parseInt(clusterSummaryData[clusterId].companycount) || 0;
-
-        var dealroomPE = parseFloat(clusterSummaryData[clusterId].total_Dealroom_PE);
-        sectorStats[sector].totalInvestment += isNaN(dealroomPE) ? 0 : dealroomPE;
-      }
+  // Final percentages
+  Object.keys(sectorStats).forEach(function(sector) {
+    const stats = sectorStats[sector];
+    if (stats.companyCount > 0) {
+      stats.femaleFoundedPercentage =
+        (stats.femaleFoundedCount / stats.companyCount) * 100;
+    } else {
+      stats.femaleFoundedPercentage = 0;
     }
-
-    sectorStats[sector].totalEmployees = totalEmployees;
-    sectorStats[sector].totalTurnover  = totalTurnover;
-
-    // Average growth stored but not shown
-    var validGrowthRateCount = sectorStats[sector].validGrowthRateCount;
-    sectorStats[sector].averageGrowthRate =
-      validGrowthRateCount > 0
-        ? sectorStats[sector].totalGrowthRate / validGrowthRateCount
-        : 0;
-
-    // Female founded percentage
-    sectorStats[sector].femaleFoundedPercentage =
-      sectorStats[sector].companyCount > 0
-        ? (sectorStats[sector].femaleFoundedCount / sectorStats[sector].companyCount) * 100
-        : 0;
-  }
+  });
 }
+
 
 function showSectorStatistics(selectedSectors) {
   const statsPanel = document.getElementById('sector-stats-panel');
@@ -1670,7 +1674,7 @@ function showSectorStatistics(selectedSectors) {
     return;
   }
 
-  // Clear old content
+  // Clear old content and add header
   statsPanel.innerHTML = `
     <div class="stats-header">
       <h2>Sector Stats</h2>
@@ -1678,7 +1682,17 @@ function showSectorStatistics(selectedSectors) {
     </div>
   `;
 
-  // Build card layouts for each sector
+  if (!selectedSectors || !selectedSectors.length) {
+    statsPanel.innerHTML += `
+      <div class="stats-card">
+        <p>No sectors selected.</p>
+      </div>
+    `;
+    statsPanel.classList.add('show');
+    statsPanel.classList.remove('hidden');
+    return;
+  }
+
   selectedSectors.forEach(sector => {
     const stats = sectorStats[sector];
     if (!stats) {
@@ -1697,7 +1711,7 @@ function showSectorStatistics(selectedSectors) {
         <p><strong>Companies:</strong> ${stats.companyCount}</p>
         <p><strong>Total Employees:</strong> ${Math.round(stats.totalEmployees)}</p>
         <p><strong>Total Turnover:</strong> ${formatTurnover(stats.totalTurnover)}</p>
-        <p><strong>% Female-Founded:</strong> ${stats.femaleFoundedPercentage.toFixed(2)}%</p>
+        <p><strong>% Female-Founded:</strong> ${stats.femaleFoundedPercentage.toFixed(1)}%</p>
         <p><strong>IUK Funding:</strong> ${formatTurnover(stats.totalIUKFunding)}</p>
         <p><strong>Investment:</strong> ${formatTurnover(stats.totalInvestment)}</p>
       </div>
@@ -1707,6 +1721,7 @@ function showSectorStatistics(selectedSectors) {
   statsPanel.classList.remove('hidden');
   statsPanel.classList.add('show');
 }
+
 
 
 // Simple hide function
@@ -1857,10 +1872,11 @@ document.getElementById('deselect-all-sectors').addEventListener('click', () => 
 });
 
 // Function to interpret various "female founded" encodings
+// Interprets various encodings of "female founded" / "women led"
 function isFemaleFoundedFlag(value) {
   if (value === null || value === undefined) return false;
 
-  // Boolean TRUE / FALSE (Papa with dynamicTyping)
+  // Boolean TRUE/FALSE (Papa with dynamicTyping)
   if (typeof value === 'boolean') {
     return value === true;
   }
@@ -1870,10 +1886,11 @@ function isFemaleFoundedFlag(value) {
     return value === 1;
   }
 
-  // Strings like "1", "true", "TRUE", "yes"
+  // Strings like "TRUE", "true", "Yes", "1"
   const s = String(value).trim().toLowerCase();
   return s === '1' || s === 'true' || s === 'yes' || s === 'y';
 }
+
 
 
 function updateClusterLayers() {
