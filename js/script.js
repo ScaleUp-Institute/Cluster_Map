@@ -544,7 +544,7 @@ function loadClusterRegions(callback) {
 }
 
 // Load the new master clusters file (all sectors in one CSV)
-Papa.parse('data/new_clusters_master.csv', {
+Papa.parse('data/cluster_points_final.csv', {
   download: true,
   header: true,
   dynamicTyping: true,
