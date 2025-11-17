@@ -543,6 +543,75 @@ function loadClusterRegions(callback) {
   });
 }
 
+function loadMasterClusters() {
+  Papa.parse('data/cluster_points_final.csv', {   // <-- update filename if needed
+    download: true,
+    header: true,
+    dynamicTyping: true,
+    skipEmptyLines: true,
+    complete: function (results) {
+      // Keep only rows that actually have usable coordinates + sector
+      masterClusterData = results.data.filter(function (row) {
+        return row.Companynumber &&
+               row.Latitude &&
+               row.Longitude &&
+               row.Sector;
+      });
+
+      console.log('Loaded master clusters:', masterClusterData.length);
+
+      // Next step will build the sector list & chips from this
+      initSectorsFromMaster();
+    },
+    error: function (err) {
+      console.error('Error parsing master clusters CSV:', err);
+    }
+  });
+}
+
+function normalizeSectorName(str) {
+  return (str || '').trim().replace(/_/g, ' ');
+}
+
+function initSectorsFromMaster() {
+  if (!masterClusterData || !masterClusterData.length) {
+    console.warn('masterClusterData is empty – cannot init sectors');
+    return;
+  }
+
+  // 1) Get unique *normalised* sector names
+  const uniqueSectors = Array.from(
+    new Set(
+      masterClusterData
+        .map(row => normalizeSectorName(row.Sector))
+        .filter(Boolean)
+    )
+  ).sort();
+
+  // 2) Overwrite the old sectors object (no file paths now)
+  sectors = {};
+  uniqueSectors.forEach(name => {
+    sectors[name] = true;
+  });
+
+  // 3) Generate fresh colours for ALL these sectors
+  sectorColors = {};
+  const palette = chroma.scale('Set2').colors(uniqueSectors.length || 1);
+
+  uniqueSectors.forEach((name, idx) => {
+    sectorColors[name] = palette[idx % palette.length];
+  });
+
+  console.log('Sectors initialised from master file:', uniqueSectors);
+  console.log('Sector colours:', sectorColors);
+
+  // 4) Rebuild chips using the nice names ("Advanced Manufacturing", etc.)
+  populateSectorCheckboxes();
+}
+
+
+// Call this once on load so the master file drives sectors
+loadMasterClusters();
 // Load the new master clusters file (all sectors in one CSV)
 Papa.parse('data/cluster_points_final.csv', {
   download: true,
