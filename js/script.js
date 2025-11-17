@@ -138,6 +138,7 @@ var infrastructureData = [];
 var supportProgramData = [];
 var companyData = [];        // per-sector filtered data used by the map
 var masterClusterData = [];  // all rows from the new cluster file
+var companyDetailsByNumber = {};
 
 
 // List of company numbers to exclude
@@ -709,6 +710,34 @@ Papa.parse('data/support_program.csv', {
     console.error('Error parsing Support Program CSV:', err);
   }
 });
+
+Papa.parse('data/company_stats_with_financials.csv', {   // ← change this to the real file name
+  download: true,
+  header: true,
+  dynamicTyping: true,
+  skipEmptyLines: true,
+  complete: function (results) {
+    companyDetailsByNumber = {};
+
+    results.data.forEach(function (row) {
+      // Normalise the key to a trimmed string
+      var num = row.CompanyNumber ? row.CompanyNumber.toString().trim() : null;
+      if (!num) return;
+
+      companyDetailsByNumber[num] = row;
+    });
+
+    console.log(
+      'Company details loaded:',
+      Object.keys(companyDetailsByNumber).length,
+      'records'
+    );
+  },
+  error: function (err) {
+    console.error('Error parsing company details CSV:', err);
+  }
+});
+
 
 function finalizeMapSetup() {
   console.log('finalizeMapSetup called'); // Debugging log
@@ -1418,7 +1447,8 @@ function loadSectorsData(sectorsList) {
   const statsPanel    = document.getElementById('sector-stats-panel');
   const ctrlContainer = document.querySelector('.leaflet-control-container');
 
-  if (!sectorsList || sectorsList.length === 0) {
+  // If nothing selected, clear everything and bail
+  if (!sectorsList || !sectorsList.length) {
     companyData        = [];
     clusterSummaryData = {};
     removeClusterLayers();
@@ -1430,56 +1460,108 @@ function loadSectorsData(sectorsList) {
     return;
   }
 
-  // 1) Filter masterClusterData by *normalised* sector name
-  companyData = masterClusterData.filter(function (row) {
-    const canonical = normalizeSectorName(row.Sector);
+  if (!Array.isArray(masterClusterData) || !masterClusterData.length) {
+    console.warn('masterClusterData is empty or not loaded');
+    return;
+  }
+
+  companyData        = [];
+  clusterSummaryData = {};   // not used for now, but keep it defined
+
+  // Helper so this works whether chips use "Advanced_Manufacturing"
+  // or "Advanced Manufacturing"
+  function sectorMatches(rowSector, selectedSector) {
+    if (!rowSector) return false;
+    const raw = rowSector.trim();
+    const dispFromRaw = raw.replace(/_/g, ' ').trim();
+
     return (
-      canonical &&
-      sectorsList.includes(canonical) &&
-      row.Latitude &&
-      row.Longitude
+      raw === selectedSector ||
+      dispFromRaw === selectedSector
     );
+  }
+
+  sectorsList.forEach(function (selectedSector) {
+    masterClusterData.forEach(function (row) {
+      if (!sectorMatches(row.Sector, selectedSector)) return;
+
+      // Company number as a clean string
+      const compNum = row.Companynumber
+        ? row.Companynumber.toString().trim()
+        : null;
+
+      if (!compNum) return;
+      if (excludedCompanyNumbers.includes(compNum)) return;
+
+      // Basic spatial + cluster info
+      const lat = parseFloat(row.Latitude);
+      const lng = parseFloat(row.Longitude);
+      if (isNaN(lat) || isNaN(lng)) return;
+
+      const clusterStr = row.cluster != null
+        ? row.cluster.toString()
+        : '0';
+
+      // Use the sector label as shown in the UI (chips)
+      const sectorLabel = selectedSector;
+
+      const company = {
+        Companynumber: compNum,
+        Latitude:      lat,
+        Longitude:     lng,
+        cluster:       clusterStr,
+        sector:        sectorLabel,
+        clusterId:     `${sectorLabel}_${clusterStr}`
+      };
+
+      // Enrich from the details file (if we have it)
+      const det = companyDetailsByNumber[compNum] || {};
+
+      company.Companyname   = det.CompanyName || 'Unknown';
+      company.RegisteredPostcode = det.RegisteredPostcode || null;
+      company.Homepage_domain    = det.Homepage_domain || null;
+
+      // Numeric fields
+      company.total_employees = parseNumber(det.BestEstimateEmployees);
+      company.total_turnover  = parseNumber(det.BestEstimateTurnover);
+
+      // Women-led flag (1/0)
+      company.WomenFounded = det.WomenLed
+        ? parseInt(det.WomenLed)
+        : 0;
+
+      // Funding / investment (GBP)
+      company.TotalInnovateUKFunding = parseNumber(det.IUK_GBP);
+      company.total_Investment       = parseNumber(det.Investment_GBP);
+
+      // We don’t have growth % in this file; keep it null for now
+      company.BestEstimateGrowthPercentagePerYear = null;
+
+      companyData.push(company);
+    });
   });
 
-  // 2) Normalise fields so the rest of the code still works
-  companyData.forEach(function (comp) {
-    const canonical = normalizeSectorName(comp.Sector);
-
-    comp.sector  = canonical;                          // nice name used everywhere else
-    comp.cluster = (comp.cluster != null ? comp.cluster.toString() : '0');
-    comp.clusterId = comp.clusterId || (canonical + '_' + comp.cluster);
-
-    // Safe defaults until we wire in new summary / financials
-    comp.Companyname                         = comp.Companyname || 'Unknown';
-    comp.BestEstimateGrowthPercentagePerYear = null;
-    comp.TotalInnovateUKFunding              = null;
-    comp.WomenFounded                        = null;
-    comp.total_employees                     = 0;
-    comp.total_turnover                      = 0;
-  });
-
-  // 3) No summary dataset yet → reset
-  clusterSummaryData = {};
-
-  // 4) Rebuild map layers / UI
+  // Rebuild clusters based on the new companyData
   generateClusterColors();
   populateClusterCheckboxes();
 
-  currentClusters = getAllClusterIds().filter(function (cid) {
-    return sectorsList.includes(cid.split('_')[0]);
-  });
+  currentClusters = getAllClusterIds().filter(cid =>
+    currentSectors.includes(cid.split('_')[0])
+  );
 
   addCompanyClusters();
-  computeSectorStatistics();
-  updateLegend(sectorsList.length > 0 ? 'Sectors' : '');
+  updateLegend(currentSectors.length > 0 ? 'Sectors' : '');
 
+  // If the stats panel is open, refresh it with the new data
   if (statsPanel && statsPanel.classList.contains('show')) {
+    computeSectorStatistics();
     const ordered = window.selectionOrder.length
       ? window.selectionOrder
       : currentSectors;
     showSectorStatistics(ordered);
   }
 }
+
 
 // Select All Clusters
 document.getElementById('select-all-clusters').addEventListener('click', function() {
@@ -1503,71 +1585,83 @@ document.getElementById('deselect-all-clusters').addEventListener('click', funct
 
 
 function computeSectorStatistics() {
-  // Initialize the sectorStats object
+  // Reset holder
   sectorStats = {};
 
-  companyData.forEach(function(company) {
-    var sector = company.sector;
+  if (!Array.isArray(companyData) || !companyData.length) {
+    console.warn('computeSectorStatistics: companyData is empty');
+    return;
+  }
+
+  // 1) Aggregate per sector directly from companyData
+  companyData.forEach(function (company) {
+    const sector = company.sector;
+    if (!sector) return;
+
     if (!sectorStats[sector]) {
       sectorStats[sector] = {
-        companyCount: 0,
-        totalEmployees: 0,
-        totalTurnover: 0,
-        totalGrowthRate: 0,
-        validGrowthRateCount: 0, // Ensure this line exists
-        totalIUKFunding: 0,
-        femaleFoundedCount: 0,
-        totalInvestment: 0
+        companyCount:           0,
+        totalEmployees:         0,
+        totalTurnover:          0,
+        totalGrowthRate:        0,
+        validGrowthRateCount:   0,
+        totalIUKFunding:        0,
+        femaleFoundedCount:     0,
+        totalInvestment:        0
       };
     }
-    sectorStats[sector].companyCount += 1;
 
-    // Aggregate statistics
-    var growthRate = parseFloat(company.BestEstimateGrowthPercentagePerYear);
-    if (!isNaN(growthRate)) {
-      sectorStats[sector].totalGrowthRate += growthRate;
-      sectorStats[sector].validGrowthRateCount += 1; // Increment if valid
+    const stats = sectorStats[sector];
+    stats.companyCount += 1;
+
+    // Employees / turnover / funding / investment
+    const emp = parseNumber(company.total_employees);
+    const tov = parseNumber(company.total_turnover);
+    const iuk = parseNumber(company.TotalInnovateUKFunding);
+    const inv = parseNumber(company.total_Investment);
+
+    stats.totalEmployees += isNaN(emp) ? 0 : emp;
+    stats.totalTurnover  += isNaN(tov) ? 0 : tov;
+    stats.totalIUKFunding += isNaN(iuk) ? 0 : iuk;
+    stats.totalInvestment += isNaN(inv) ? 0 : inv;
+
+    // Growth rate (we currently set this to null in loadSectorsData,
+    // but this will start working automatically if you ever add it)
+    const growth = (company.BestEstimateGrowthPercentagePerYear != null)
+      ? parseFloat(company.BestEstimateGrowthPercentagePerYear)
+      : NaN;
+
+    if (!isNaN(growth)) {
+      stats.totalGrowthRate      += growth;
+      stats.validGrowthRateCount += 1;
     }
 
-    var iukFunding = parseFloat(company.TotalInnovateUKFunding);
-    sectorStats[sector].totalIUKFunding += isNaN(iukFunding) ? 0 : iukFunding;
-
+    // Women-led
     if (company.WomenFounded === 1) {
-      sectorStats[sector].femaleFoundedCount += 1;
+      stats.femaleFoundedCount += 1;
     }
   });
 
-  // Integrate 'Total Employees', 'Total Turnover', and 'Total Investment' from clusterSummaryData
-  for (var sector in sectorStats) {
-    var totalEmployees = 0;
-    var totalTurnover = 0;
-    var companyCount = 0;
+  // 2) Derived metrics per sector
+  Object.keys(sectorStats).forEach(function (sector) {
+    const stats = sectorStats[sector];
 
-    for (var clusterId in clusterSummaryData) {
-      if (clusterSummaryData[clusterId].sector === sector) {
-        totalEmployees += parseFloat(clusterSummaryData[clusterId].total_employees) || 0;
-        totalTurnover += parseFloat(clusterSummaryData[clusterId].total_turnover) || 0;
-        companyCount += parseInt(clusterSummaryData[clusterId].companycount) || 0;
-
-        // Aggregate 'total_Dealroom_PE' as 'Total Investment'
-        var dealroomPE = parseFloat(clusterSummaryData[clusterId].total_Dealroom_PE);
-        sectorStats[sector].totalInvestment += isNaN(dealroomPE) ? 0 : dealroomPE;
-      }
+    // averageGrowthRate is stored as the *raw* value.
+    // In showSectorStatistics you already do `* 100` when displaying.
+    if (stats.validGrowthRateCount > 0) {
+      stats.averageGrowthRate =
+        stats.totalGrowthRate / stats.validGrowthRateCount;
+    } else {
+      stats.averageGrowthRate = 0;
     }
 
-    sectorStats[sector].totalEmployees = totalEmployees;
-    sectorStats[sector].totalTurnover = totalTurnover;
-
-    // Calculate average growth rate and female-founded percentage
-    var validGrowthRateCount = sectorStats[sector].validGrowthRateCount;
-    sectorStats[sector].averageGrowthRate =
-      validGrowthRateCount > 0 ? sectorStats[sector].totalGrowthRate / validGrowthRateCount : 0;
-    sectorStats[sector].femaleFoundedPercentage =
-      sectorStats[sector].companyCount > 0
-        ? (sectorStats[sector].femaleFoundedCount / sectorStats[sector].companyCount) * 100
+    stats.femaleFoundedPercentage =
+      stats.companyCount > 0
+        ? (stats.femaleFoundedCount / stats.companyCount) * 100
         : 0;
-  }
+  });
 }
+
 
 function showSectorStatistics(selectedSectors) {
   const statsPanel = document.getElementById('sector-stats-panel');
@@ -1791,8 +1885,8 @@ function updateClusterLayers() {
 
       // Update all markers in batch
       markers.forEach(marker => {
-        const currentRadius = finalRadius * progress; 
-        const currentOpacity = finalFillOpacity * progress; 
+        const currentRadius  = finalRadius * progress;
+        const currentOpacity = finalFillOpacity * progress;
         marker.setStyle({
           radius: currentRadius,
           fillOpacity: currentOpacity
@@ -1819,7 +1913,6 @@ function updateClusterLayers() {
       // Ease-out
       progress = easeOut(progress);
 
-      // Update all polygons in batch
       polygons.forEach(polygon => {
         polygon.setStyle({
           fillOpacity: finalFillOpacity * progress
@@ -1848,64 +1941,82 @@ function updateClusterLayers() {
 
   if (currentClusters.length === 0) {
     updateLegend('');
-    return; 
+    return;
   }
 
+  // Group companyData into clusters we actually want visible
   const clusters = {};
   companyData.forEach(company => {
     const clusterId = company.clusterId;
-    if (currentClusters.includes(clusterId)) {
-      if (!clusters[clusterId]) {
-        clusters[clusterId] = [];
-      }
-      clusters[clusterId].push(company);
+    if (!clusterId) return;
+    if (!currentClusters.includes(clusterId)) return;
+
+    if (!clusters[clusterId]) {
+      clusters[clusterId] = [];
     }
+    clusters[clusterId].push(company);
   });
 
   ///////////////////////////////////////////////////////////////////////
   // 3) We'll collect newly created markers and polygons for batch animation
   ///////////////////////////////////////////////////////////////////////
-  const newMarkers = [];   // all circle markers we create
-  const newPolygons = [];  // all polygons we create
+  const newMarkers  = [];   // all circle markers we create
+  const newPolygons = [];   // all polygons we create
 
   ///////////////////////////////////////////////////////////////////////
   // 4) Build each cluster
   ///////////////////////////////////////////////////////////////////////
   for (const clusterId in clusters) {
     const clusterGroup = L.layerGroup();
-    const points = [];
+    const points       = [];
 
-    // Aggregation variables
-    let totalGrowthRate = 0;
-    let growthRateCount = 0;
-    let totalIUKFunding = 0;
+    // Aggregation variables (driven by new companyData)
+    let totalGrowthRate    = 0;
+    let growthRateCount    = 0;
+    let totalIUKFunding    = 0;
     let femaleFoundedCount = 0;
-    let totalEmployees = 0;
-    let totalTurnover = 0;
+    let totalEmployees     = 0;
+    let totalTurnover      = 0;
 
-    const clusterNumber = clusters[clusterId][0].cluster;
-    const sectorName = clusters[clusterId][0].sector;
-    const clusterName = clusters[clusterId][0].Cluster_name || 'Cluster ' + clusterNumber;
-    const region = (clusterRegions[sectorName] && clusterRegions[sectorName][clusterNumber]) || 'Unknown';
+    const firstCompany  = clusters[clusterId][0];
+    const clusterNumber = String(firstCompany.cluster ?? '0');
+    const sectorName    = firstCompany.sector;
+    const clusterName   = 'Cluster ' + clusterNumber;
+    const region        =
+      (clusterRegions[sectorName] && clusterRegions[sectorName][clusterNumber]) ||
+      'Unknown';
 
     // Collect and aggregate data
     clusters[clusterId].forEach(company => {
-      const lat = company.Latitude;
-      const lng = company.Longitude;
+      const lat = parseFloat(company.Latitude);
+      const lng = parseFloat(company.Longitude);
+      if (isNaN(lat) || isNaN(lng)) return;
+
       points.push([lat, lng]);
 
+      // Growth rate (may not exist in your new CSV; that's fine)
       const growthRate = company.BestEstimateGrowthPercentagePerYear;
       if (typeof growthRate === 'number' && !isNaN(growthRate)) {
         totalGrowthRate += growthRate;
         growthRateCount++;
       }
+
+      // IUK funding
       const iukFunding = company.TotalInnovateUKFunding;
       if (typeof iukFunding === 'number' && !isNaN(iukFunding)) {
         totalIUKFunding += iukFunding;
       }
+
+      // Women-led
       if (company.WomenFounded === 1) {
         femaleFoundedCount++;
       }
+
+      // Employees / turnover from new merged columns
+      const emp = parseNumber(company.total_employees);
+      const tov = parseNumber(company.total_turnover);
+      if (!isNaN(emp)) totalEmployees += emp;
+      if (!isNaN(tov)) totalTurnover  += tov;
 
       // Show markers if needed
       if (displayMode === 'points' || displayMode === 'both') {
@@ -1919,7 +2030,6 @@ function updateClusterLayers() {
           fillOpacity: 0
         });
 
-        // Marker popup
         marker.bindPopup(`
           <div class="popup-content">
             <p><strong>Company Name:</strong> ${company.Companyname}</p>
@@ -1929,7 +2039,6 @@ function updateClusterLayers() {
           </div>
         `);
 
-        // Hover / click styling
         marker.on({
           mouseover: e => {
             e.target.setStyle({
@@ -1953,24 +2062,26 @@ function updateClusterLayers() {
         });
 
         clusterGroup.addLayer(marker);
-        newMarkers.push(marker);  // Collect for batch animation
+        newMarkers.push(marker); // Collect for batch animation
       }
     });
 
     // Sector color
-    const polygonColor = (clusterNumber === '0')
-      ? '#D3D3D3'
-      : (sectorColors[sectorName] || '#FFFFFF');
+    const polygonColor =
+      clusterNumber === '0'
+        ? '#D3D3D3'
+        : (sectorColors[sectorName] || '#FFFFFF');
 
     // Possibly create polygon if enough points
     if ((displayMode === 'polygons' || displayMode === 'both') &&
         clusterNumber !== '0' &&
         points.length >= 3) {
+
       const polygon = L.polygon(convexHull(points), {
         pane: 'polygonsPane',
         color: polygonColor,
         fillColor: polygonColor,
-        fillOpacity: 0,  // start at 0 for fade-in
+        fillOpacity: 0,   // start at 0; animation will fade in
         weight: 1,
         interactive: false
       });
@@ -1978,28 +2089,37 @@ function updateClusterLayers() {
       polygon.originalStyle = {
         color: polygonColor,
         weight: 1,
-        fillOpacity: 0.2
+        fillOpacity: 0.35   // stronger base fill for hover reset
       };
 
-      // Aggregated stats
-      const summary = clusterSummaryData[clusterId];
-      const averageGrowthRate = (growthRateCount > 0)
+      // Aggregated stats for this cluster (from company-level data)
+      const companyCount = clusters[clusterId].length;
+
+      const avgGrowth = (growthRateCount > 0)
         ? (totalGrowthRate / growthRateCount)
         : null;
-      const femaleFoundedPercentage = clusters[clusterId].length > 0
-        ? (femaleFoundedCount / clusters[clusterId].length) * 100
+
+      const femalePct = companyCount > 0
+        ? (femaleFoundedCount / companyCount) * 100
         : null;
 
-      const companyCount = summary ? summary.companycount : clusters[clusterId].length;
-      const totalEmployees = summary ? Math.round(summary.total_employees) : 'N/A';
-      const totalTurnover = summary ? formatTurnover(summary.total_turnover) : 'N/A';
-      const averageGrowthRateDisplay = (averageGrowthRate !== null)
-        ? (averageGrowthRate * 100).toFixed(1) + '%'
+      const averageGrowthRateDisplay = (avgGrowth !== null)
+        ? (avgGrowth * 100).toFixed(1) + '%'
         : 'N/A';
-      const femaleFoundedPercentageDisplay = (femaleFoundedPercentage !== null)
-        ? femaleFoundedPercentage.toFixed(1) + '%'
+
+      const femaleFoundedPercentageDisplay = (femalePct !== null)
+        ? femalePct.toFixed(1) + '%'
         : 'N/A';
-      const totalIUKFundingDisplay = (totalIUKFunding > 0)
+
+      const totalEmployeesDisplay = totalEmployees > 0
+        ? Math.round(totalEmployees)
+        : 'N/A';
+
+      const totalTurnoverDisplay = totalTurnover > 0
+        ? formatTurnover(totalTurnover)
+        : 'N/A';
+
+      const totalIUKFundingDisplay = totalIUKFunding > 0
         ? formatTurnover(totalIUKFunding)
         : 'N/A';
 
@@ -2010,8 +2130,8 @@ function updateClusterLayers() {
           <p><strong>Region:</strong> ${region}</p>
           <p><strong>Sector:</strong> ${sectorName}</p>
           <p><strong>Company Count:</strong> ${companyCount}</p>
-          <p><strong>Total Employees:</strong> ${totalEmployees}</p>
-          <p><strong>Total Turnover:</strong> ${totalTurnover}</p>
+          <p><strong>Total Employees:</strong> ${totalEmployeesDisplay}</p>
+          <p><strong>Total Turnover:</strong> ${totalTurnoverDisplay}</p>
           <p><strong>Average Growth Rate:</strong> ${averageGrowthRateDisplay}</p>
           <p><strong>% Female-Founded Companies:</strong> ${femaleFoundedPercentageDisplay}</p>
           <p><strong>Total IUK Grant Funding:</strong> ${totalIUKFundingDisplay}</p>
@@ -2020,21 +2140,21 @@ function updateClusterLayers() {
 
       clusterGroup.addLayer(polygon);
 
-      // Keep track of the polygon in allPolygons
+      // Keep track of the polygon in allPolygons (for hover / click logic)
       allPolygons.push({
         layer: polygon,
         properties: {
-          clusterNumber: clusterNumber,
-          sectorName: sectorName,
-          clusterName: clusterName,
-          clusterId: clusterId,
-          region: region,
-          companyCount: companyCount,
-          totalEmployees: totalEmployees,
-          totalTurnover: totalTurnover,
-          averageGrowthRateDisplay: averageGrowthRateDisplay,
-          femaleFoundedPercentageDisplay: femaleFoundedPercentageDisplay,
-          totalIUKFundingDisplay: totalIUKFundingDisplay
+          clusterNumber,
+          sectorName,
+          clusterName,
+          clusterId,
+          region,
+          companyCount,
+          totalEmployees: totalEmployeesDisplay,
+          totalTurnover: totalTurnoverDisplay,
+          averageGrowthRateDisplay,
+          femaleFoundedPercentageDisplay,
+          totalIUKFundingDisplay
         }
       });
 
@@ -2049,10 +2169,12 @@ function updateClusterLayers() {
   // 5) Animate all new markers / polygons in one go
   ///////////////////////////////////////////////////////////////////////
   if (newMarkers.length > 0) {
-    animateMarkersBatch(newMarkers, 3, 0.8, 800); // finalRadius=3, fillOpacity=0.8, 800ms
+    // finalRadius=3, fillOpacity=0.8, duration=800ms
+    animateMarkersBatch(newMarkers, 3, 0.8, 800);
   }
   if (newPolygons.length > 0) {
-    animatePolygonsBatch(newPolygons, 0.2, 800);  // fade to fillOpacity=0.2, 800ms
+    // fade polygons up to fillOpacity=0.35, duration=800ms
+    animatePolygonsBatch(newPolygons, 0.35, 800);
   }
 
   ///////////////////////////////////////////////////////////////////////
@@ -2064,6 +2186,7 @@ function updateClusterLayers() {
     updateLegend('');
   }
 }
+
 
 map.on('mousemove', handleMapMouseMove);
 map.on('click', handleMapClick);
