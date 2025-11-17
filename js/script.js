@@ -136,6 +136,8 @@ var magnifyingGlass;
 var universityData = [];
 var infrastructureData = [];
 var supportProgramData = [];
+var companyData = [];        // per-sector filtered data used by the map
+var masterClusterData = [];  // all rows from the new cluster file
 
 
 // List of company numbers to exclude
@@ -505,18 +507,33 @@ function loadClusterRegions(callback) {
     skipEmptyLines: true,
     complete: function (results) {
       var data = results.data;
+      if (!data.length) {
+        console.warn('cluster_regions.csv is empty');
+        callback();
+        return;
+      }
+
+      // Treat all columns except "CLUSTER No" as sector names
+      var firstRow = data[0];
+      var sectorColumns = Object.keys(firstRow).filter(function (col) {
+        return col && col !== 'CLUSTER No';
+      });
+
       data.forEach(function (row) {
         var clusterNo = row['CLUSTER No'];
-        for (var sector in sectors) {
-          if (!clusterRegions[sector]) {
-            clusterRegions[sector] = {};
+        if (!clusterNo) return;
+
+        sectorColumns.forEach(function (sectorName) {
+          var region = row[sectorName];
+          if (!region) return;
+
+          if (!clusterRegions[sectorName]) {
+            clusterRegions[sectorName] = {};
           }
-          var region = row[sector];
-          if (region) {
-            clusterRegions[sector][clusterNo] = region;
-          }
-        }
+          clusterRegions[sectorName][clusterNo] = region;
+        });
       });
+
       callback();
     },
     error: function (error) {
@@ -524,6 +541,54 @@ function loadClusterRegions(callback) {
       callback();
     }
   });
+}
+
+// Load the new master clusters file (all sectors in one CSV)
+Papa.parse('data/new_clusters_master.csv', {
+  download: true,
+  header: true,
+  dynamicTyping: true,
+  skipEmptyLines: true,
+  complete: function (results) {
+    masterClusterData = results.data.filter(row =>
+      row.Companynumber &&
+      row.Latitude &&
+      row.Longitude &&
+      row.Sector != null
+    );
+
+    // Normalise numeric / string fields a bit
+    masterClusterData.forEach(function (row) {
+      row.Latitude  = parseFloat(row.Latitude);
+      row.Longitude = parseFloat(row.Longitude);
+      row.cluster   = row.cluster != null ? row.cluster.toString() : '0';
+      row.Sector    = (row.Sector || '').trim();
+      row.Companynumber = row.Companynumber.toString().trim();
+      // Optional: if you already have company names in this file
+      row.Companyname = row.Companyname || 'Unknown';
+    });
+
+    // Build sector list dynamically from the new file
+    initSectorChipsFromMaster();
+  },
+  error: function (err) {
+    console.error('Error parsing new master clusters CSV:', err);
+  }
+});
+
+function initSectorChipsFromMaster() {
+  if (!masterClusterData.length) {
+    console.warn('No rows in masterClusterData – sector chips not initialised.');
+    return;
+  }
+
+  // unique Sector values, cleaned
+  var sectorSet = new Set();
+  masterClusterData.forEach(function (row) {
+    if (row.Sector) sectorSet.add(row.Sector);
+  });
+
+  var sectorsList = Array.from(sectorSet).sort();
 }
 
 // Load University Data
@@ -1279,166 +1344,71 @@ function parseNumber(value) {
   return isNaN(parsedValue) ? 0 : parsedValue;
 }
 
-loadClusterRegions(function () {
-  // Now clusterRegions is loaded, proceed to populate sector checkboxes
-  populateSectorCheckboxes();
-});
-
 function loadSectorsData(sectorsList) {
-  const statsPanel = document.getElementById('sector-stats-panel');
+  const statsPanel    = document.getElementById('sector-stats-panel');
   const ctrlContainer = document.querySelector('.leaflet-control-container');
 
-  if (sectorsList.length === 0) {
-    // No sectors selected, clear data and remove layers
-    companyData = [];
+  if (!sectorsList || sectorsList.length === 0) {
+    companyData        = [];
     clusterSummaryData = {};
     removeClusterLayers();
     updateLegend('');
     document.getElementById('overall-stats-button').style.display = 'none';
 
-    // Auto-hide the stats panel and un-shift controls
-    if (statsPanel) statsPanel.classList.remove('show');
+    if (statsPanel)    statsPanel.classList.remove('show');
     if (ctrlContainer) ctrlContainer.classList.remove('controls-shift-right');
-
     return;
   }
 
-  const promises = sectorsList.map(sector => {
-    const clusterFile   = sectors[sector];
-    const summaryFile   = summaryStatsFiles[sector];
-    const financialFile = financialDataFiles[sector];
-
-    return new Promise(resolve => {
-      // 1) Load the cluster data
-      Papa.parse(`data/${clusterFile}`, {
-        download: true,
-        header: true,
-        dynamicTyping: true,
-        skipEmptyLines: true,
-        complete: clusterResults => {
-          const clusterData = clusterResults.data.filter(c => c && c.Latitude && c.Longitude);
-
-          // 2) Load the summary stats
-          Papa.parse(`data/${summaryFile}`, {
-            download: true,
-            header: true,
-            dynamicTyping: true,
-            skipEmptyLines: true,
-            complete: summaryResults => {
-
-              // 3) Load the financial data
-              Papa.parse(`data/${financialFile}`, {
-                download: true,
-                header: true,
-                dynamicTyping: true,
-                skipEmptyLines: true,
-                complete: financialResults => {
-                  resolve({
-                    sector:        sector,
-                    clusterData:   clusterData,
-                    summaryData:   summaryResults.data,
-                    financialData: financialResults.data
-                  });
-                },
-                error: err => {
-                  console.error(`Error parsing financial CSV for sector ${sector}:`, err);
-                  resolve({
-                    sector:        sector,
-                    clusterData:   clusterData,
-                    summaryData:   summaryResults.data,
-                    financialData: []
-                  });
-                }
-              });
-
-            },
-            error: err => {
-              console.error(`Error parsing summary CSV for sector ${sector}:`, err);
-              resolve({
-                sector:        sector,
-                clusterData:   clusterData,
-                summaryData:   [],
-                financialData: []
-              });
-            }
-          });
-
-        },
-        error: err => {
-          console.error(`Error parsing cluster CSV for sector ${sector}:`, err);
-          resolve({
-            sector:        sector,
-            clusterData:   [],
-            summaryData:   [],
-            financialData: []
-          });
-        }
-      });
-    });
+  // 1) Filter masterClusterData by *normalised* sector name
+  companyData = masterClusterData.filter(function (row) {
+    const canonical = normalizeSectorName(row.Sector);
+    return (
+      canonical &&
+      sectorsList.includes(canonical) &&
+      row.Latitude &&
+      row.Longitude
+    );
   });
 
-  Promise.all(promises).then(sectorDataArray => {
-    companyData = [];
-    clusterSummaryData = {};
+  // 2) Normalise fields so the rest of the code still works
+  companyData.forEach(function (comp) {
+    const canonical = normalizeSectorName(comp.Sector);
 
-    // Merge all sector data
-    sectorDataArray.forEach(sectorData => {
-      const sector = sectorData.sector;
-      const finMap = {};
+    comp.sector  = canonical;                          // nice name used everywhere else
+    comp.cluster = (comp.cluster != null ? comp.cluster.toString() : '0');
+    comp.clusterId = comp.clusterId || (canonical + '_' + comp.cluster);
 
-      sectorData.financialData.forEach(rec => {
-        finMap[rec.Companynumber] = rec;
-      });
-
-      // Merge per-company
-      sectorData.clusterData.forEach(comp => {
-        comp.sector    = sector;
-        comp.cluster   = (comp.cluster != null ? comp.cluster.toString() : '0');
-        comp.clusterId = `${sector}_${comp.cluster}`;
-
-        const finRec = finMap[comp.Companynumber] || {};
-        comp.Companyname                       = finRec.Companyname || 'Unknown';
-        comp.BestEstimateGrowthPercentagePerYear = parseFloat(finRec.BestEstimateGrowthPercentagePerYear) || null;
-        comp.TotalInnovateUKFunding            = parseFloat(finRec.TotalInnovateUKFunding)      || null;
-        comp.WomenFounded                      = parseInt(finRec.WomenFounded)                 || null;
-        comp.total_employees                   = parseNumber(finRec.TotalEmployees)           || 0;
-        comp.total_turnover                    = parseNumber(finRec.TotalTurnover)            || 0;
-      });
-
-      companyData = companyData.concat(sectorData.clusterData);
-
-      // Merge cluster summary
-      sectorData.summaryData.forEach(sum => {
-        const cid = `${sector}_${sum.cluster}`;
-        clusterSummaryData[cid] = sum;
-        clusterSummaryData[cid].sector = sector;
-      });
-    });
-
-    // Exclude unwanted companies
-    companyData = companyData.filter(c =>
-      !excludedCompanyNumbers.includes(c.Companynumber.toString().trim())
-    );
-
-    // Rebuild map layers
-    generateClusterColors();
-    populateClusterCheckboxes();
-    currentClusters = getAllClusterIds().filter(cid =>
-      currentSectors.includes(cid.split('_')[0])
-    );
-    addCompanyClusters();
-    computeSectorStatistics();
-    updateLegend(currentSectors.length > 0 ? 'Sectors' : '');
-
-    const statsPanel = document.getElementById('sector-stats-panel');
-    if (statsPanel && statsPanel.classList.contains('show')) {
-      computeSectorStatistics();
-      const ordered = window.selectionOrder.length
-        ? window.selectionOrder
-        : currentSectors;
-      showSectorStatistics(ordered);
-    }
+    // Safe defaults until we wire in new summary / financials
+    comp.Companyname                         = comp.Companyname || 'Unknown';
+    comp.BestEstimateGrowthPercentagePerYear = null;
+    comp.TotalInnovateUKFunding              = null;
+    comp.WomenFounded                        = null;
+    comp.total_employees                     = 0;
+    comp.total_turnover                      = 0;
   });
+
+  // 3) No summary dataset yet → reset
+  clusterSummaryData = {};
+
+  // 4) Rebuild map layers / UI
+  generateClusterColors();
+  populateClusterCheckboxes();
+
+  currentClusters = getAllClusterIds().filter(function (cid) {
+    return sectorsList.includes(cid.split('_')[0]);
+  });
+
+  addCompanyClusters();
+  computeSectorStatistics();
+  updateLegend(sectorsList.length > 0 ? 'Sectors' : '');
+
+  if (statsPanel && statsPanel.classList.contains('show')) {
+    const ordered = window.selectionOrder.length
+      ? window.selectionOrder
+      : currentSectors;
+    showSectorStatistics(ordered);
+  }
 }
 
 // Select All Clusters
@@ -1670,11 +1640,16 @@ function handleSectorSelectionChange () {
   updateOverlays();
 }
 
-function populateSectorCheckboxes() {
+function populateSectorCheckboxes(sectorsList) {
   const container = document.getElementById('sector-chips');
+  if (!container) {
+    console.error('#sector-chips container not found');
+    return;
+  }
+
   container.innerHTML = '';
 
-  Object.keys(sectors).forEach(sector => {
+  sectorsList.forEach(sector => {
     const chip = document.createElement('div');
     chip.className     = 'sector-chip';
     chip.textContent   = sectorDisplayNames[sector] || sector;
@@ -1696,16 +1671,13 @@ function populateSectorCheckboxes() {
       // 3) Update map & stats
       handleSectorSelectionChange();
 
-      // 4) **Ensure the display-mode bubble updates immediately**
+      // 4) Ensure the display-mode bubble visibility updates
       updateDisplayModeToggleVisibility();
     };
 
     container.appendChild(chip);
   });
 }
-
-// Call this function after sectors are loaded
-populateSectorCheckboxes();
 
 // Select All Sectors
 document.getElementById('select-all-sectors').addEventListener('click', () => {
