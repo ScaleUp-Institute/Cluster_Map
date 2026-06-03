@@ -84,6 +84,10 @@ function setMapViewBasedOnScreenSize() {
   }
 }
 
+// Include Cluster 0 in totals?
+const COUNT_CLUSTER0_COMPANIES = false; // false = exclude Cluster 0 companies
+const COUNT_CLUSTER0_CLUSTERS  = false; // false = exclude Cluster 0 from unique cluster count
+
 // Map event listeners
 // Hide info box when clicking on the map (outside polygons)
 map.on('click', function (e) {
@@ -102,6 +106,10 @@ map.getPane('finalAreasBoundaryPane').style.zIndex = 350;
 map.getPane('markerPane').style.zIndex = 600;
 // Ensure popupPane is above other panes
 map.getPane('popupPane').style.zIndex = 700;
+map.createPane('laInspectPane');
+map.getPane('laInspectPane').style.zIndex = 450;
+map.createPane('emp750Pane');
+map.getPane('emp750Pane').style.zIndex = 650; // above normal markerPane (600)
 
 // Global variables
 var csvData;
@@ -138,7 +146,16 @@ var infrastructureData = [];
 var supportProgramData = [];
 var companyData = [];        // per-sector filtered data used by the map
 var masterClusterData = [];  // all rows from the new cluster file
+var masterCompanyData = [];
 var companyDetailsByNumber = {};
+var laInspectLayer;
+let laGroupControl = null;
+let laRegionCountControl = null;
+window.companyData = window.companyData || [];
+window.clusterSummaryData = window.clusterSummaryData || {};
+// Track which company IDs actually got rendered as markers in the last draw
+let RENDERED_COMPANY_IDS = new Set();
+
 
 
 // List of company numbers to exclude
@@ -213,7 +230,7 @@ var scaleupColorScales = {
 };
 
 // List of sectors and corresponding CSV files
-var sectors = {
+window.SECTORS = {
   'Advanced Manufacturing': 'Adv_man_clusters10.csv',
   'Agritech': 'Agritech_clusters7.csv',
   'Creative Industries': 'Creative_Industries_clusters15.csv',
@@ -222,7 +239,10 @@ var sectors = {
   'Professional Services': 'Prof_Services_clusters25.csv',
   'Technology': 'Techs_clusters35.csv',
   'Telecoms Technology': 'TelecomsTechs_clusters15.csv',
-  'Life Sciences': 'LifeSciences_clusters20.csv'
+  'Life Sciences': 'LifeSciences_clusters20.csv',
+
+  // NEW — API-backed sector
+  'Defence': '__API__'
 };
 
 var summaryStatsFiles = {
@@ -263,10 +283,591 @@ var sectorColors = {
   'Technology': '#FFA500'                              // Orange
 };
 
+// Auto-assign a color for any sector that does not have one yet
+function getSectorColor(sectorName) {
+  // If we already have a color, reuse it
+  if (sectorColors[sectorName]) {
+    return sectorColors[sectorName];
+  }
+
+  // Simple deterministic palette based on sector count
+  const palette = chroma.scale('Set2').colors(12);  // or any categorical palette
+  const existingKeys = Object.keys(sectorColors);
+  const idx = existingKeys.length % palette.length;
+
+  const color = palette[idx];
+  sectorColors[sectorName] = color;
+  return color;
+}
+
 // Mapping of internal sector names to display names
-var sectorDisplayNames = {
-  'Telecoms Technology': 'Telecoms',
+window.sectorDisplayNames = window.sectorDisplayNames || {};
+window.sectorDisplayNames['Telecoms Technology'] = 'Telecoms';
+window.sectorDisplayNames['Defence'] = 'Defence';
+
+var HIGHLIGHT_LA_LIST = [
+  "Belfast City","Lisburn and Castlereagh","Antrim and Newtownabbey",
+  "Ards and North Down","Mid and East Antrim",
+  "Blaenau Gwent","Bridgend","Caerphilly","Cardiff","Merthyr Tydfil",
+  "Monmouthshire","Newport","Rhondda Cynon Taf","Torfaen","Vale of Glamorgan",
+  "East Dunbartonshire","East Renfrewshire","Glasgow City","Inverclyde",
+  "North Lanarkshire","Renfrewshire","South Lanarkshire","West Dunbartonshire",
+  "Bolton","Bury","Manchester","Oldham","Rochdale","Salford","Stockport",
+  "Tameside","Trafford","Wigan",
+  "Halton","Knowsley","Liverpool","Sefton","St Helens","Wirral",
+  "County Durham","Gateshead","Newcastle","North Tyneside","Northumberland",
+  "South Tyneside","Sunderland",
+  "Barnsley","Doncaster","Rotherham","Sheffield",
+  "Bradford","Calderdale","Kirklees","Leeds","Wakefield",
+  "Birmingham","Coventry","Dudley","Sandwell","Solihull","Walsall","Wolverhampton",
+  "Bath and North East Somerset","Bristol","South Gloucestershire",
+  "City of Edinburgh","East Lothian","Fife","Midlothian","Scottish Borders","West Lothian","Angus",
+"Dundee City",
+"Perth and Kinross"
+];
+
+// Master list is still HIGHLIGHT_LA_LIST (all targets)
+var HIGHLIGHT_LA_GROUPS = {
+  'all'              : HIGHLIGHT_LA_LIST,
+  'none'             : [],
+
+  // Northern Ireland
+  'ni'               : ["Belfast City","Lisburn and Castlereagh","Antrim and Newtownabbey","Ards and North Down","Mid and East Antrim"],
+
+  // Wales (SE)
+  'wales-se'         : ["Blaenau Gwent","Bridgend","Caerphilly","Cardiff","Merthyr Tydfil","Monmouthshire","Newport","Rhondda Cynon Taf","Torfaen","Vale of Glamorgan"],
+
+  // Glasgow City Region (Scotland)
+  'glasgow-region'   : ["East Dunbartonshire","East Renfrewshire","Glasgow City","Inverclyde","North Lanarkshire","Renfrewshire","South Lanarkshire","West Dunbartonshire"],
+
+  'edinburgh-city-region': [
+  "City of Edinburgh",
+  "East Lothian",
+  "Fife",
+  "Midlothian",
+  "Scottish Borders",
+  "West Lothian"
+],
+
+'tay-cities': [
+  "Angus",
+  "Dundee City",
+  "Perth and Kinross"
+],
+
+  // Combined Authorities / Regions
+  'greater-manchester': ["Bolton","Bury","Manchester","Oldham","Rochdale","Salford","Stockport","Tameside","Trafford","Wigan"],
+  'lcr'              : ["Halton","Knowsley","Liverpool","Sefton","St Helens","Wirral"],                       // Liverpool City Region
+  'north-east'       : ["County Durham","Gateshead","Newcastle","North Tyneside","Northumberland","South Tyneside","Sunderland"],
+  'south-yorks'      : ["Barnsley","Doncaster","Rotherham","Sheffield"],
+  'west-yorks'       : ["Bradford","Calderdale","Kirklees","Leeds","Wakefield"],
+  'wmca'             : ["Birmingham","Coventry","Dudley","Sandwell","Solihull","Walsall","Wolverhampton"],   // West Midlands CA
+  'woeca'            : ["Bath and North East Somerset","Bristol","South Gloucestershire"],                     // West of England
+  'south-east': [
+  // Buckinghamshire area
+  "Buckinghamshire",
+  "Milton Keynes",
+
+  // Oxfordshire
+  "Oxford",
+  "Cherwell",
+  "West Oxfordshire",
+  "South Oxfordshire",
+  "Vale of White Horse",
+
+  // Berkshire area
+  "West Berkshire",
+  "Reading",
+  "Wokingham",
+  "Bracknell Forest",
+  "Windsor and Maidenhead",
+  "Slough",
+
+  // Hampshire area
+  "Basingstoke and Deane",
+  "East Hampshire",
+  "Eastleigh",
+  "Fareham",
+  "Gosport",
+  "Hart",
+  "Havant",
+  "New Forest",
+  "Rushmoor",
+  "Test Valley",
+  "Winchester",
+  "Portsmouth",
+  "Southampton",
+  "Isle of Wight",
+
+  // Surrey
+  "Elmbridge",
+  "Epsom and Ewell",
+  "Guildford",
+  "Mole Valley",
+  "Reigate and Banstead",
+  "Runnymede",
+  "Spelthorne",
+  "Surrey Heath",
+  "Tandridge",
+  "Waverley",
+  "Woking",
+
+  // Kent
+  "Ashford",
+  "Canterbury",
+  "Dartford",
+  "Dover",
+  "Folkestone and Hythe",
+  "Gravesham",
+  "Maidstone",
+  "Sevenoaks",
+  "Swale",
+  "Thanet",
+  "Tonbridge and Malling",
+  "Tunbridge Wells",
+  "Medway",
+
+  // East Sussex
+  "Eastbourne",
+  "Hastings",
+  "Lewes",
+  "Rother",
+  "Wealden",
+  "Brighton and Hove",
+
+  // West Sussex
+  "Chichester",
+  "Arun",
+  "Worthing",
+  "Adur",
+  "Horsham",
+  "Crawley",
+  "Mid Sussex"
+], 
+
+'cambridgeshire-peterborough': [
+  "Cambridge",
+  "East Cambridgeshire",
+  "Fenland",
+  "Huntingdonshire",
+  "South Cambridgeshire",
+  "Peterborough"
+]
 };
+
+HIGHLIGHT_LA_GROUPS.d2n2 = [
+  "High Peak","Derbyshire Dales","Derby","South Derbyshire","Erewash",
+  "Rushcliffe","Nottingham","Broxtowe","Gedling","Ashfield","Amber Valley",
+  "North East Derbyshire","Chesterfield","Bolsover","Mansfield",
+  "Newark and Sherwood","Bassetlaw"
+];
+
+// 2) Helpers
+function normName(s){
+  return (s || '')
+    .toLowerCase()
+    .replace(/\*/g,'')
+    .replace(/,\s*city of$/,'')   // "Bristol, City of" -> "Bristol"
+    .replace(/^\s*city of\s+/,'') // "City of Bristol"  -> "Bristol"
+    .replace(/\s+city$/,'')
+    .replace(/[^a-z]/g,'');       // remove spaces & punctuation
+}
+
+function buildTargetSet(list){
+  const set = new Set();
+  (list || []).forEach(n => set.add(normName(n))); // safe if list missing
+  return set;
+}
+
+// 3) Aliases / normalizations (add more if needed)
+const TARGET_ALIASES = new Map([
+  ['thescottishborders', 'scottishborders'],
+  ['cityofbristol',     'bristol'],
+  ['bristolcityof',     'bristol'],
+  ['newcastleupontyne', 'newcastle']   // treat “Newcastle upon Tyne” as “Newcastle”
+]);
+
+// 4) Active list + lazy getter (works with group toggles)
+let CURRENT_LA_LIST = Array.isArray(HIGHLIGHT_LA_LIST) ? HIGHLIGHT_LA_LIST.slice() : [];
+let TARGET_SET = null;
+
+function setActiveTargetList(list){
+  CURRENT_LA_LIST = Array.isArray(list) ? list.slice() : [];
+  TARGET_SET = null;  // force rebuild next access
+}
+
+function getTargetSet(){
+  if (!TARGET_SET) TARGET_SET = buildTargetSet(CURRENT_LA_LIST);
+  return TARGET_SET;
+}
+
+// 5) Unified checker
+function isTargetLA(nameRaw){
+  const set = getTargetSet();
+  const ns  = normName(nameRaw);
+
+  if (set.has(ns)) return true;
+
+  // direct alias hit
+  const alias = TARGET_ALIASES.get(ns);
+  if (alias && set.has(alias)) return true;
+
+  // permissive: “newcastle upon …” counts for “newcastle”
+  if (ns.startsWith('newcastleupon') && set.has('newcastle')) return true;
+
+  return false;
+}
+
+let CURRENT_LA_GROUP_KEY = 'all';
+
+function setLAGroup(key){
+  CURRENT_LA_GROUP_KEY = key || 'all';
+
+  const nextList = (HIGHLIGHT_LA_GROUPS[key] !== undefined)
+    ? HIGHLIGHT_LA_GROUPS[key]
+    : HIGHLIGHT_LA_GROUPS.all;
+
+  setActiveTargetList(nextList);
+
+  if (typeof laInspectLayer !== 'undefined' && laInspectLayer && typeof laBaseStyle === 'function') {
+    laInspectLayer.setStyle(laBaseStyle);   // live restyle
+  } else if (typeof buildLaInteractLayer === 'function') {
+    buildLaInteractLayer();                 // (re)build if needed
+  }
+}
+
+// Build LA polygons for a given list of names
+function getLAFeaturesForList(nameList){
+  if (!localAuthoritiesLayer || !Array.isArray(nameList) || !nameList.length) return [];
+  const want = buildTargetSet(nameList); // uses your normName/buildTargetSet
+  const feats = [];
+
+  localAuthoritiesLayer.eachLayer(l => {
+    const f = l.toGeoJSON();
+    const raw = (f.properties.lad || f.properties.LAD23NM || '').trim();
+    if (!raw) return;
+    if (want.has(normName(raw))) {
+      feats.push({ feature: f, bbox: turf.bbox(f) });
+    }
+  });
+  return feats;
+}
+
+function pointInBBox(pt, bbox) {
+  const [x, y] = pt;
+  return x >= bbox[0] && x <= bbox[2] && y >= bbox[1] && y <= bbox[3];
+}
+
+// Core counter — totals for a region (companies + unique clusters)
+function computeRegionCountsByList(nameList, opts = { perSector: false }) {
+  const polys = getLAFeaturesForList(nameList);
+  if (!polys.length) {
+    console.warn('No polygons found for the provided region list.');
+    return {
+      companies: 0, clusters: 0, perSector: {},
+      overallCompanies: 0, overallClusters: 0, perCluster: []
+    };
+  }
+  if (!Array.isArray(companyData) || companyData.length === 0) {
+    console.warn('No companyData loaded/selected.');
+    return {
+      companies: 0, clusters: 0, perSector: {},
+      overallCompanies: 0, overallClusters: 0, perCluster: []
+    };
+  }
+
+  // --- overall (for “out of” totals) ---
+  let overallCompanies = 0;
+  const overallClustersSet = new Set();
+  const overallByCluster   = new Map(); // cid -> { total, sector, clusterNumber, clusterName }
+
+  companyData.forEach(c => {
+    const sid = c.sector || 'Unknown';
+    const clusterNum = (c.cluster != null ? String(c.cluster).trim() : '0');
+    const isC0 = (clusterNum === '0');
+    const cid  = c.clusterId || `${sid}_${clusterNum}`;
+
+    // companies overall
+    if (!isC0 || COUNT_CLUSTER0_COMPANIES) {
+      overallCompanies += 1;
+      const rec = overallByCluster.get(cid) || {
+        total: 0,
+        sector: sid,
+        clusterNumber: clusterNum,
+        clusterName: c.Cluster_name || `Cluster ${clusterNum}`
+      };
+      rec.total += 1;
+      overallByCluster.set(cid, rec);
+    }
+
+    // clusters overall
+    if (!isC0 || COUNT_CLUSTER0_CLUSTERS) {
+      overallClustersSet.add(cid);
+    }
+  });
+
+  // --- in-region tallies ---
+  let companies = 0;
+  const clustersSet = new Set();
+  const perSector = {};
+  const inRegionByCluster = new Map(); // cid -> { inRegion, sector, clusterNumber, clusterName }
+
+  companyData.forEach(c => {
+    const lng = parseFloat(c.Longitude);
+    const lat = parseFloat(c.Latitude);
+    if (!isFinite(lng) || !isFinite(lat)) return;
+
+    const sid = c.sector || 'Unknown';
+    const clusterNum = (c.cluster != null ? String(c.cluster).trim() : '0');
+    const isC0 = (clusterNum === '0');
+    const cid  = c.clusterId || `${sid}_${clusterNum}`;
+    const pt   = [lng, lat];
+
+    // inside ANY polygon of the region?
+    for (let i = 0; i < polys.length; i++) {
+      const { feature, bbox } = polys[i];
+      if (!pointInBBox(pt, bbox)) continue;
+      if (turf.booleanPointInPolygon(pt, feature)) {
+        // companies in region
+        if (!isC0 || COUNT_CLUSTER0_COMPANIES) {
+          companies += 1;
+
+          if (opts.perSector) {
+            const srec = (perSector[sid] = perSector[sid] || { companies: 0, clustersSet: new Set() });
+            srec.companies += 1;
+            if (!isC0 || COUNT_CLUSTER0_CLUSTERS) srec.clustersSet.add(cid);
+          }
+          // per-cluster in-region
+          const crec = inRegionByCluster.get(cid) || {
+            inRegion: 0,
+            sector: sid,
+            clusterNumber: clusterNum,
+            clusterName: c.Cluster_name || `Cluster ${clusterNum}`
+          };
+          crec.inRegion += 1;
+          inRegionByCluster.set(cid, crec);
+        }
+        // clusters in region (unique)
+        if (!isC0 || COUNT_CLUSTER0_CLUSTERS) {
+          clustersSet.add(cid);
+        }
+        break; // stop at first containing polygon
+      }
+    }
+  });
+
+  // finalize per-sector clusters count
+  if (opts.perSector) {
+    Object.values(perSector).forEach(srec => {
+      srec.clusters = srec.clustersSet ? srec.clustersSet.size : 0;
+      delete srec.clustersSet;
+    });
+  }
+
+  // build per-cluster array with “in / total”
+  const perCluster = [];
+  inRegionByCluster.forEach((irec, cid) => {
+    const orec = overallByCluster.get(cid) || { total: 0, sector: irec.sector, clusterNumber: irec.clusterNumber, clusterName: irec.clusterName };
+    perCluster.push({
+      clusterId: cid,
+      sector: irec.sector,
+      clusterNumber: irec.clusterNumber,
+      clusterName: irec.clusterName,
+      inRegion: irec.inRegion,
+      total: orec.total
+    });
+  });
+  // sort by in-region desc
+  perCluster.sort((a,b)=> b.inRegion - a.inRegion);
+
+  return {
+    companies,
+    clusters: clustersSet.size,
+    perSector: opts.perSector ? perSector : undefined,
+    overallCompanies,
+    overallClusters: overallClustersSet.size,
+    perCluster
+  };
+}
+
+// Convenience: count for current group
+function computeCurrentRegionCounts(opts = { perSector: false }) {
+  return computeRegionCountsByList(CURRENT_LA_LIST || [], opts);
+}
+
+// CSV helpers (safe to add even if you already have similar ones)
+function regionCountsToCSV(result, groupLabel = CURRENT_LA_GROUP_KEY) {
+  const rows = [
+    ['Area Group', groupLabel],
+    ['Companies', result.companies],
+    ['Clusters',  result.clusters],
+    [], ['Sector','Companies','Clusters']
+  ];
+  const ps = result.perSector || {};
+  Object.keys(ps).sort().forEach(sector => {
+    rows.push([sector, ps[sector].companies, ps[sector].clusters]);
+  });
+  return rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+}
+
+function downloadCSV(filename, csvText) {
+  const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+const LaGroupControl = L.Control.extend({
+  onAdd: function(){
+    const wrap = L.DomUtil.create('div','la-group-control');
+    wrap.style.background = '#fff';
+    wrap.style.border = '1px solid #ccc';
+    wrap.style.borderRadius = '4px';
+    wrap.style.padding = '6px';
+    wrap.style.boxShadow = '0 1px 4px rgba(0,0,0,.2)';
+
+    const label = L.DomUtil.create('label','',wrap);
+    label.textContent = 'Area Group';
+    label.style.display='block';
+    label.style.fontSize='12px';
+    label.style.marginBottom='4px';
+
+    const sel = L.DomUtil.create('select','',wrap);
+    sel.style.minWidth = '160px';
+    sel.innerHTML = `
+      <option value="all">All target areas</option>
+      <option value="none">None (no highlight)</option>
+      <option value="greater-manchester">Greater Manchester</option>
+      <option value="lcr">Liverpool City Region</option>
+      <option value="north-east">North East</option>
+      <option value="south-yorks">South Yorkshire</option>
+      <option value="west-yorks">West Yorkshire</option>
+      <option value="wmca">West Midlands CA</option>
+      <option value="woeca">West of England</option>
+      <option value="wales-se">Wales (SE)</option>
+      <option value="glasgow-region">Glasgow City Region</option>
+      <option value="edinburgh-city-region">Edinburgh City Region</option>
+      <option value="ni">Northern Ireland</option>
+      <option value="d2n2">Derbyshire–Nottinghamshire (D2N2)</option>
+      <option value="south-east">South East</option>
+      <option value="tay-cities">Tay Cities</option>
+      <option value="cambridgeshire-peterborough">Cambridgeshire & Peterborough</option>
+    `;
+
+    L.DomEvent.on(sel,'change', (e)=>{
+      setLAGroup(e.target.value);
+      L.DomEvent.stopPropagation(e);
+    });
+    L.DomEvent.disableClickPropagation(wrap); // don't pan map when clicking
+
+    return wrap;
+  }
+});
+
+// Build LA polygons for a given list of names (case/format tolerant)
+function getLAFeaturesForList(nameList){
+  if (!localAuthoritiesLayer || !Array.isArray(nameList) || !nameList.length) return [];
+  const want = buildTargetSet(nameList); // reuse your normName/buildTargetSet
+  const feats = [];
+
+  localAuthoritiesLayer.eachLayer(l => {
+    const f = l.toGeoJSON();
+    const raw = (f.properties.lad || f.properties.LAD23NM || '').trim();
+    if (!raw) return;
+    if (want.has(normName(raw))) {
+      feats.push({ feature: f, bbox: turf.bbox(f) });
+    }
+  });
+  return feats;
+}
+
+function pointInBBox(pt, bbox) {
+  const [x, y] = pt;
+  return x >= bbox[0] && x <= bbox[2] && y >= bbox[1] && y <= bbox[3];
+}
+
+function hasCoords(c){
+  const lat = parseFloat(c.Latitude), lng = parseFloat(c.Longitude);
+  return Number.isFinite(lat) && Number.isFinite(lng);
+}
+function isCluster0(c){
+  const n = (c.cluster != null ? String(c.cluster).trim() : '0');
+  return n === '0';
+}
+function includeCompany(c){
+  if (!hasCoords(c)) return false; // can’t render without coords
+  const id = String(c.Companynumber).trim();
+  if (excludedCompanyNumbers && excludedCompanyNumbers.includes(id)) return false;
+  // NOTE: we are intentionally NOT excluding Cluster 0 here,
+  // because you asked to first find non-C0 + non-excluded that are missing.
+  return true;
+}
+
+// Audit which eligible companies are NOT showing as markers—and WHY
+function auditRenderedCompanies(opts = { respectDisplayMode: true }) {
+  if (!Array.isArray(companyData) || companyData.length === 0) {
+    console.warn('auditRenderedCompanies: no companyData loaded yet.');
+    return;
+  }
+
+  const pointsEnabled = (displayMode === 'points' || displayMode === 'both');
+  const selectedSectors  = new Set(currentSectors || []);
+  const selectedClusters = new Set(currentClusters || []);
+
+  const issues = []; // rows we’ll report
+  const tally  = {}; // reason -> count
+
+  function add(reason, c){
+    tally[reason] = (tally[reason] || 0) + 1;
+    issues.push({
+      reason,
+      id: String(c.Companynumber).trim(),
+      name: c.Companyname || '',
+      sector: c.sector || '',
+      cluster: c.cluster,
+      clusterId: c.clusterId,
+      lat: c.Latitude, lng: c.Longitude
+    });
+  }
+
+  companyData.forEach(c => {
+    // Only look at companies we *could* render (coords present, not excluded)
+    if (!includeCompany(c)) return;
+
+    // Skip Cluster 0 for this audit? -> No; you said “first figure out non-C0”
+    if (isCluster0(c)) return;
+
+    // Sector must be selected
+    if (!selectedSectors.has(c.sector)) { add('sector-not-selected', c); return; }
+
+    // Cluster must be checked in the right panel
+    if (!selectedClusters.has(c.clusterId)) { add('cluster-unchecked', c); return; }
+
+    // If points are visually off, that explains it
+    if (opts.respectDisplayMode && !pointsEnabled) { add('points-disabled-by-displayMode', c); return; }
+
+    // At this point we expect a marker; did we record it?
+    const id = String(c.Companynumber).trim();
+    if (!RENDERED_COMPANY_IDS.has(id)) {
+      // Marker not created or not added to map
+      add('marker-not-created', c);
+      return;
+    }
+  });
+
+  // Summary in console
+  console.group('Audit: eligible companies missing on map');
+  console.table(issues);
+  console.log('Summary by reason:', tally);
+  console.log('Total missing:', issues.length);
+  console.groupEnd();
+
+  return { issues, tally };
+}
 
 // Initialize the application by loading LAD data
 Papa.parse('data/lad_data.csv', {
@@ -331,8 +932,99 @@ function mergeData(geojsonData) {
     onEachFeature: onEachLocalAuthorityFeature
   });
 
+  // Build the interactive LA overlay (hover/label styling)
+  buildLaInteractLayer();
+
+  // Put controls on the map (once)
+  if (!laGroupControl) {
+    laGroupControl = new LaGroupControl({ position: 'topleft' }).addTo(map);
+  }
+  if (!laRegionCountControl) {
+    laRegionCountControl = new LaRegionCountControl({ position:'topleft' }).addTo(map);
+  }
+
+  // Pick a default group (or preserve current)
+  setLAGroup(CURRENT_LA_GROUP_KEY || 'all');
+
+  // Continue with your existing flow
   loadFinalAreasLayer();
 }
+
+function laBaseStyle(feature) {
+  const nameRaw = (feature.properties.lad || feature.properties.LAD23NM || '').trim();
+  const target  = isTargetLA(nameRaw);
+
+  return target ? {
+    pane: 'laInspectPane',
+    color: '#000000',          // was blue → now black
+    weight: 2.2,
+    fillColor: '#007BFF',      // keep your blue fill
+    fillOpacity: 0.5          // was ~0.22 → a little stronger
+  } : {
+    pane: 'laInspectPane',
+    color: '#999999',
+    weight: 0.9,
+    fillColor: '#f6f8ff',
+    fillOpacity: 0.14          // was ~0.10 → a little stronger wash
+  };
+}
+
+function buildLaInteractLayer() {
+  if (!localAuthoritiesLayer) return;
+
+  // Build from the already-merged LA layer
+  const laFC = localAuthoritiesLayer.toGeoJSON();
+
+  // Remove any previous instance
+  if (laInspectLayer && map.hasLayer(laInspectLayer)) {
+    map.removeLayer(laInspectLayer);
+  }
+
+  laInspectLayer = L.geoJSON(laFC, {
+    pane: 'laInspectPane',
+    interactive: true,
+    style: laBaseStyle,
+    onEachFeature: function (feature, layer) {
+      const name = (feature.properties.lad || feature.properties.LAD23NM || 'Unknown').trim();
+
+      // Tooltip under the cursor
+      layer.bindTooltip(name, {
+        sticky: true,
+        direction: 'bottom',
+        offset: L.point(0, 18),
+        className: 'la-tooltip',
+        opacity: 0.95
+      });
+
+      // Hover highlight (thicker/darker)
+      layer.on({
+        mouseover: e => {
+          const name = (e.target.feature.properties.lad || e.target.feature.properties.LAD23NM || '').trim();
+          const target = isTargetLA(name);
+
+          e.target.setStyle(target ? {
+            color: '#0056d6',
+            weight: 3,
+            fillColor: '#007BFF',
+            fillOpacity: 0.30
+          } : {
+            color: '#777',
+            weight: 1.5,
+            fillColor: '#eef2ff',
+            fillOpacity: 0.18
+          });
+          e.target.bringToFront();
+        },
+        mouseout: e => laInspectLayer.resetStyle(e.target)
+      });
+    }
+  }).addTo(map);
+}
+
+// Hide LA tooltips while any popup is open (keeps things uncluttered)
+map.on('popupopen', () => {
+  if (laInspectLayer) laInspectLayer.eachLayer(l => l.closeTooltip());
+});
 
 function loadFinalAreasLayer () {
   fetch('data/final_areas.geojson')
@@ -382,6 +1074,35 @@ function zoomToFinalArea(nameRaw){
 
   setTimeout(()=>map.removeLayer(flash), 2000);
 }
+
+Papa.parse('data/company_stats_with_financials.csv', {   // <-- change this path/name
+  download: true,
+  header: true,
+  dynamicTyping: true,
+  skipEmptyLines: true,
+  complete: function (results) {
+    console.log('Raw parsed rows from master CSV:', results.data.length);
+
+    masterClusterData = results.data.filter(function (row) {
+      // Be defensive about column names
+      const compNum = row.CompanyNumber || row.Companynumber || row.companynumber;
+      const lat     = row.Latitude;
+      const lng     = row.Longitude;
+
+      return compNum && lat && lng;
+    });
+
+    console.log('Filtered masterClusterData rows:', masterClusterData.length);
+    console.log('Sample row:', masterClusterData[0]);
+
+    // Now that data is ready AND the DOM should be loaded, build the chips
+    populateSectorCheckboxes();
+  },
+  error: function (err) {
+    console.error('❌ Error parsing master cluster CSV:', err);
+  }
+});
+
 
 function loadScaleupData() {
   Papa.parse('data/scaleup_data.csv', {
@@ -550,74 +1271,66 @@ function initSectorsFromMaster() {
     return;
   }
 
+  // 1) Get unique *normalised* sector names
   const uniqueSectors = Array.from(
     new Set(
       masterClusterData
-        .map(row => (row.Sector || '').trim().replace(/_/g, ' '))
+        .map(row => normalizeSectorName(row.Sector))
         .filter(Boolean)
     )
   ).sort();
 
+  // 2) Overwrite the old sectors object (no file paths now)
   sectors = {};
-  uniqueSectors.forEach(name => { sectors[name] = true; });
+  uniqueSectors.forEach(name => {
+    sectors[name] = true;
+  });
 
+  // 3) Generate fresh colours for ALL these sectors
   sectorColors = {};
   const palette = chroma.scale('Set2').colors(uniqueSectors.length || 1);
+
   uniqueSectors.forEach((name, idx) => {
     sectorColors[name] = palette[idx % palette.length];
   });
 
-  console.log('Sectors initialised:', uniqueSectors);
+  console.log('Sectors initialised from master file:', uniqueSectors);
   console.log('Sector colours:', sectorColors);
 
-  populateSectorCheckboxes(uniqueSectors);
+  // 4) Rebuild chips using the nice names ("Advanced Manufacturing", etc.)
+  populateSectorCheckboxes();
 }
 
-function loadMasterClusters() {
-  Papa.parse('data/cluster_points_final.csv', {
-    download: true,
-    header: true,
-    dynamicTyping: true,
-    skipEmptyLines: true,
-    complete: function (results) {
- 
-      // Keep all rows that have a company number, sector, and coords.
-      // We no longer require financials — companies without them are
-      // still valid for counting purposes; they just show N/A in popups.
-      masterClusterData = results.data.filter(function (row) {
-        return row.Companynumber &&
-               row.Sector != null;
-        // NOTE: we deliberately do NOT filter on Latitude/Longitude here.
-        // Rows with missing/invalid coords will be caught later in
-        // updateClusterLayers() and excluded from points[] and markers[],
-        // but they should still be counted only if their coords ARE valid
-        // — see Fix 3 below for how that is now enforced correctly.
+function initSectorChipsFromMaster() {
+  if (!masterClusterData.length) {
+    console.warn('No rows in masterClusterData – sector chips not initialised.');
+    return;
+  }
+
+  // unique Sector values, cleaned
+  var sectorSet = new Set();
+  masterClusterData.forEach(function (row) {
+    if (selectedSector === sectorsList[0] && companyData.length === 0) {
+      console.log('Raw row keys from masterClusterData:', Object.keys(row));
+      console.log(
+        'Keys containing "emp":',
+        Object.keys(row).filter(k => k.toLowerCase().includes('emp'))
+      );
+      console.log('Sample Emp field values:', {
+        Emp_750_v1: row.Emp_750_v1,
+        Emp_750_v2: row.Emp_750_v2,
+        Emp_750_v3: row.Emp_750_v3,
+        exactKeys: Object.fromEntries(
+          Object.entries(row).filter(([k]) => k.toLowerCase().includes('emp'))
+        )
       });
- 
-      // Normalise fields
-      masterClusterData.forEach(function (row) {
-        row.Latitude      = row.Latitude  != null ? parseFloat(row.Latitude)  : NaN;
-        row.Longitude     = row.Longitude != null ? parseFloat(row.Longitude) : NaN;
-        row.cluster       = row.cluster   != null ? row.cluster.toString()    : '0';
-        row.Sector        = (row.Sector   || '').trim();
-        row.Companynumber = row.Companynumber.toString().trim();
-        row.Companyname   = row.Companyname || 'Unknown';
-      });
- 
-      console.log('Loaded master clusters:', masterClusterData.length);
- 
-      // Build sector chips from this single authoritative load
-      initSectorsFromMaster();
-    },
-    error: function (err) {
-      console.error('Error parsing master clusters CSV:', err);
     }
+    if (row.Sector) sectorSet.add(row.Sector);
   });
+
+  var sectorsList = Array.from(sectorSet).sort();
+  populateSectorCheckboxes(sectorsList);
 }
- 
-// Call once — the old duplicate Papa.parse block below this call
-// in the original script should be DELETED entirely.
-loadMasterClusters();
 
 // Load University Data
 Papa.parse('data/university_data.csv', {
@@ -667,34 +1380,6 @@ Papa.parse('data/support_program.csv', {
     console.error('Error parsing Support Program CSV:', err);
   }
 });
-
-Papa.parse('data/company_stats_with_financials.csv', {   // ← change this to the real file name
-  download: true,
-  header: true,
-  dynamicTyping: true,
-  skipEmptyLines: true,
-  complete: function (results) {
-    companyDetailsByNumber = {};
-
-    results.data.forEach(function (row) {
-      // Normalise the key to a trimmed string
-      var num = row.CompanyNumber ? row.CompanyNumber.toString().trim() : null;
-      if (!num) return;
-
-      companyDetailsByNumber[num] = row;
-    });
-
-    console.log(
-      'Company details loaded:',
-      Object.keys(companyDetailsByNumber).length,
-      'records'
-    );
-  },
-  error: function (err) {
-    console.error('Error parsing company details CSV:', err);
-  }
-});
-
 
 function finalizeMapSetup() {
   console.log('finalizeMapSetup called'); // Debugging log
@@ -1175,11 +1860,11 @@ function addLegend() {
   
       // Loop through currentSectors to build legend entries
       currentSectors.forEach(function (sector) {
-          var color = sectorColors[sector] || '#FFFFFF';
-          var displayName = sectorDisplayNames[sector] || sector; // Use display name if available
-          contentDiv.innerHTML +=
-              '<i style="background:' + color + '"></i> ' +
-              displayName + '<br>';
+        var color = getSectorColor(sector);
+        var displayName = sectorDisplayNames[sector] || sector;
+        contentDiv.innerHTML +=
+            '<i style="background:' + color + '"></i> ' +
+            displayName + '<br>';
       });
   }
    else {
@@ -1398,106 +2083,249 @@ function parseNumber(value) {
   }
   var parsedValue = parseFloat(value);
   return isNaN(parsedValue) ? 0 : parsedValue;
+};
+
+function enrichCompanyDataFromMaster() {
+  if (!masterCompanyData || !masterCompanyData.length || !companyData || !companyData.length) {
+    console.warn('enrichCompanyDataFromMaster: missing masterCompanyData or companyData');
+    return;
+  }
+
+  // Build lookup by CompanyNumber from the metadata file
+  const metaByNumber = {};
+  masterCompanyData.forEach(row => {
+    const raw = row.CompanyNumber != null ? String(row.CompanyNumber).trim() : '';
+    if (!raw) return;
+    metaByNumber[raw] = row;
+  });
+
+  companyData.forEach(company => {
+    const key = company.Companynumber != null ? String(company.Companynumber).trim() : '';
+    const meta = metaByNumber[key];
+    if (!meta) {
+      // No enrichment for this company
+      return;
+    }
+
+    // Correct name field from CompanyName (capital N)
+    company.Companyname = meta.CompanyName || company.Companyname || 'Unknown';
+
+    // Employees, turnover, investment, IUK funding
+    company.total_employees          = parseNumber(meta.BestEstimateEmployees);
+    company.total_turnover           = parseNumber(meta.BestEstimateTurnover);
+    company.total_investment         = parseNumber(meta.Investment_GBP);
+    company.TotalInnovateUKFunding   = parseNumber(meta.IUK_GBP);
+
+    // Female founded, from WomenLed TRUE/FALSE
+    const wl = meta.WomenLed;
+    company.WomenFounded =
+      wl === true  ||
+      wl === 'TRUE' ||
+      wl === 'True' ||
+      wl === 'true' ||
+      wl === 1     ||
+      wl === '1'
+        ? 1
+        : 0;
+  });
+}
+
+
+// Function to interpret various "female founded" encodings
+function isFemaleFoundedFlag(value) {
+  if (value === null || value === undefined) return false;
+
+  if (typeof value === 'number') {
+    return value === 1;
+  }
+
+  const s = String(value).trim().toLowerCase();
+  return s === '1' || s === 'yes' || s === 'y' || s === 'true';
+}
+
+// RTIC mapping for API-backed sectors
+window.DATACITY_SECTOR_CODES = Object.assign(
+  { 'Defence': 'RTIC0096' },
+  window.DATACITY_SECTOR_CODES || {}
+);
+
+function parseBool(value) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const v = value.trim().toUpperCase();
+    return v === 'TRUE' || v === 'YES' || v === '1';
+  }
+  if (typeof value === 'number') return value === 1;
+  return false;
+}
+
+function parseNumber(value) {
+  if (typeof value === 'string') {
+    value = value.replace(/[^0-9.-]+/g, '');
+  }
+  const parsed = parseFloat(value);
+  return isNaN(parsed) ? 0 : parsed;
 }
 
 function loadSectorsData(sectorsList) {
   const statsPanel    = document.getElementById('sector-stats-panel');
   const ctrlContainer = document.querySelector('.leaflet-control-container');
- 
+
+  // If nothing selected, clear everything and bail
   if (!sectorsList || !sectorsList.length) {
     companyData        = [];
     clusterSummaryData = {};
     removeClusterLayers();
     updateLegend('');
     document.getElementById('overall-stats-button').style.display = 'none';
+
     if (statsPanel)    statsPanel.classList.remove('show');
     if (ctrlContainer) ctrlContainer.classList.remove('controls-shift-right');
     return;
   }
- 
+
   if (!Array.isArray(masterClusterData) || !masterClusterData.length) {
-    console.warn('masterClusterData is empty or not loaded');
+    console.warn('masterClusterData is empty or not loaded yet');
     return;
   }
- 
+
   companyData        = [];
-  clusterSummaryData = {};
- 
+  clusterSummaryData = {};   // we’ll ignore this until you have summary files
+
+  // Helper so this works whether chips show "Advanced_Manufacturing"
+  // or "Advanced Manufacturing"
   function sectorMatches(rowSector, selectedSector) {
     if (!rowSector) return false;
-    const raw        = rowSector.trim();
-    const dispFromRaw = raw.replace(/_/g, ' ').trim();
+    var raw         = rowSector.toString().trim();
+    var dispFromRaw = raw.replace(/_/g, ' ').trim();
+
     return raw === selectedSector || dispFromRaw === selectedSector;
   }
- 
+
   sectorsList.forEach(function (selectedSector) {
     masterClusterData.forEach(function (row) {
+
+      if (selectedSector === sectorsList[0] && companyData.length === 0) {
+        console.log('Raw row keys from masterClusterData:', Object.keys(row));
+        console.log(
+          'Keys containing "emp":',
+          Object.keys(row).filter(k => k.toLowerCase().includes('emp'))
+        );
+        console.log('Sample Emp field values:', {
+          Emp_750_v1: row.Emp_750_v1,
+          Emp_750_v2: row.Emp_750_v2,
+          Emp_750_v3: row.Emp_750_v3,
+          exactKeys: Object.fromEntries(
+            Object.entries(row).filter(([k]) => k.toLowerCase().includes('emp'))
+          )
+        });
+      }
+
       if (!sectorMatches(row.Sector, selectedSector)) return;
- 
-      const compNum = row.Companynumber
-        ? row.Companynumber.toString().trim()
+
+      // Company number as string
+      var compNum = row.CompanyNumber
+        ? row.CompanyNumber.toString().trim()
         : null;
       if (!compNum) return;
+
+      // Drop excluded companies
       if (excludedCompanyNumbers.includes(compNum)) return;
- 
-      // ── Coord validation moved here ──────────────────────────
-      // Only rows with valid numeric coords enter companyData.
-      // This means clusters[id].length will equal the number of
-      // companies that can actually be plotted — no inflation.
-      const lat = parseFloat(row.Latitude);
-      const lng = parseFloat(row.Longitude);
+
+      // Coordinates
+      var lat = parseFloat(row.Latitude);
+      var lng = parseFloat(row.Longitude);
       if (isNaN(lat) || isNaN(lng)) return;
-      // ─────────────────────────────────────────────────────────
- 
-      const clusterStr  = row.cluster != null ? row.cluster.toString() : '0';
-      const sectorLabel = selectedSector;
- 
-      const company = {
-        Companynumber : compNum,
-        Latitude      : lat,
-        Longitude     : lng,
-        cluster       : clusterStr,
-        sector        : sectorLabel,
-        clusterId     : `${sectorLabel}_${clusterStr}`
+
+      // Cluster id, skip cluster 0 entirely
+      var clusterStr = row.cluster != null
+        ? row.cluster.toString()
+        : '0';
+      if (clusterStr === '0') return;
+
+      var sectorLabel = selectedSector; // match chip label exactly
+
+      var company = {
+        Companynumber:          compNum,
+        Companyname:            row.CompanyName || 'Unknown',
+        Latitude:               lat,
+        Longitude:              lng,
+        cluster:                clusterStr,
+        sector:                 sectorLabel,
+        clusterId:              sectorLabel + '_' + clusterStr,
+        RegisteredPostcode:     row.RegisteredPostcode || null,
+        Homepage_domain:        row.Homepage_domain || null,
+
+        // NEW BOOLEAN FLAGS
+        BPE:                    parseBool(row.BPE),
+        NatWest:                parseBool(row.NatWest),
+        Emp_750_v1:             parseBool(row.Emp_750_v1),
+        Emp_750_v2:             parseBool(row.Emp_750_v2),
+        Emp_750_v3: parseBool(
+          row.Emp_750_v3 ??
+          row['Emp_750_v3'] ??
+          row['Emp_750_v3 '] ??
+          row[' Emp_750_v3'] ??
+          row['EMP_750_V3']
+        ),
+        MMC_500:                parseBool(row.MMC_500),
+        Gov_Dfn:                parseBool(row.Gov_Dfn),
+
+        // numeric fields via existing parseNumber helper
+        total_employees:        parseNumber(row.BestEstimateEmployees),
+        total_turnover:         parseNumber(row.BestEstimateTurnover),
+        total_investment:       parseNumber(row.Investment_GBP),
+        TotalInnovateUKFunding: parseNumber(row.IUK_GBP),
+
+        // WomenLed is TRUE/FALSE
+        WomenFounded:
+          row.WomenLed === true   ||
+          row.WomenLed === 'TRUE' ||
+          row.WomenLed === 'True' ||
+          row.WomenLed === 'true' ||
+          row.WomenLed === 1      ||
+          row.WomenLed === '1'
+            ? 1
+            : 0,
+
+        // no growth yet
+        BestEstimateGrowthPercentagePerYear: null
       };
- 
-      // Enrich from details file if available.
-      // If there is no match the company is still included —
-      // financial fields default to 0 / null so the count is
-      // always the true headcount, not just the enriched subset.
-      const det = companyDetailsByNumber[compNum] || {};
-      const hasDetails = Object.keys(det).length > 0;
- 
-      company.Companyname        = det.CompanyName        || row.Companyname || 'Unknown';
-      company.RegisteredPostcode = det.RegisteredPostcode || null;
-      company.Homepage_domain    = det.Homepage_domain    || null;
-      company.hasFinancials      = hasDetails; // flag for UI use if needed
- 
-      // Financials — zero when no details file match
-      company.total_employees            = hasDetails ? parseNumber(det.BestEstimateEmployees) : 0;
-      company.total_turnover             = hasDetails ? parseNumber(det.BestEstimateTurnover)  : 0;
-      company.WomenFounded               = hasDetails ? parseInt(det.WomenLed) || 0            : 0;
-      company.TotalInnovateUKFunding     = hasDetails ? parseNumber(det.IUK_GBP)               : 0;
-      company.total_Investment           = hasDetails ? parseNumber(det.Investment_GBP)        : 0;
- 
+
       companyData.push(company);
     });
   });
- 
-  // Rebuild clusters from the corrected companyData
+
+  console.log(
+    'Emp_750_v3 TRUE count after loadSectorsData:',
+    companyData.filter(c => c.Emp_750_v3 === true).length
+  );
+
+  if (companyData.length) {
+    console.log('Sample company keys:', Object.keys(companyData[0]));
+    console.log(
+      'Sample TRUE companies:',
+      companyData.filter(c => c.Emp_750_v3 === true).slice(0, 5)
+    );
+  }
+
+  console.log('companyData size after loadSectorsData:', companyData.length);
+
+  // Rebuild clusters based on the new companyData
   generateClusterColors();
   populateClusterCheckboxes();
- 
-  currentClusters = getAllClusterIds().filter(cid =>
-    currentSectors.includes(cid.split('_')[0])
-  );
- 
+
+  currentClusters = getAllClusterIds().filter(function (cid) {
+    return currentSectors.includes(cid.split('_')[0]);
+  });
+
   addCompanyClusters();
   updateLegend(currentSectors.length > 0 ? 'Sectors' : '');
- 
+
+  // If the stats panel is open, refresh it with the new data
   if (statsPanel && statsPanel.classList.contains('show')) {
     computeSectorStatistics();
-    const ordered = window.selectionOrder.length
+    var ordered = window.selectionOrder.length
       ? window.selectionOrder
       : currentSectors;
     showSectorStatistics(ordered);
@@ -1527,56 +2355,49 @@ document.getElementById('deselect-all-clusters').addEventListener('click', funct
 
 function computeSectorStatistics() {
   sectorStats = {};
- 
-  if (!Array.isArray(companyData) || companyData.length === 0) {
-    console.warn('computeSectorStatistics: no companyData available');
-    return;
-  }
- 
+
   companyData.forEach(function (company) {
-    const sector = company.sector || company.Sector;
+    var sector = company.sector;
     if (!sector) return;
- 
+
     if (!sectorStats[sector]) {
       sectorStats[sector] = {
-        companyCount           : 0,
-        companiesWithFinancials: 0,
-        totalEmployees         : 0,
-        totalTurnover          : 0,
-        totalIUKFunding        : 0,
-        totalInvestment        : 0,
-        femaleFoundedCount     : 0,
+        companyCount:        0,
+        totalEmployees:      0,
+        totalTurnover:       0,
+        totalIUKFunding:     0,
+        totalInvestment:     0,
+        femaleFoundedCount:  0,
+        averageGrowthRate:   0,   // placeholder until you have data
         femaleFoundedPercentage: 0
       };
     }
- 
-    const stats = sectorStats[sector];
+
+    var stats = sectorStats[sector];
     stats.companyCount += 1;
- 
-    if (company.hasFinancials) {
-      stats.companiesWithFinancials += 1;
-    }
- 
-    stats.totalEmployees  += parseNumber(company.total_employees);
-    stats.totalTurnover   += parseNumber(company.total_turnover);
-    stats.totalIUKFunding += parseNumber(company.TotalInnovateUKFunding);
- 
-    // Fixed field name: total_Investment (matches what loadSectorsData sets)
-    stats.totalInvestment += parseNumber(company.total_Investment);
- 
-    if (isFemaleFoundedFlag(company.WomenFounded)) {
+
+    stats.totalEmployees  += company.total_employees      || 0;
+    stats.totalTurnover   += company.total_turnover       || 0;
+    stats.totalIUKFunding += company.TotalInnovateUKFunding || 0;
+    stats.totalInvestment += company.total_investment     || 0;
+
+    if (company.WomenFounded === 1) {
       stats.femaleFoundedCount += 1;
     }
   });
- 
-  Object.keys(sectorStats).forEach(function (sector) {
-    const stats = sectorStats[sector];
-    stats.femaleFoundedPercentage = stats.companyCount > 0
-      ? (stats.femaleFoundedCount / stats.companyCount) * 100
-      : 0;
-  });
-}
 
+  // Final percentages
+  for (var sectorName in sectorStats) {
+    var s = sectorStats[sectorName];
+    if (s.companyCount > 0) {
+      s.femaleFoundedPercentage =
+        (s.femaleFoundedCount / s.companyCount) * 100;
+    } else {
+      s.femaleFoundedPercentage = 0;
+    }
+    // averageGrowthRate stays 0 until you actually have it
+  }
+}
 
 function showSectorStatistics(selectedSectors) {
   const statsPanel = document.getElementById('sector-stats-panel');
@@ -1584,23 +2405,16 @@ function showSectorStatistics(selectedSectors) {
     console.error('No stats panel found in the DOM');
     return;
   }
- 
+
+  // Clear old content
   statsPanel.innerHTML = `
     <div class="stats-header">
       <h2>Sector Stats</h2>
       <button class="close-panel-btn" onclick="hideSectorStats()">&times;</button>
     </div>
   `;
- 
-  if (!selectedSectors || !selectedSectors.length) {
-    statsPanel.innerHTML += `
-      <div class="stats-card"><p>No sectors selected.</p></div>
-    `;
-    statsPanel.classList.add('show');
-    statsPanel.classList.remove('hidden');
-    return;
-  }
- 
+
+  // Build card layouts for each sector
   selectedSectors.forEach(sector => {
     const stats = sectorStats[sector];
     if (!stats) {
@@ -1612,26 +2426,20 @@ function showSectorStatistics(selectedSectors) {
       `;
       return;
     }
- 
-    const noFinancials = stats.companyCount - stats.companiesWithFinancials;
-    const noFinancialsNote = noFinancials > 0
-      ? `<p style="font-size:12px;color:#888;">(${noFinancials} with no financial data)</p>`
-      : '';
- 
+
     statsPanel.innerHTML += `
       <div class="stats-card">
         <h3>${sector}</h3>
         <p><strong>Companies:</strong> ${stats.companyCount}</p>
-        ${noFinancialsNote}
-        <p><strong>Total Employees:</strong> ${stats.totalEmployees > 0 ? Math.round(stats.totalEmployees) : 'N/A'}</p>
-        <p><strong>Total Turnover:</strong> ${stats.totalTurnover > 0 ? formatTurnover(stats.totalTurnover) : 'N/A'}</p>
-        <p><strong>% Female-Founded:</strong> ${stats.femaleFoundedPercentage.toFixed(1)}%</p>
-        <p><strong>IUK Funding:</strong> ${stats.totalIUKFunding > 0 ? formatTurnover(stats.totalIUKFunding) : 'N/A'}</p>
-        <p><strong>Investment:</strong> ${stats.totalInvestment > 0 ? formatTurnover(stats.totalInvestment) : 'N/A'}</p>
+        <p><strong>Total Employees:</strong> ${Math.round(stats.totalEmployees)}</p>
+        <p><strong>Total Turnover:</strong> ${formatTurnover(stats.totalTurnover)}</p>
+        <p><strong>% Female-Founded:</strong> ${stats.femaleFoundedPercentage.toFixed(2)}%</p>
+        <p><strong>IUK Funding:</strong> ${formatTurnover(stats.totalIUKFunding)}</p>
+        <p><strong>Investment:</strong> ${formatTurnover(stats.totalInvestment)}</p>
       </div>
     `;
   });
- 
+
   statsPanel.classList.remove('hidden');
   statsPanel.classList.add('show');
 }
@@ -1708,65 +2516,96 @@ var companyClusterLayer = L.geoJSON(null, {
 
 // Handle sector-chip clicks or Select-All / Deselect-All
 function handleSectorSelectionChange () {
-
-  // 1) Figure out which sectors are now selected
   currentSectors = getSelectedSectors();
 
   if (currentSectors.length > 0) {
-    // 2) (Re)load company + cluster data for those sectors
     loadSectorsData(currentSectors);
-
-    // 3) UI niceties
     document.getElementById('overall-stats-button').style.display = 'block';
   } else {
-    // 2*) No sectors selected – wipe clusters & stats
     currentClusters = [];
     removeClusterLayers();
     document.getElementById('overall-stats-button').style.display = 'none';
     updateLegend('');
   }
 
-  // 4) Keep any university / infrastructure overlays in sync
-  updateOverlays();
+  updateOverlays(); // keeps universities / infra / support in sync with sectors
 }
 
-function populateSectorCheckboxes(sectorsList) {
+function populateSectorCheckboxes() {
   const container = document.getElementById('sector-chips');
+  console.log('populateSectorCheckboxes called');
+
   if (!container) {
-    console.error('#sector-chips container not found');
+    console.error('❌ No #sector-chips container found in DOM');
     return;
   }
 
   container.innerHTML = '';
 
-  sectorsList.forEach(sector => {
+  // Safety: check data
+  if (!Array.isArray(masterClusterData)) {
+    console.error('❌ masterClusterData is not an array:', masterClusterData);
+    return;
+  }
+
+  console.log('masterClusterData length:', masterClusterData.length);
+
+  const seen = new Set();
+  const sectorList = [];
+
+  masterClusterData.forEach(row => {
+    // Defensive logging so we see the shape
+    if (!row || row.Sector === undefined) return;
+
+    const raw = String(row.Sector).trim();
+    if (!raw || seen.has(raw)) return;
+
+    seen.add(raw);
+    const display = raw.replace(/_/g, ' ').trim();
+    sectorList.push({ raw, display });
+  });
+
+  console.log('Unique sectors found:', sectorList);
+
+  if (!sectorList.length) {
+    const msg = document.createElement('p');
+    msg.textContent = 'No sectors found in data file.';
+    msg.style.fontStyle = 'italic';
+    container.appendChild(msg);
+    return;
+  }
+
+  // Optional: sort alphabetically by display label
+  sectorList.sort((a, b) => a.display.localeCompare(b.display));
+
+  // Build chips
+  sectorList.forEach(({ raw, display }) => {
     const chip = document.createElement('div');
     chip.className     = 'sector-chip';
-    chip.textContent   = sectorDisplayNames[sector] || sector;
-    chip.dataset.value = sector;
+    chip.textContent   = display;
+    chip.dataset.value = display; // this matches loadSectorsData’s sectorMatches
 
     chip.onclick = () => {
-      // 1) Toggle visual state
       chip.classList.toggle('selected');
 
-      // 2) Maintain click-order
       if (chip.classList.contains('selected')) {
-        if (!window.selectionOrder.includes(sector)) {
-          window.selectionOrder.push(sector);
+        if (!window.selectionOrder.includes(display)) {
+          window.selectionOrder.push(display);
         }
       } else {
-        window.selectionOrder = window.selectionOrder.filter(s => s !== sector);
+        window.selectionOrder = window.selectionOrder.filter(s => s !== display);
       }
 
-      // 3) Update map & stats
       handleSectorSelectionChange();
-
-      // 4) Ensure the display-mode bubble visibility updates
-      updateDisplayModeToggleVisibility();
+      if (typeof updateDisplayModeToggleVisibility === 'function') {
+        updateDisplayModeToggleVisibility();
+      }
     };
 
     container.appendChild(chip);
   });
+
+  console.log('✅ Sector chips rendered:', sectorList.length);
 }
 
 // Select All Sectors
@@ -1783,69 +2622,68 @@ document.getElementById('deselect-all-sectors').addEventListener('click', () => 
   updateDisplayModeToggleVisibility();
 });
 
-// Function to interpret various "female founded" encodings
-// Interprets various encodings of "female founded" / "women led"
-function isFemaleFoundedFlag(value) {
-  if (value === null || value === undefined) return false;
-
-  // Boolean TRUE/FALSE (Papa with dynamicTyping)
-  if (typeof value === 'boolean') {
-    return value === true;
-  }
-
-  // Numeric 0 / 1
-  if (typeof value === 'number') {
-    return value === 1;
-  }
-
-  // Strings like "TRUE", "true", "Yes", "1"
-  const s = String(value).trim().toLowerCase();
-  return s === '1' || s === 'true' || s === 'yes' || s === 'y';
-}
-
 function updateClusterLayers() {
   console.log('updateClusterLayers called');
   console.log('Current displayMode:', displayMode);
 
+  // 1) Animation helpers
   function easeOut(progress) {
     return 1 - Math.pow(1 - progress, 3);
   }
 
-  function animateMarkersBatch(markers, finalRadius, finalFillOpacity, duration) {
+  function animateMarkersBatch(markers, duration) {
     let startTime;
+
     function step(timestamp) {
       if (!startTime) startTime = timestamp;
       const elapsed = timestamp - startTime;
       let progress = Math.min(elapsed / duration, 1);
+
       progress = easeOut(progress);
+
       markers.forEach(marker => {
+        const targetRadius = marker._targetRadius || 3;
+        const targetOpacity = marker._targetFillOpacity || 0.8;
+
         marker.setStyle({
-          radius:      finalRadius * progress,
-          fillOpacity: finalFillOpacity * progress
+          radius: targetRadius * progress,
+          fillOpacity: targetOpacity * progress
         });
       });
-      if (progress < 1) requestAnimationFrame(step);
+
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      }
     }
+
     requestAnimationFrame(step);
   }
 
   function animatePolygonsBatch(polygons, finalFillOpacity, duration) {
     let startTime;
+
     function step(timestamp) {
       if (!startTime) startTime = timestamp;
       const elapsed = timestamp - startTime;
       let progress = Math.min(elapsed / duration, 1);
       progress = easeOut(progress);
+
       polygons.forEach(polygon => {
-        polygon.setStyle({ fillOpacity: finalFillOpacity * progress });
+        polygon.setStyle({
+          fillOpacity: finalFillOpacity * progress
+        });
       });
-      if (progress < 1) requestAnimationFrame(step);
+
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      }
     }
     requestAnimationFrame(step);
   }
 
-  // Clear existing layers
+  // 2) Clear existing layers
   allPolygons = [];
+
   for (const existingId in clusterLayers) {
     map.removeLayer(clusterLayers[existingId]);
   }
@@ -1856,84 +2694,92 @@ function updateClusterLayers() {
     return;
   }
 
-  // Group companies into clusters
-  // NOTE: coords are already validated as valid floats by loadSectorsData(),
-  // so every company in companyData is safe to plot.
+  // Group companies into visible clusters
   const clusters = {};
   companyData.forEach(company => {
     const clusterId = company.clusterId;
     if (!clusterId) return;
     if (!currentClusters.includes(clusterId)) return;
 
-    if (!clusters[clusterId]) clusters[clusterId] = [];
+    if (!clusters[clusterId]) {
+      clusters[clusterId] = [];
+    }
     clusters[clusterId].push(company);
   });
 
   const newMarkers  = [];
   const newPolygons = [];
 
+  // 4) Build each cluster
   for (const clusterId in clusters) {
-    const clusterGroup = L.layerGroup();
-    const points       = [];
+    const companies = clusters[clusterId];
+    if (!companies.length) continue;
 
-    let companyCount       = 0;
-    let totalIUKFunding    = 0;
-    let femaleFoundedCount = 0;
-    let totalEmployees     = 0;
-    let totalTurnover      = 0;
+    const clusterNumber = String(companies[0].cluster);
+    if (clusterNumber === '0') {
+      // skip noise cluster
+      continue;
+    }
 
-    const firstCompany  = clusters[clusterId][0];
-    const clusterNumber = String(firstCompany.cluster != null ? firstCompany.cluster : '0');
+    const sectorName = companies[0].sector;
+    const clusterName = companies[0].Cluster_name || 'Cluster ' + clusterNumber;
 
-    // Skip cluster 0 (noise points)
-    if (clusterNumber === '0') continue;
-
-    const sectorName  = firstCompany.sector;
-    const clusterName = 'Cluster ' + clusterNumber;
     const region =
-      (clusterRegions[sectorName] && clusterRegions[sectorName][clusterNumber]) ||
+      (clusterRegions[sectorName] &&
+      clusterRegions[sectorName][clusterNumber]) ||
       'Unknown';
 
-    clusters[clusterId].forEach(company => {
+    // NEW: cluster-level Emp_750_v3 count
+    const totalCompaniesInCluster = companies.length;
+    const emp750CountInCluster = companies.filter(c => c.Emp_750_v3 === true).length;
+
+    const clusterGroup = L.layerGroup();
+    const points = [];
+
+    let totalEmployees = 0;
+    let totalTurnover = 0;
+    let totalInvestment = 0;
+    let totalIUK = 0;
+    let femaleFoundedCount = 0;
+
+    companies.forEach(company => {
       const lat = company.Latitude;
       const lng = company.Longitude;
 
-      // Guard: should always be valid floats from loadSectorsData,
-      // but kept here as a safety net
-      if (isNaN(lat) || isNaN(lng)) return;
-
-      // Increment count here — after the coord guard — so it matches
-      // exactly the number of companies that are plotted/visible
-      companyCount++;
-
-      points.push([lat, lng]);
-
-      // Financials
-      const iukFunding = company.TotalInnovateUKFunding;
-      if (typeof iukFunding === 'number' && !isNaN(iukFunding)) {
-        totalIUKFunding += iukFunding;
+      if (typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng)) {
+        points.push([lat, lng]);
       }
 
-      const femaleFlagSource = company.WomenFounded != null
-        ? company.WomenFounded
-        : company.WomenLed;
-      if (isFemaleFoundedFlag(femaleFlagSource)) femaleFoundedCount++;
+      totalEmployees += parseNumber(company.total_employees);
+      totalTurnover  += parseNumber(company.total_turnover);
+      totalInvestment += parseNumber(company.total_investment);
+      totalIUK       += parseNumber(company.TotalInnovateUKFunding);
 
-      const emp = parseNumber(company.total_employees);
-      const tov = parseNumber(company.total_turnover);
-      if (!isNaN(emp)) totalEmployees += emp;
-      if (!isNaN(tov)) totalTurnover  += tov;
+      if (company.WomenFounded === 1) {
+        femaleFoundedCount += 1;
+      }
 
-      // Point markers
       if (displayMode === 'points' || displayMode === 'both') {
+        const isEmp750 = company.Emp_750_v3 === true;
+
+        const baseClusterColor = getClusterColor(clusterId);
+        const highlightClusterColor = chroma(baseClusterColor).darken(1.2).hex();
+
         const marker = L.circleMarker([lat, lng], {
-          pane:        'markerPane',
-          radius:      0,
-          fillColor:   getClusterColor(clusterId),
-          color:       '#000',
-          weight:      0.2,
+          pane: isEmp750 ? 'emp750Pane' : 'markerPane',
+          radius: 0,
+          fillColor: isEmp750 ? highlightClusterColor : baseClusterColor,
+          color: '#000000',
+          weight: isEmp750 ? 1.2 : 0.2,
           fillOpacity: 0
         });
+
+        // restore normal points, make Emp_750_v3 only slightly bigger
+        marker._targetRadius = isEmp750 ? 5 : 3;
+        marker._targetFillOpacity = isEmp750 ? 1 : 0.8;
+        marker._isEmp750 = isEmp750;
+        marker._baseColor = baseClusterColor;
+        marker._highlightColor = highlightClusterColor;
 
         marker.bindPopup(`
           <div class="popup-content">
@@ -1941,18 +2787,42 @@ function updateClusterLayers() {
             <p><strong>Company Number:</strong> ${company.Companynumber}</p>
             <p><strong>Cluster:</strong> ${region} (Cluster ${clusterNumber})</p>
             <p><strong>Sector:</strong> ${company.sector}</p>
-            ${company.hasFinancials ? '' : '<p><em>No financial data available</em></p>'}
+            <p><strong>Emp_750_v3:</strong> ${company.Emp_750_v3 ? 'TRUE' : 'FALSE'}</p>
+            ${
+              company.Emp_750_v3 === true
+                ? `<p><strong>Mid-market in this cluster:</strong> ${emp750CountInCluster} out of ${totalCompaniesInCluster}</p>`
+                : ''
+            }
           </div>
         `);
 
         marker.on({
           mouseover: e => {
-            e.target.setStyle({ radius: 5, weight: 1, color: '#fff', fillOpacity: 1 });
+            const isEmp750 = e.target._isEmp750;
+
+            e.target.setStyle({
+              radius: isEmp750 ? 6.5 : 5,
+              weight: isEmp750 ? 1.8 : 1,
+              color: '#ffffff',
+              fillOpacity: 1
+            });
+
+            e.target.bringToFront();
           },
           mouseout: e => {
-            e.target.setStyle({ radius: 3, weight: 0.2, color: '#000', fillOpacity: 0.8 });
+            const isEmp750 = e.target._isEmp750;
+
+            e.target.setStyle({
+              radius: isEmp750 ? 5 : 3,
+              weight: isEmp750 ? 1.2 : 0.2,
+              color: '#000000',
+              fillColor: isEmp750 ? e.target._highlightColor : e.target._baseColor,
+              fillOpacity: isEmp750 ? 1 : 0.8
+            });
           },
-          click: e => { e.target.openPopup(); }
+          click: e => {
+            e.target.openPopup();
+          }
         });
 
         clusterGroup.addLayer(marker);
@@ -1960,41 +2830,31 @@ function updateClusterLayers() {
       }
     });
 
-    // Build polygon if enough points
+    const companyCount = companies.length;
+    const femaleFoundedPercentage =
+      companyCount > 0 ? (femaleFoundedCount / companyCount) * 100 : 0;
+
+    const totalEmployeesDisplay = companyCount ? Math.round(totalEmployees) : 'N/A';
+    const totalTurnoverDisplay  = companyCount ? formatTurnover(totalTurnover) : 'N/A';
+    const totalIUKDisplay       = totalIUK > 0 ? formatTurnover(totalIUK) : 'N/A';
+
     const polygonColor = sectorColors[sectorName] || '#FFFFFF';
 
     if ((displayMode === 'polygons' || displayMode === 'both') && points.length >= 3) {
-
       const polygon = L.polygon(convexHull(points), {
-        pane:        'polygonsPane',
-        color:       polygonColor,
-        fillColor:   polygonColor,
-        fillOpacity: 0,
-        weight:      1,
+        pane: 'polygonsPane',
+        color: polygonColor,
+        fillColor: polygonColor,
+        fillOpacity: 0,   // start transparent for animation
+        weight: 1,
         interactive: false
       });
 
       polygon.originalStyle = {
-        color:       polygonColor,
-        weight:      1,
-        fillOpacity: 0.35
+        color: polygonColor,
+        weight: 1,
+        fillOpacity: 0.4   // a bit stronger fill
       };
-
-      const femalePct = companyCount > 0
-        ? (femaleFoundedCount / companyCount) * 100
-        : null;
-
-      const femaleFoundedPercentageDisplay =
-        femalePct !== null ? femalePct.toFixed(1) + '%' : 'N/A';
-
-      const totalEmployeesDisplay =
-        totalEmployees > 0 ? Math.round(totalEmployees) : 'N/A';
-
-      const totalTurnoverDisplay =
-        totalTurnover > 0 ? formatTurnover(totalTurnover) : 'N/A';
-
-      const totalIUKFundingDisplay =
-        totalIUKFunding > 0 ? formatTurnover(totalIUKFunding) : 'N/A';
 
       polygon.bindPopup(`
         <div class="popup-content">
@@ -2004,8 +2864,8 @@ function updateClusterLayers() {
           <p><strong>Company Count:</strong> ${companyCount}</p>
           <p><strong>Total Employees:</strong> ${totalEmployeesDisplay}</p>
           <p><strong>Total Turnover:</strong> ${totalTurnoverDisplay}</p>
-          <p><strong>% Female-Founded Companies:</strong> ${femaleFoundedPercentageDisplay}</p>
-          <p><strong>Total IUK Grant Funding:</strong> ${totalIUKFundingDisplay}</p>
+          <p><strong>% Female-Founded Companies:</strong> ${femaleFoundedPercentage.toFixed(1)}%</p>
+          <p><strong>Total IUK Grant Funding:</strong> ${totalIUKDisplay}</p>
         </div>
       `);
 
@@ -2020,10 +2880,10 @@ function updateClusterLayers() {
           clusterId,
           region,
           companyCount,
-          totalEmployees:               totalEmployeesDisplay,
-          totalTurnover:                totalTurnoverDisplay,
-          femaleFoundedPercentageDisplay,
-          totalIUKFundingDisplay
+          totalEmployees: totalEmployeesDisplay,
+          totalTurnover: totalTurnoverDisplay,
+          femaleFoundedPercentageDisplay: femaleFoundedPercentage.toFixed(1) + '%',
+          totalIUKFundingDisplay: totalIUKDisplay
         }
       });
 
@@ -2034,13 +2894,23 @@ function updateClusterLayers() {
     clusterGroup.addTo(map);
   }
 
-  // Animate in
-  if (newMarkers.length  > 0) animateMarkersBatch(newMarkers,   3, 0.8, 800);
-  if (newPolygons.length > 0) animatePolygonsBatch(newPolygons, 0.35,   800);
 
-  // Update legend
-  updateLegend(currentSectors.length > 0 ? 'Sectors' : '');
+  // 5) Animate
+  if (newMarkers.length > 0) {
+    animateMarkersBatch(newMarkers, 800);
+  }
+  if (newPolygons.length > 0) {
+    animatePolygonsBatch(newPolygons, 0.35, 800);
+  }
+
+  // 6) Legend
+  if (currentSectors.length > 0) {
+    updateLegend('Sectors');
+  } else {
+    updateLegend('');
+  }
 }
+
 
 map.on('mousemove', handleMapMouseMove);
 map.on('click', handleMapClick);
@@ -2075,21 +2945,15 @@ function generateClusterColors() {
 }
 
 function getAllClusterIds() {
-  return companyData.reduce(function (acc, company) {
-    const cid = company.clusterId;
-    if (!cid) return acc;
-
-    const clusterNum = String(company.cluster ?? '').trim();
-    // Skip noise / cluster 0 entirely
-    if (clusterNum === '0') return acc;
-
-    if (!acc.includes(cid)) {
-      acc.push(cid);
+  var clusterIds = companyData.reduce(function (acc, company) {
+    var clusterId = company.clusterId;
+    if (!acc.includes(clusterId)) {
+      acc.push(clusterId);
     }
     return acc;
   }, []);
+  return clusterIds;
 }
-
 
 function populateClusterCheckboxes() {
   var clusterContainer = document.getElementById('cluster-checkboxes');
@@ -2458,7 +3322,7 @@ function showPolygonSelectionPopup(polygonsData, latlng) {
     var sectorDisplayName = sectorDisplayNames[props.sectorName] || props.sectorName;
 
     // Get the sector color
-    var sectorColor = sectorColors[props.sectorName] || '#FFFFFF';
+    var sectorColor = getSectorColor(props.sectorName);
 
     // Create tab link
     var tabLinkItem = document.createElement('li');
@@ -2533,7 +3397,9 @@ function showPolygonSelectionPopup(polygonsData, latlng) {
       linkItem.classList.remove('active');
       // Reset tab link styles
       var link = linkItem.querySelector('a');
-      var sectorColor = sectorColors[polygonsData[link.getAttribute('data-index')].properties.sectorName] || '#FFFFFF';
+      var sectorColor = getSectorColor(
+        polygonsData[link.getAttribute('data-index')].properties.sectorName
+      );
       link.style.backgroundColor = sectorColor;
       link.style.color = getContrastColor(sectorColor);
     });
@@ -2855,71 +3721,30 @@ document.addEventListener('DOMContentLoaded',populateSupportLegend);
 /* ----------  Final‑Area search Leaflet control  ---------- */
 let faSearchControl = null;
 
-/* ─────────────  Compact Final‑Area search control  ───────────── */
 const FinalAreaSearchControl = L.Control.extend({
   onAdd: function () {
 
-    /* container lives in Leaflet’s control stack */
+    /* container sits in Leaflet's control stack */
     const wrap = L.DomUtil.create('div', 'fa-search-control');
     wrap.style.display = 'flex';
     wrap.style.gap     = '6px';
-    wrap.style.position = 'relative';       // so suggestions can be absolute
 
-    /* ── text input ──────────────────────────────────────────── */
+    /* text input with datalist */
     const input = L.DomUtil.create('input', '', wrap);
     input.type        = 'text';
     input.placeholder = 'Find Final Area…';
     input.id          = 'fa-search';
-    input.style.width = '140px';
 
-    /* suggestion box (hidden by default) */
-    const sugg = L.DomUtil.create('div', 'fa-suggest', wrap);
-
-    function updateSuggestions () {
-      const q = input.value.trim().toUpperCase();
-      sugg.innerHTML = '';
-
-      if (!q) { sugg.style.display = 'none'; return; }
-
-      /* keep max 5 matches */
-      const matches = finalAreaNames
-        .filter(n => n.toUpperCase().includes(q))
-        .slice(0, 5);
-
-      if (!matches.length) { sugg.style.display = 'none'; return; }
-
-      matches.forEach(n => {
-        const row = document.createElement('div');
-        row.textContent = n;
-        row.onclick = () => {
-          input.value = n;
-          zoomToFinalArea(n);
-          sugg.style.display = 'none';
-        };
-        sugg.appendChild(row);
-      });
-      sugg.style.display = 'block';
-    }
-
-    /* typing updates suggestions */
-    L.DomEvent.on(input, 'input', updateSuggestions);
-
-    /* Enter key zooms immediately */
+    /* Enter key triggers zoom */
     L.DomEvent.on(input, 'keydown', e => {
       if (e.key === 'Enter') {
         zoomToFinalArea(input.value);
-        sugg.style.display = 'none';
-        input.blur();   // dismiss mobile keyboard
+        input.blur();   // dismiss keyboard on mobile
       }
-      L.DomEvent.stopPropagation(e); // keep Leaflet hotkeys safe
+      L.DomEvent.stopPropagation(e); // don't let Leaflet treat it as map hotkey
     });
 
-    /* hide suggestions when focus leaves */
-    L.DomEvent.on(input, 'blur', () => {
-      setTimeout(() => { sugg.style.display = 'none'; }, 150);
-    });
-
-    /* ── optional mic (Web‑Speech API) ───────────────────────── */
+    /* optional mic (uses Web Speech API) */
     const mic = L.DomUtil.create('button', '', wrap);
     mic.innerHTML = '&#x1F3A4;';
     mic.title     = 'Voice search';
@@ -2929,15 +3754,14 @@ const FinalAreaSearchControl = L.Control.extend({
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       mic.style.display = 'none';   // browser not supported
     } else {
-      const SR  = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
       const rec = new SR();
-      rec.lang             = 'en-GB';
-      rec.interimResults   = false;
+      rec.lang = 'en-GB';
+      rec.interimResults = false;
       rec.onresult = e => {
-        const spoken = e.results[0][0].transcript;
-        input.value  = spoken;
-        zoomToFinalArea(spoken);
-        sugg.style.display = 'none';
+        const text = e.results[0][0].transcript;
+        input.value = text;
+        zoomToFinalArea(text);
       };
       rec.onstart = () => mic.style.background = '#ff6a00';
       rec.onend   = () => mic.style.background = '#fff';
@@ -2947,3 +3771,277 @@ const FinalAreaSearchControl = L.Control.extend({
     return wrap;
   }
 });
+
+// Normalize names to improve matching against LAD23NM / props.lad
+function normName(s){
+  return (s||'')
+    .toLowerCase()
+    .replace(/\*/g,'')
+    .replace(/,\s*city of$/,'')   // "Bristol, City of" -> "Bristol"
+    .replace(/\s+city$/,'')
+    .replace(/[^a-z]/g,'');       // strip spaces & punctuation
+}
+
+// Build a Set of normalized targets once
+function buildTargetSet(list){
+  const set = new Set();
+  list.forEach(n => set.add(normName(n)));
+  return set;
+}
+
+// Returns a stats object: { [LA]: { totalCompanies, sectors: { [sector]: { companies, clusters } } } }
+function computeLAStatsBySector() {
+  if (!Array.isArray(companyData) || companyData.length === 0) {
+    console.warn('No companyData loaded – select sectors first.');
+    return {};
+  }
+
+  const targetLAs = getLAFeaturesForList();
+  if (!targetLAs.length) {
+    console.warn('No target LAs are active (check your Area Group / Borders).');
+    return {};
+  }
+
+  // Build stats skeleton
+  const stats = {};
+  targetLAs.forEach(({ name }) => {
+    stats[name] = { totalCompanies: 0, sectors: {} };
+  });
+
+  // Iterate companies (already filtered to selected sectors by your loader)
+  companyData.forEach(c => {
+    const lng = parseFloat(c.Longitude);
+    const lat = parseFloat(c.Latitude);
+    if (!isFinite(lng) || !isFinite(lat)) return;
+
+    const sector = c.sector || 'Unknown';
+    const clusterId = c.clusterId || `${sector}_${c.cluster || '0'}`;
+    const pt = [lng, lat];
+
+    // Find containing LA (should be at most one)
+    for (let i = 0; i < targetLAs.length; i++) {
+      const { name, feature, bbox } = targetLAs[i];
+      if (!pointInBBox(pt, bbox)) continue;
+      if (turf.booleanPointInPolygon(pt, feature)) {
+        const laStats = stats[name];
+        laStats.totalCompanies += 1;
+
+        if (!laStats.sectors[sector]) {
+          laStats.sectors[sector] = {
+            companies: 0,
+            clustersSet: new Set()
+          };
+        }
+        laStats.sectors[sector].companies += 1;
+        laStats.sectors[sector].clustersSet.add(clusterId);
+
+        break; // stop at first containing LA
+      }
+    }
+  });
+
+  // Convert cluster sets to counts for output
+  Object.values(stats).forEach(la => {
+    Object.values(la.sectors).forEach(srec => {
+      srec.clusters = srec.clustersSet.size;
+      delete srec.clustersSet;
+    });
+  });
+
+  return stats;
+}
+
+function statsToCSV(stats) {
+  const rows = [['Local Authority','Sector','Companies','Clusters']];
+  Object.entries(stats).forEach(([la, rec]) => {
+    Object.entries(rec.sectors).forEach(([sector, srec]) => {
+      rows.push([la, sector, srec.companies, srec.clusters]);
+    });
+  });
+  return rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+}
+
+function downloadCSV(filename, csvText) {
+  const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* Leaflet control */
+let laCountControl = null;
+const LaCountControl = L.Control.extend({
+  onAdd: function(){
+    const wrap = L.DomUtil.create('div','la-count-control');
+    wrap.style.background = '#fff';
+    wrap.style.border = '1px solid #ccc';
+    wrap.style.borderRadius = '4px';
+    wrap.style.padding = '6px';
+    wrap.style.boxShadow = '0 1px 4px rgba(0,0,0,.2)';
+
+    const btn = L.DomUtil.create('button','',wrap);
+    btn.textContent = 'Count in Areas';
+    btn.style.padding = '6px 10px';
+    btn.style.cursor = 'pointer';
+
+    L.DomEvent.on(btn,'click', (e)=>{
+      L.DomEvent.stopPropagation(e);
+      const stats = computeLAStatsBySector();
+
+      // Console preview
+      console.clear();
+      console.table(
+        Object.entries(stats).flatMap(([la, rec]) =>
+          Object.entries(rec.sectors).map(([sector, srec]) => ({
+            'Local Authority': la,
+            Sector: sector,
+            Companies: srec.companies,
+            Clusters: srec.clusters
+          }))
+        )
+      );
+
+      // CSV download
+      const csv = statsToCSV(stats);
+      downloadCSV('la_sector_counts.csv', csv);
+    });
+
+    L.DomEvent.disableClickPropagation(wrap);
+    return wrap;
+  }
+});
+
+// Add once (e.g., where you add Borders/Area Group controls)
+if (!laCountControl) {
+  laCountControl = new LaCountControl({ position:'topleft' }).addTo(map);
+}
+
+const LaRegionCountControl = L.Control.extend({
+  onAdd: function(){
+    const wrap = L.DomUtil.create('div','la-region-count-control');
+    wrap.style.background   = '#fff';
+    wrap.style.border       = '1px solid #ccc';
+    wrap.style.borderRadius = '4px';
+    wrap.style.padding      = '6px';
+    wrap.style.boxShadow    = '0 1px 4px rgba(0,0,0,.2)';
+    wrap.style.display      = 'flex';
+    wrap.style.gap          = '6px';
+    wrap.style.alignItems   = 'center';
+
+    const btn = L.DomUtil.create('button','',wrap);
+    btn.textContent = 'Count in Region';
+    btn.style.padding = '6px 10px';
+    btn.style.cursor  = 'pointer';
+
+    L.DomEvent.on(btn,'click', (e)=>{
+      L.DomEvent.stopPropagation(e);
+
+      if (!Array.isArray(CURRENT_LA_LIST) || !CURRENT_LA_LIST.length) {
+        alert('No Area Group selected.');
+        return;
+      }
+      if (!Array.isArray(companyData) || companyData.length === 0) {
+        alert('No companies loaded for the current sectors.');
+        return;
+      }
+
+      const res = computeCurrentRegionCounts({ perSector: true });
+      const glabel = CURRENT_LA_GROUP_KEY || 'current';
+
+      let html = `
+        <div class="popup-content">
+          <h3>Counts — ${glabel.replace(/-/g,' ')}</h3>
+          <p><strong>Companies:</strong> ${res.companies} <span style="opacity:.7">(out of ${res.overallCompanies})</span></p>
+          <p><strong>Clusters:</strong> ${res.clusters} <span style="opacity:.7">(out of ${res.overallClusters})</span></p>
+      `;
+
+      const ps = res.perSector || {};
+      if (Object.keys(ps).length) {
+        html += `<div style="max-height:220px;overflow:auto;margin-top:6px;">
+                   <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                     <thead>
+                       <tr>
+                         <th style="text-align:left;border-bottom:1px solid #ddd;">Sector</th>
+                         <th style="text-align:right;border-bottom:1px solid #ddd;">Companies</th>
+                         <th style="text-align:right;border-bottom:1px solid #ddd;">Clusters</th>
+                       </tr>
+                     </thead>
+                     <tbody>`;
+        Object.keys(ps).sort().forEach(sector=>{
+          html += `
+            <tr>
+              <td style="padding:2px 0;border-bottom:1px solid #f1f1f1;">${sector}</td>
+              <td style="padding:2px 0;text-align:right;border-bottom:1px solid #f1f1f1;">${ps[sector].companies}</td>
+              <td style="padding:2px 0;text-align:right;border-bottom:1px solid #f1f1f1;">${ps[sector].clusters}</td>
+            </tr>`;
+        });
+        html += `   </tbody></table></div>`;
+      }
+
+      // Per-cluster “in / total”
+      if (Array.isArray(res.perCluster) && res.perCluster.length) {
+        html += `<div style="max-height:220px;overflow:auto;margin-top:10px;">
+                  <div style="font-weight:600;margin-bottom:4px;">Clusters in region (in / total):</div>
+                  <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                    <thead>
+                      <tr>
+                        <th style="text-align:left;border-bottom:1px solid #ddd;">Cluster</th>
+                        <th style="text-align:left;border-bottom:1px solid #ddd;">Sector</th>
+                        <th style="text-align:right;border-bottom:1px solid #ddd;">In&nbsp;/&nbsp;Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                `;
+        res.perCluster.forEach(row => {
+          const label = `${row.clusterName} (Cluster ${row.clusterNumber})`;
+          html += `
+            <tr>
+              <td style="padding:2px 0;border-bottom:1px solid #f1f1f1;">${label}</td>
+              <td style="padding:2px 0;border-bottom:1px solid #f1f1f1;">${row.sector}</td>
+              <td style="padding:2px 0;text-align:right;border-bottom:1px solid #f1f1f1;">${row.inRegion} / ${row.total}</td>
+            </tr>`;
+        });
+        html += `   </tbody></table></div>`;
+      }
+
+      html += `<div style="margin-top:8px;">
+                 <button id="dl-region-csv" style="padding:4px 8px;">Download CSV</button>
+               </div>
+        </div>`;
+
+      const pop = L.popup({ maxWidth: 380 })
+        .setLatLng(map.getCenter())
+        .setContent(html)
+        .openOn(map);
+
+      // Wire CSV button
+      setTimeout(()=>{
+        const dl = document.getElementById('dl-region-csv');
+        if (dl) {
+          dl.onclick = (ev)=>{
+            ev.stopPropagation();
+            const csv = regionCountsToCSV(res, glabel);
+            downloadCSV(`${glabel}_region_counts.csv`, csv);
+          };
+        }
+      },0);
+    });
+
+    L.DomEvent.disableClickPropagation(wrap);
+    return wrap;
+  }
+});
+
+async function fetchSectorFromAPI(sector) {
+  const code = DATACITY_SECTOR_CODES[sector] || sector;
+  const resp = await fetch(`/api/datacity/sector/${encodeURIComponent(code)}`, {
+    headers: { 'Accept': 'application/json' }
+  });
+  if (!resp.ok) throw new Error(`Datacity API error ${resp.status}`);
+  return await resp.json(); // { clusterData, summaryData, financialData }
+}
+
