@@ -545,23 +545,39 @@ function loadClusterRegions(callback) {
 }
 
 function loadMasterClusters() {
-  Papa.parse('data/cluster_points_final.csv', {   // <-- update filename if needed
+  Papa.parse('data/cluster_points_final.csv', {
     download: true,
     header: true,
     dynamicTyping: true,
     skipEmptyLines: true,
     complete: function (results) {
-      // Keep only rows that actually have usable coordinates + sector
+ 
+      // Keep all rows that have a company number, sector, and coords.
+      // We no longer require financials — companies without them are
+      // still valid for counting purposes; they just show N/A in popups.
       masterClusterData = results.data.filter(function (row) {
         return row.Companynumber &&
-               row.Latitude &&
-               row.Longitude &&
-               row.Sector;
+               row.Sector != null;
+        // NOTE: we deliberately do NOT filter on Latitude/Longitude here.
+        // Rows with missing/invalid coords will be caught later in
+        // updateClusterLayers() and excluded from points[] and markers[],
+        // but they should still be counted only if their coords ARE valid
+        // — see Fix 3 below for how that is now enforced correctly.
       });
-
+ 
+      // Normalise fields
+      masterClusterData.forEach(function (row) {
+        row.Latitude      = row.Latitude  != null ? parseFloat(row.Latitude)  : NaN;
+        row.Longitude     = row.Longitude != null ? parseFloat(row.Longitude) : NaN;
+        row.cluster       = row.cluster   != null ? row.cluster.toString()    : '0';
+        row.Sector        = (row.Sector   || '').trim();
+        row.Companynumber = row.Companynumber.toString().trim();
+        row.Companyname   = row.Companyname || 'Unknown';
+      });
+ 
       console.log('Loaded master clusters:', masterClusterData.length);
-
-      // Next step will build the sector list & chips from this
+ 
+      // Build sector chips from this single authoritative load
       initSectorsFromMaster();
     },
     error: function (err) {
@@ -569,49 +585,9 @@ function loadMasterClusters() {
     }
   });
 }
-
-function normalizeSectorName(str) {
-  return (str || '').trim().replace(/_/g, ' ');
-}
-
-function initSectorsFromMaster() {
-  if (!masterClusterData || !masterClusterData.length) {
-    console.warn('masterClusterData is empty – cannot init sectors');
-    return;
-  }
-
-  // 1) Get unique *normalised* sector names
-  const uniqueSectors = Array.from(
-    new Set(
-      masterClusterData
-        .map(row => normalizeSectorName(row.Sector))
-        .filter(Boolean)
-    )
-  ).sort();
-
-  // 2) Overwrite the old sectors object (no file paths now)
-  sectors = {};
-  uniqueSectors.forEach(name => {
-    sectors[name] = true;
-  });
-
-  // 3) Generate fresh colours for ALL these sectors
-  sectorColors = {};
-  const palette = chroma.scale('Set2').colors(uniqueSectors.length || 1);
-
-  uniqueSectors.forEach((name, idx) => {
-    sectorColors[name] = palette[idx % palette.length];
-  });
-
-  console.log('Sectors initialised from master file:', uniqueSectors);
-  console.log('Sector colours:', sectorColors);
-
-  // 4) Rebuild chips using the nice names ("Advanced Manufacturing", etc.)
-  populateSectorCheckboxes();
-}
-
-
-// Call this once on load so the master file drives sectors
+ 
+// Call once — the old duplicate Papa.parse block below this call
+// in the original script should be DELETED entirely.
 loadMasterClusters();
 // Load the new master clusters file (all sectors in one CSV)
 Papa.parse('data/cluster_points_final.csv', {
@@ -1446,113 +1422,98 @@ function parseNumber(value) {
 function loadSectorsData(sectorsList) {
   const statsPanel    = document.getElementById('sector-stats-panel');
   const ctrlContainer = document.querySelector('.leaflet-control-container');
-
-  // If nothing selected, clear everything and bail
+ 
   if (!sectorsList || !sectorsList.length) {
     companyData        = [];
     clusterSummaryData = {};
     removeClusterLayers();
     updateLegend('');
     document.getElementById('overall-stats-button').style.display = 'none';
-
     if (statsPanel)    statsPanel.classList.remove('show');
     if (ctrlContainer) ctrlContainer.classList.remove('controls-shift-right');
     return;
   }
-
+ 
   if (!Array.isArray(masterClusterData) || !masterClusterData.length) {
     console.warn('masterClusterData is empty or not loaded');
     return;
   }
-
+ 
   companyData        = [];
-  clusterSummaryData = {};   // not used for now, but keep it defined
-
-  // Helper so this works whether chips use "Advanced_Manufacturing"
-  // or "Advanced Manufacturing"
+  clusterSummaryData = {};
+ 
   function sectorMatches(rowSector, selectedSector) {
     if (!rowSector) return false;
-    const raw = rowSector.trim();
+    const raw        = rowSector.trim();
     const dispFromRaw = raw.replace(/_/g, ' ').trim();
-
-    return (
-      raw === selectedSector ||
-      dispFromRaw === selectedSector
-    );
+    return raw === selectedSector || dispFromRaw === selectedSector;
   }
-
+ 
   sectorsList.forEach(function (selectedSector) {
     masterClusterData.forEach(function (row) {
       if (!sectorMatches(row.Sector, selectedSector)) return;
-
-      // Company number as a clean string
+ 
       const compNum = row.Companynumber
         ? row.Companynumber.toString().trim()
         : null;
-
       if (!compNum) return;
       if (excludedCompanyNumbers.includes(compNum)) return;
-
-      // Basic spatial + cluster info
+ 
+      // ── Coord validation moved here ──────────────────────────
+      // Only rows with valid numeric coords enter companyData.
+      // This means clusters[id].length will equal the number of
+      // companies that can actually be plotted — no inflation.
       const lat = parseFloat(row.Latitude);
       const lng = parseFloat(row.Longitude);
       if (isNaN(lat) || isNaN(lng)) return;
-
-      const clusterStr = row.cluster != null
-        ? row.cluster.toString()
-        : '0';
-
-      // Use the sector label as shown in the UI (chips)
+      // ─────────────────────────────────────────────────────────
+ 
+      const clusterStr  = row.cluster != null ? row.cluster.toString() : '0';
       const sectorLabel = selectedSector;
-
+ 
       const company = {
-        Companynumber: compNum,
-        Latitude:      lat,
-        Longitude:     lng,
-        cluster:       clusterStr,
-        sector:        sectorLabel,
-        clusterId:     `${sectorLabel}_${clusterStr}`
+        Companynumber : compNum,
+        Latitude      : lat,
+        Longitude     : lng,
+        cluster       : clusterStr,
+        sector        : sectorLabel,
+        clusterId     : `${sectorLabel}_${clusterStr}`
       };
-
-      // Enrich from the details file (if we have it)
+ 
+      // Enrich from details file if available.
+      // If there is no match the company is still included —
+      // financial fields default to 0 / null so the count is
+      // always the true headcount, not just the enriched subset.
       const det = companyDetailsByNumber[compNum] || {};
-
-      company.Companyname   = det.CompanyName || 'Unknown';
+      const hasDetails = Object.keys(det).length > 0;
+ 
+      company.Companyname        = det.CompanyName        || row.Companyname || 'Unknown';
       company.RegisteredPostcode = det.RegisteredPostcode || null;
-      company.Homepage_domain    = det.Homepage_domain || null;
-
-      // Numeric fields
-      company.total_employees = parseNumber(det.BestEstimateEmployees);
-      company.total_turnover  = parseNumber(det.BestEstimateTurnover);
-
-      // Women-led flag (1/0)
-      company.WomenFounded = det.WomenLed
-        ? parseInt(det.WomenLed)
-        : 0;
-
-      // Funding / investment (GBP)
-      company.TotalInnovateUKFunding = parseNumber(det.IUK_GBP);
-      company.total_Investment       = parseNumber(det.Investment_GBP);
-
-      // We don’t have growth % in this file; keep it null for now
-      company.BestEstimateGrowthPercentagePerYear = null;
-
+      company.Homepage_domain    = det.Homepage_domain    || null;
+      company.hasFinancials      = hasDetails; // flag for UI use if needed
+ 
+      // Financials — zero when no details file match
+      company.total_employees            = hasDetails ? parseNumber(det.BestEstimateEmployees) : 0;
+      company.total_turnover             = hasDetails ? parseNumber(det.BestEstimateTurnover)  : 0;
+      company.WomenFounded               = hasDetails ? parseInt(det.WomenLed) || 0            : 0;
+      company.TotalInnovateUKFunding     = hasDetails ? parseNumber(det.IUK_GBP)               : 0;
+      company.total_Investment           = hasDetails ? parseNumber(det.Investment_GBP)        : 0;
+ 
       companyData.push(company);
     });
   });
-
-  // Rebuild clusters based on the new companyData
+ 
+  // Rebuild clusters from the corrected companyData
   generateClusterColors();
   populateClusterCheckboxes();
-
+ 
   currentClusters = getAllClusterIds().filter(cid =>
     currentSectors.includes(cid.split('_')[0])
   );
-
+ 
   addCompanyClusters();
   updateLegend(currentSectors.length > 0 ? 'Sectors' : '');
-
-  // If the stats panel is open, refresh it with the new data
+ 
   if (statsPanel && statsPanel.classList.contains('show')) {
     computeSectorStatistics();
     const ordered = window.selectionOrder.length
@@ -1561,7 +1522,6 @@ function loadSectorsData(sectorsList) {
     showSectorStatistics(ordered);
   }
 }
-
 
 // Select All Clusters
 document.getElementById('select-all-clusters').addEventListener('click', function() {
@@ -1585,84 +1545,54 @@ document.getElementById('deselect-all-clusters').addEventListener('click', funct
 
 
 function computeSectorStatistics() {
-  // Reset
   sectorStats = {};
-
+ 
   if (!Array.isArray(companyData) || companyData.length === 0) {
     console.warn('computeSectorStatistics: no companyData available');
     return;
   }
-
-  companyData.forEach(function(company) {
+ 
+  companyData.forEach(function (company) {
     const sector = company.sector || company.Sector;
     if (!sector) return;
-
+ 
     if (!sectorStats[sector]) {
       sectorStats[sector] = {
-        companyCount: 0,
-        totalEmployees: 0,
-        totalTurnover: 0,
-        totalIUKFunding: 0,
-        totalInvestment: 0,
-        femaleFoundedCount: 0,
+        companyCount           : 0,
+        companiesWithFinancials: 0,
+        totalEmployees         : 0,
+        totalTurnover          : 0,
+        totalIUKFunding        : 0,
+        totalInvestment        : 0,
+        femaleFoundedCount     : 0,
         femaleFoundedPercentage: 0
       };
     }
-
+ 
     const stats = sectorStats[sector];
     stats.companyCount += 1;
-
-    // Employees
-    const emp = parseNumber(
-      company.BestEstimateEmployees ??
-      company.total_employees ??
-      company.TotalEmployees
-    );
-    stats.totalEmployees += emp;
-
-    // Turnover
-    const turnover = parseNumber(
-      company.BestEstimateTurnover ??
-      company.total_turnover ??
-      company.TotalTurnover
-    );
-    stats.totalTurnover += turnover;
-
-    // Investment
-    const investment = parseNumber(
-      company.Investment_GBP ??
-      company.totalInvestment ??
-      company.total_Dealroom_PE
-    );
-    stats.totalInvestment += investment;
-
-    // Innovate UK funding
-    const iuk = parseNumber(
-      company.IUK_GBP ??
-      company.TotalInnovateUKFunding
-    );
-    stats.totalIUKFunding += iuk;
-
-    // Female founded or women led
-    const femaleFlagSource =
-      company.WomenLed != null
-        ? company.WomenLed
-        : (company.WomenFounded != null ? company.WomenFounded : null);
-
-    if (isFemaleFoundedFlag(femaleFlagSource)) {
+ 
+    if (company.hasFinancials) {
+      stats.companiesWithFinancials += 1;
+    }
+ 
+    stats.totalEmployees  += parseNumber(company.total_employees);
+    stats.totalTurnover   += parseNumber(company.total_turnover);
+    stats.totalIUKFunding += parseNumber(company.TotalInnovateUKFunding);
+ 
+    // Fixed field name: total_Investment (matches what loadSectorsData sets)
+    stats.totalInvestment += parseNumber(company.total_Investment);
+ 
+    if (isFemaleFoundedFlag(company.WomenFounded)) {
       stats.femaleFoundedCount += 1;
     }
   });
-
-  // Final percentages
-  Object.keys(sectorStats).forEach(function(sector) {
+ 
+  Object.keys(sectorStats).forEach(function (sector) {
     const stats = sectorStats[sector];
-    if (stats.companyCount > 0) {
-      stats.femaleFoundedPercentage =
-        (stats.femaleFoundedCount / stats.companyCount) * 100;
-    } else {
-      stats.femaleFoundedPercentage = 0;
-    }
+    stats.femaleFoundedPercentage = stats.companyCount > 0
+      ? (stats.femaleFoundedCount / stats.companyCount) * 100
+      : 0;
   });
 }
 
@@ -1673,26 +1603,23 @@ function showSectorStatistics(selectedSectors) {
     console.error('No stats panel found in the DOM');
     return;
   }
-
-  // Clear old content and add header
+ 
   statsPanel.innerHTML = `
     <div class="stats-header">
       <h2>Sector Stats</h2>
       <button class="close-panel-btn" onclick="hideSectorStats()">&times;</button>
     </div>
   `;
-
+ 
   if (!selectedSectors || !selectedSectors.length) {
     statsPanel.innerHTML += `
-      <div class="stats-card">
-        <p>No sectors selected.</p>
-      </div>
+      <div class="stats-card"><p>No sectors selected.</p></div>
     `;
     statsPanel.classList.add('show');
     statsPanel.classList.remove('hidden');
     return;
   }
-
+ 
   selectedSectors.forEach(sector => {
     const stats = sectorStats[sector];
     if (!stats) {
@@ -1704,25 +1631,29 @@ function showSectorStatistics(selectedSectors) {
       `;
       return;
     }
-
+ 
+    const noFinancials = stats.companyCount - stats.companiesWithFinancials;
+    const noFinancialsNote = noFinancials > 0
+      ? `<p style="font-size:12px;color:#888;">(${noFinancials} with no financial data)</p>`
+      : '';
+ 
     statsPanel.innerHTML += `
       <div class="stats-card">
         <h3>${sector}</h3>
         <p><strong>Companies:</strong> ${stats.companyCount}</p>
-        <p><strong>Total Employees:</strong> ${Math.round(stats.totalEmployees)}</p>
-        <p><strong>Total Turnover:</strong> ${formatTurnover(stats.totalTurnover)}</p>
+        ${noFinancialsNote}
+        <p><strong>Total Employees:</strong> ${stats.totalEmployees > 0 ? Math.round(stats.totalEmployees) : 'N/A'}</p>
+        <p><strong>Total Turnover:</strong> ${stats.totalTurnover > 0 ? formatTurnover(stats.totalTurnover) : 'N/A'}</p>
         <p><strong>% Female-Founded:</strong> ${stats.femaleFoundedPercentage.toFixed(1)}%</p>
-        <p><strong>IUK Funding:</strong> ${formatTurnover(stats.totalIUKFunding)}</p>
-        <p><strong>Investment:</strong> ${formatTurnover(stats.totalInvestment)}</p>
+        <p><strong>IUK Funding:</strong> ${stats.totalIUKFunding > 0 ? formatTurnover(stats.totalIUKFunding) : 'N/A'}</p>
+        <p><strong>Investment:</strong> ${stats.totalInvestment > 0 ? formatTurnover(stats.totalInvestment) : 'N/A'}</p>
       </div>
     `;
   });
-
+ 
   statsPanel.classList.remove('hidden');
   statsPanel.classList.add('show');
 }
-
-
 
 // Simple hide function
 function hideSectorStats() {
