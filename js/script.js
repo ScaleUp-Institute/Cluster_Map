@@ -553,7 +553,7 @@ function initSectorsFromMaster() {
   const uniqueSectors = Array.from(
     new Set(
       masterClusterData
-        .map(row => normalizeSectorName(row.Sector))
+        .map(row => (row.Sector || '').trim().replace(/_/g, ' '))
         .filter(Boolean)
     )
   ).sort();
@@ -567,9 +567,9 @@ function initSectorsFromMaster() {
     sectorColors[name] = palette[idx % palette.length];
   });
 
-  console.log('Sectors initialised from master file:', uniqueSectors);
+  console.log('Sectors initialised:', uniqueSectors);
+  console.log('Sector colours:', sectorColors);
 
-  // This is what actually builds the chips in the right panel
   populateSectorCheckboxes(uniqueSectors);
 }
 
