@@ -72,14 +72,14 @@
     /* Floating Display Mode Toggle Bubble */
     #display-mode-toggle {
       position: absolute;
-      top: 20px;
-      right: calc(25% + 10px);
+      top: 20px; /* Moved up as requested */
+      right: calc(25% + 10px); /* Positioned just left of the right panel (assuming right-frame = 25% width) */
       background-color: #007BFF;
       color: #fff;
       width: 40px;
       height: 40px;
       border-radius: 50%;
-      display: none;
+      display: none; /* Hidden by default until a sector is selected */
       align-items: center;
       justify-content: center;
       cursor: pointer;
@@ -88,9 +88,11 @@
       overflow: hidden;
       padding: 0 5px;
     }
+    /* When expanded (on hover) */
     #display-mode-toggle.expanded {
       width: 200px;
     }
+    /* Options inside the bubble */
     #display-mode-options {
       display: none;
       margin-left: 10px;
@@ -98,6 +100,7 @@
     #display-mode-toggle.expanded #display-mode-options {
       display: block;
     }
+    /* Style for the select element */
     #display-mode-select {
       width: 100%;
       padding: 3px;
@@ -111,6 +114,7 @@
   <div class="map-container">
     <!-- LEFT FRAME (hidden) -->
     <div class="left-frame">
+      <!-- Hidden Layers accordion (if needed in the future) -->
       <h3 style="display: none;">Layers</h3>
       <div class="accordion" style="display: none;">
         <button class="accordion-toggle" type="button">Toggle Layers</button>
@@ -121,6 +125,7 @@
           <label for="final-areas">Final Areas</label><br>
           <input type="checkbox" id="scaleup-density">
           <label for="scaleup-density">Scaleup Density</label><br>
+          <!-- New for 2023 -->
           <input type="checkbox" id="scaleup-density-2023">
           <label for="scaleup-density-2023">Scaleup Density (2023)</label><br>
           <input type="checkbox" id="avg-growth">
@@ -168,6 +173,7 @@
         <option value="both">Show All</option>
       </select>
 
+      <!--  Support‑programme legend  -->
       <div id="support-legend" class="support-legend"></div>
 
       <!-- Cluster Section -->
@@ -210,7 +216,7 @@
   <!-- Custom JS -->
   <script src="js/script.js"></script>
   
-  <!-- Inline JavaScript -->
+  <!-- Inline JavaScript to wrap your handleSectorSelectionChange -->
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       const displayToggle   = document.getElementById('display-mode-toggle');
@@ -218,8 +224,10 @@
       const statsPanel      = document.getElementById('sector-stats-panel');
       const sectorContainer = document.getElementById('sector-chips');
 
+      // Track the order in which the user selects sectors
       window.selectionOrder = [];
 
+      // Show/hide bubble & auto-close panel
       function updateDisplayModeToggleVisibility() {
         const displayToggle = document.getElementById('display-mode-toggle');
         if (currentSectors.length > 0) {
@@ -235,27 +243,31 @@
 
       window.updateDisplayModeToggleVisibility = updateDisplayModeToggleVisibility;
 
+      // If panel is open, re-show with fresh data
       function refreshStatsPanelIfOpen() {
         if (statsPanel.classList.contains('show')) {
           window.showSectorStatistics?.(window.selectionOrder);
         }
       }
 
+      // Select All
       document.getElementById('select-all-sectors').addEventListener('click', () => {
-        document.querySelectorAll('.sector-chip').forEach(chip => chip.classList.add('selected'));
-        window.selectionOrder = Array.from(document.querySelectorAll('.sector-chip.selected'))
-                                    .map(c => c.dataset.value);
-        handleSectorSelectionChange();
-        updateDisplayModeToggleVisibility();
-      });
+      document.querySelectorAll('.sector-chip').forEach(chip => chip.classList.add('selected'));
+      // keep track of order
+      window.selectionOrder = Array.from(document.querySelectorAll('.sector-chip.selected'))
+                                  .map(c => c.dataset.value);
+      handleSectorSelectionChange();
+      updateDisplayModeToggleVisibility();
+    });
 
-      document.getElementById('deselect-all-sectors').addEventListener('click', () => {
-        document.querySelectorAll('.sector-chip').forEach(chip => chip.classList.remove('selected'));
-        window.selectionOrder = [];
-        handleSectorSelectionChange();
-        updateDisplayModeToggleVisibility();
-      });
-
+    document.getElementById('deselect-all-sectors').addEventListener('click', () => {
+      document.querySelectorAll('.sector-chip').forEach(chip => chip.classList.remove('selected'));
+      window.selectionOrder = [];
+      handleSectorSelectionChange();
+      updateDisplayModeToggleVisibility();
+    });
+    
+      // Expand/collapse bubble on hover
       displayToggle.addEventListener('mouseenter', () =>
         displayToggle.classList.add('expanded')
       );
@@ -263,11 +275,13 @@
         displayToggle.classList.remove('expanded')
       );
 
+      // Change display mode
       displaySelect.addEventListener('change', () => {
         window.displayMode = displaySelect.value;
         window.updateClusterLayers?.();
       });
 
+      // Initial state
       updateDisplayModeToggleVisibility();
     });
   </script>      
