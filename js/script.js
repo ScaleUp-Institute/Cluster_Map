@@ -1822,67 +1822,49 @@ function isFemaleFoundedFlag(value) {
   return s === '1' || s === 'true' || s === 'yes' || s === 'y';
 }
 
-
-
 function updateClusterLayers() {
   console.log('updateClusterLayers called');
   console.log('Current displayMode:', displayMode);
 
-  // 1) Animation helpers
   function easeOut(progress) {
     return 1 - Math.pow(1 - progress, 3);
   }
 
   function animateMarkersBatch(markers, finalRadius, finalFillOpacity, duration) {
     let startTime;
-
     function step(timestamp) {
       if (!startTime) startTime = timestamp;
       const elapsed = timestamp - startTime;
       let progress = Math.min(elapsed / duration, 1);
       progress = easeOut(progress);
-
       markers.forEach(marker => {
-        const currentRadius  = finalRadius * progress;
-        const currentOpacity = finalFillOpacity * progress;
         marker.setStyle({
-          radius: currentRadius,
-          fillOpacity: currentOpacity
+          radius:      finalRadius * progress,
+          fillOpacity: finalFillOpacity * progress
         });
       });
-
-      if (progress < 1) {
-        requestAnimationFrame(step);
-      }
+      if (progress < 1) requestAnimationFrame(step);
     }
     requestAnimationFrame(step);
   }
 
   function animatePolygonsBatch(polygons, finalFillOpacity, duration) {
     let startTime;
-
     function step(timestamp) {
       if (!startTime) startTime = timestamp;
       const elapsed = timestamp - startTime;
       let progress = Math.min(elapsed / duration, 1);
       progress = easeOut(progress);
-
       polygons.forEach(polygon => {
-        polygon.setStyle({
-          fillOpacity: finalFillOpacity * progress
-        });
+        polygon.setStyle({ fillOpacity: finalFillOpacity * progress });
       });
-
-      if (progress < 1) {
-        requestAnimationFrame(step);
-      }
+      if (progress < 1) requestAnimationFrame(step);
     }
     requestAnimationFrame(step);
   }
 
-  // 2) Clear existing layers
+  // Clear existing layers
   allPolygons = [];
-
   for (const existingId in clusterLayers) {
     map.removeLayer(clusterLayers[existingId]);
   }
@@ -1893,27 +1875,27 @@ function updateClusterLayers() {
     return;
   }
 
-  // Group companies into visible clusters
+  // Group companies into clusters
+  // NOTE: coords are already validated as valid floats by loadSectorsData(),
+  // so every company in companyData is safe to plot.
   const clusters = {};
   companyData.forEach(company => {
     const clusterId = company.clusterId;
     if (!clusterId) return;
     if (!currentClusters.includes(clusterId)) return;
 
-    if (!clusters[clusterId]) {
-      clusters[clusterId] = [];
-    }
+    if (!clusters[clusterId]) clusters[clusterId] = [];
     clusters[clusterId].push(company);
   });
 
   const newMarkers  = [];
   const newPolygons = [];
 
-  // 4) Build each cluster
   for (const clusterId in clusters) {
     const clusterGroup = L.layerGroup();
     const points       = [];
 
+    let companyCount       = 0;
     let totalIUKFunding    = 0;
     let femaleFoundedCount = 0;
     let totalEmployees     = 0;
@@ -1922,10 +1904,8 @@ function updateClusterLayers() {
     const firstCompany  = clusters[clusterId][0];
     const clusterNumber = String(firstCompany.cluster != null ? firstCompany.cluster : '0');
 
-    // Hide cluster 0 completely
-    if (clusterNumber === '0') {
-      continue;
-    }
+    // Skip cluster 0 (noise points)
+    if (clusterNumber === '0') continue;
 
     const sectorName  = firstCompany.sector;
     const clusterName = 'Cluster ' + clusterNumber;
@@ -1934,12 +1914,20 @@ function updateClusterLayers() {
       'Unknown';
 
     clusters[clusterId].forEach(company => {
-      const lat = parseFloat(company.Latitude);
-      const lng = parseFloat(company.Longitude);
+      const lat = company.Latitude;
+      const lng = company.Longitude;
+
+      // Guard: should always be valid floats from loadSectorsData,
+      // but kept here as a safety net
       if (isNaN(lat) || isNaN(lng)) return;
+
+      // Increment count here — after the coord guard — so it matches
+      // exactly the number of companies that are plotted/visible
+      companyCount++;
 
       points.push([lat, lng]);
 
+      // Financials
       const iukFunding = company.TotalInnovateUKFunding;
       if (typeof iukFunding === 'number' && !isNaN(iukFunding)) {
         totalIUKFunding += iukFunding;
@@ -1948,23 +1936,21 @@ function updateClusterLayers() {
       const femaleFlagSource = company.WomenFounded != null
         ? company.WomenFounded
         : company.WomenLed;
-
-      if (isFemaleFoundedFlag(femaleFlagSource)) {
-        femaleFoundedCount++;
-      }
+      if (isFemaleFoundedFlag(femaleFlagSource)) femaleFoundedCount++;
 
       const emp = parseNumber(company.total_employees);
       const tov = parseNumber(company.total_turnover);
       if (!isNaN(emp)) totalEmployees += emp;
       if (!isNaN(tov)) totalTurnover  += tov;
 
+      // Point markers
       if (displayMode === 'points' || displayMode === 'both') {
         const marker = L.circleMarker([lat, lng], {
-          pane: 'markerPane',
-          radius: 0,
-          fillColor: getClusterColor(clusterId),
-          color: '#000',
-          weight: 0.2,
+          pane:        'markerPane',
+          radius:      0,
+          fillColor:   getClusterColor(clusterId),
+          color:       '#000',
+          weight:      0.2,
           fillOpacity: 0
         });
 
@@ -1974,29 +1960,18 @@ function updateClusterLayers() {
             <p><strong>Company Number:</strong> ${company.Companynumber}</p>
             <p><strong>Cluster:</strong> ${region} (Cluster ${clusterNumber})</p>
             <p><strong>Sector:</strong> ${company.sector}</p>
+            ${company.hasFinancials ? '' : '<p><em>No financial data available</em></p>'}
           </div>
         `);
 
         marker.on({
           mouseover: e => {
-            e.target.setStyle({
-              radius: 5,
-              weight: 1,
-              color: '#fff',
-              fillOpacity: 1
-            });
+            e.target.setStyle({ radius: 5, weight: 1, color: '#fff', fillOpacity: 1 });
           },
           mouseout: e => {
-            e.target.setStyle({
-              radius: 3,
-              weight: 0.2,
-              color: '#000',
-              fillOpacity: 0.8
-            });
+            e.target.setStyle({ radius: 3, weight: 0.2, color: '#000', fillOpacity: 0.8 });
           },
-          click: e => {
-            e.target.openPopup();
-          }
+          click: e => { e.target.openPopup(); }
         });
 
         clusterGroup.addLayer(marker);
@@ -2004,28 +1979,25 @@ function updateClusterLayers() {
       }
     });
 
-    const polygonColor =
-      sectorColors[sectorName] || '#FFFFFF';
+    // Build polygon if enough points
+    const polygonColor = sectorColors[sectorName] || '#FFFFFF';
 
-    if ((displayMode === 'polygons' || displayMode === 'both') &&
-        points.length >= 3) {
+    if ((displayMode === 'polygons' || displayMode === 'both') && points.length >= 3) {
 
       const polygon = L.polygon(convexHull(points), {
-        pane: 'polygonsPane',
-        color: polygonColor,
-        fillColor: polygonColor,
+        pane:        'polygonsPane',
+        color:       polygonColor,
+        fillColor:   polygonColor,
         fillOpacity: 0,
-        weight: 1,
+        weight:      1,
         interactive: false
       });
 
       polygon.originalStyle = {
-        color: polygonColor,
-        weight: 1,
+        color:       polygonColor,
+        weight:      1,
         fillOpacity: 0.35
       };
-
-      const companyCount = clusters[clusterId].length;
 
       const femalePct = companyCount > 0
         ? (femaleFoundedCount / companyCount) * 100
@@ -2067,8 +2039,8 @@ function updateClusterLayers() {
           clusterId,
           region,
           companyCount,
-          totalEmployees: totalEmployeesDisplay,
-          totalTurnover: totalTurnoverDisplay,
+          totalEmployees:               totalEmployeesDisplay,
+          totalTurnover:                totalTurnoverDisplay,
           femaleFoundedPercentageDisplay,
           totalIUKFundingDisplay
         }
@@ -2081,20 +2053,12 @@ function updateClusterLayers() {
     clusterGroup.addTo(map);
   }
 
-  // 5) Animate
-  if (newMarkers.length > 0) {
-    animateMarkersBatch(newMarkers, 3, 0.8, 800);
-  }
-  if (newPolygons.length > 0) {
-    animatePolygonsBatch(newPolygons, 0.35, 800);
-  }
+  // Animate in
+  if (newMarkers.length  > 0) animateMarkersBatch(newMarkers,   3, 0.8, 800);
+  if (newPolygons.length > 0) animatePolygonsBatch(newPolygons, 0.35,   800);
 
-  // 6) Legend
-  if (currentSectors.length > 0) {
-    updateLegend('Sectors');
-  } else {
-    updateLegend('');
-  }
+  // Update legend
+  updateLegend(currentSectors.length > 0 ? 'Sectors' : '');
 }
 
 map.on('mousemove', handleMapMouseMove);
