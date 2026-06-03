@@ -589,54 +589,6 @@ function loadMasterClusters() {
 // Call once — the old duplicate Papa.parse block below this call
 // in the original script should be DELETED entirely.
 loadMasterClusters();
-// Load the new master clusters file (all sectors in one CSV)
-Papa.parse('data/cluster_points_final.csv', {
-  download: true,
-  header: true,
-  dynamicTyping: true,
-  skipEmptyLines: true,
-  complete: function (results) {
-    masterClusterData = results.data.filter(row =>
-      row.Companynumber &&
-      row.Latitude &&
-      row.Longitude &&
-      row.Sector != null
-    );
-
-    // Normalise numeric / string fields a bit
-    masterClusterData.forEach(function (row) {
-      row.Latitude  = parseFloat(row.Latitude);
-      row.Longitude = parseFloat(row.Longitude);
-      row.cluster   = row.cluster != null ? row.cluster.toString() : '0';
-      row.Sector    = (row.Sector || '').trim();
-      row.Companynumber = row.Companynumber.toString().trim();
-      // Optional: if you already have company names in this file
-      row.Companyname = row.Companyname || 'Unknown';
-    });
-
-    // Build sector list dynamically from the new file
-    initSectorChipsFromMaster();
-  },
-  error: function (err) {
-    console.error('Error parsing new master clusters CSV:', err);
-  }
-});
-
-function initSectorChipsFromMaster() {
-  if (!masterClusterData.length) {
-    console.warn('No rows in masterClusterData – sector chips not initialised.');
-    return;
-  }
-
-  // unique Sector values, cleaned
-  var sectorSet = new Set();
-  masterClusterData.forEach(function (row) {
-    if (row.Sector) sectorSet.add(row.Sector);
-  });
-
-  var sectorsList = Array.from(sectorSet).sort();
-  populateSectorCheckboxes(sectorsList);
-}
 
 // Load University Data
 Papa.parse('data/university_data.csv', {
