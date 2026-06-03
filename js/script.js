@@ -544,6 +544,35 @@ function loadClusterRegions(callback) {
   });
 }
 
+function initSectorsFromMaster() {
+  if (!masterClusterData || !masterClusterData.length) {
+    console.warn('masterClusterData is empty – cannot init sectors');
+    return;
+  }
+
+  const uniqueSectors = Array.from(
+    new Set(
+      masterClusterData
+        .map(row => normalizeSectorName(row.Sector))
+        .filter(Boolean)
+    )
+  ).sort();
+
+  sectors = {};
+  uniqueSectors.forEach(name => { sectors[name] = true; });
+
+  sectorColors = {};
+  const palette = chroma.scale('Set2').colors(uniqueSectors.length || 1);
+  uniqueSectors.forEach((name, idx) => {
+    sectorColors[name] = palette[idx % palette.length];
+  });
+
+  console.log('Sectors initialised from master file:', uniqueSectors);
+
+  // This is what actually builds the chips in the right panel
+  populateSectorCheckboxes(uniqueSectors);
+}
+
 function loadMasterClusters() {
   Papa.parse('data/cluster_points_final.csv', {
     download: true,
