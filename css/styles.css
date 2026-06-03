@@ -34,7 +34,7 @@ html, body {
 #map {
   flex-grow: 1;
   height: 100%;
-  background: #fff; /* or 'transparent' if you prefer a see-through PNG */
+  background: #fff;
 }
 
 /* Accordion for Layer Selection */
@@ -65,7 +65,7 @@ html, body {
   position: absolute;
   top: 0;
   left: 0;
-  width: 320px;  /* match the transformX in controls-shift-right */
+  width: 320px;
   height: 100%;
   background-color: #fafafa;
   box-shadow: 2px 0 6px rgba(0,0,0,0.2);
@@ -73,7 +73,7 @@ html, body {
   transform: translateX(-100%);
   transition: transform 0.3s ease;
   z-index: 3000;
-  pointer-events: auto; /* clickable, even though parent is pointer-events none */
+  pointer-events: auto;
 }
 
 #sector-stats-panel.show {
@@ -86,7 +86,6 @@ html, body {
   top: 10px;
   left: 10px;
   z-index: 5000;
-  /* transitions handled by .leaflet-left rules */
 }
 
 .leaflet-top.leaflet-right {
@@ -96,13 +95,11 @@ html, body {
   z-index: 5000;
 }
 
-/* Shift all left-side controls (zoom, layers, legend) 320px to the right when panel is open */
 .leaflet-left.controls-shift-right {
   transform: translateX(320px);
   transition: transform 0.3s ease;
 }
 
-/* Ensure they revert smoothly when the class is removed */
 .leaflet-left {
   transition: transform 0.3s ease;
 }
@@ -159,7 +156,7 @@ html, body {
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  margin:10px 0 12px;
+  margin: 10px 0 12px;
   display: none;
 }
 #overall-stats-button:hover {
@@ -215,7 +212,7 @@ html, body {
   cursor: pointer;
 }
 
-/* Checkboxes Container (if still used) */
+/* Checkboxes Container */
 .checkboxes-container {
   border: 1px solid #ccc;
   border-radius: 4px;
@@ -347,7 +344,6 @@ button:hover {
 .tabs-container {
   width: 100%;
 }
-/* Tab Links */
 .tab-links {
   list-style: none;
   padding: 0;
@@ -375,7 +371,6 @@ button:hover {
 .tab-links li a:hover {
   opacity: 0.8;
 }
-/* Tab Content */
 .tab-content .tab {
   display: none;
 }
@@ -405,77 +400,64 @@ button:hover {
   opacity: 1;
 }
 
-/* The right column is your .right-frame */
 .right-frame {
-  position: relative; /* ensures children can be absolutely placed */
+  position: relative;
 }
 
-/* The overall container for the display mode tab */
+/* Display Mode Tab */
 .display-mode-tab {
   position: absolute;
-  top: 10px;               /* tweak if needed */
-  left: 0;                 /* anchored to the left edge of the .right-frame */
-  width: 200px;            /* total width of the expanded content */
-  transform: translateX(-160px); 
+  top: 10px;
+  left: 0;
+  width: 200px;
+  transform: translateX(-160px);
   transition: transform 0.3s ease;
-  z-index: 999;           /* ensure it's above the .right-frame background if needed */
+  z-index: 999;
 }
-
-/* Hide entirely if no sectors selected (JS toggles .hidden) */
 .display-mode-tab.hidden {
   display: none;
 }
-
-/* The clickable toggle "Display Mode" strip */
 .display-mode-toggle {
   background: #f0f0f0;
   border: 1px solid #ccc;
   border-radius: 4px 0 0 4px;
-  width: 40px; 
+  width: 40px;
   padding: 8px;
   text-align: center;
   cursor: pointer;
   font-size: 12px;
   white-space: nowrap;
 }
-
-/* The sliding content box */
 .display-mode-content {
   background: #fff;
   border: 1px solid #ccc;
   border-radius: 4px 0 0 4px;
-  margin-top: 5px; /* small gap under the toggle if you like */
+  margin-top: 5px;
   padding: 8px;
-  width: 160px;  /* the visible portion of the interior content */
+  width: 160px;
 }
-
-/* Hide the content by default if .hidden is set */
 .display-mode-content.hidden {
   display: none;
 }
-
-/* When "open" is set, we slide in fully (0 -> no negative transform) */
 .display-mode-tab.open {
   transform: translateX(0);
 }
 
-/* Container for the Display Mode Box inside the right panel */
 #display-mode-container {
   position: relative;
   margin-bottom: 15px;
 }
 
-/* The Display Mode Box that slides in/out */
 #display-mode-box {
   position: absolute;
-  top: 50px; /* Align with the toggle bubble */
-  right: 0; 
+  top: 50px;
+  right: 0;
   width: 200px;
   background-color: #fff;
   border: 1px solid #ccc;
   padding: 10px;
   transition: transform 0.3s ease;
-  transform: translateX(100%);  /* Start off-screen (hidden) */
+  transform: translateX(100%);
   z-index: 9998;
 }
 #display-mode-box.show {
@@ -484,8 +466,8 @@ button:hover {
 
 #display-mode-toggle {
   position: absolute;
-  top: 50px; /* Adjust vertically as needed */
-  right: calc(25% + 10px); /* Assumes right-frame occupies 25% of width */
+  top: 50px;
+  right: calc(25% + 10px);
   z-index: 9999;
   background-color: #007BFF;
   color: #fff;
@@ -499,15 +481,14 @@ button:hover {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 
-/* ───────────  Material-3 “chip / pill” style  ─────────── */
+/* Sector chips */
 .chips-container {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   padding: 6px 0;
-  /* kill the old checkbox box-look */
   border: none;
-  max-height: 250px;          /* keep your existing scroll box height */
+  max-height: 250px;
   overflow-y: auto;
 }
 
@@ -516,7 +497,7 @@ button:hover {
   align-items: center;
   padding: 6px 14px;
   font: 500 14px/1.2 "Roboto", "Open Sans", sans-serif;
-  border-radius: 22px;        /* MD-3 suggests 20–24px */
+  border-radius: 22px;
   border: 1px solid #d0d7de;
   background: #fff;
   color: #202124;
@@ -529,86 +510,85 @@ button:hover {
 }
 
 .sector-chip.selected {
-  background: rgba(26,115,232,0.12);   /* soft blue */
+  background: rgba(26,115,232,0.12);
   border-color: #1a73e8;
-  color: #1a73e8;                      /* Google-blue text */
+  color: #1a73e8;
 }
 
 .sector-chip:active {
   transform: scale(0.97);
 }
 
-/* optional hover hint */
 .sector-chip:not(.selected):hover {
   background: rgba(0,0,0,0.04);
 }
 
-.support-legend{
-  display:none;                 /* hidden until dropdown demands it */
-  flex-direction:column;
-  gap:6px;
-  margin:10px 0 15px;
+.support-legend {
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0 15px;
 }
-.support-legend .legend-row{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  font-size:14px;
+.support-legend .legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
 }
-.support-legend .legend-row img{
-  width:30px;                   /* ← bigger icons (was 22) */
-  height:30px;
-  object-fit:contain;
-}
-
-.leaflet-control .boundary-toggle:hover{
-  filter:brightness(.9);
+.support-legend .legend-row img {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
 }
 
-.final-area-tooltip{
-  background:rgba(255,255,255,0.9);
-  border:1px solid #555;
-  border-radius:4px;
-  padding:2px 6px;
-  font:12px/1.2 "Open Sans",sans-serif;
-  color:#000;
-  box-shadow:0 1px 4px rgba(0,0,0,0.3);
+.leaflet-control .boundary-toggle:hover {
+  filter: brightness(.9);
 }
 
-.final-area-boundary:focus{
+.final-area-tooltip {
+  background: rgba(255,255,255,0.9);
+  border: 1px solid #555;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font: 12px/1.2 "Open Sans", sans-serif;
+  color: #000;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+
+.final-area-boundary:focus {
   outline: none;
 }
 
-.fa-search-control{
-  position:relative;          /* so we can absolutely‑place suggestions */
+.fa-search-control {
+  position: relative;
 }
 
-.fa-search-control input{
-  flex: 0 0 100px;   /* 0 grow | 0 shrink | 140 px basis  */
-  width: 100px;      /* fallback for older browsers       */
+.fa-search-control input {
+  flex: 0 0 100px;
+  width: 100px;
   padding: 5px 7px;
   border: 1px solid #ccc;
   border-radius: 4px;
   font-size: 13px;
 }
 
-.fa-suggest{
-  position:absolute;
-  top:32px;                   /* just under the input */
-  left:0;
-  width:140px;
-  background:#fff;
-  border:1px solid #ccc;
-  border-radius:4px;
-  box-shadow:0 2px 6px rgba(0,0,0,.2);
-  z-index:10000;
-  display:none;
+.fa-suggest {
+  position: absolute;
+  top: 32px;
+  left: 0;
+  width: 140px;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.2);
+  z-index: 10000;
+  display: none;
 }
-.fa-suggest div{
-  padding:4px 6px;
-  cursor:pointer;
+.fa-suggest div {
+  padding: 4px 6px;
+  cursor: pointer;
 }
-.fa-suggest div:hover{
-  background:#007BFF;
-  color:#fff;
+.fa-suggest div:hover {
+  background: #007BFF;
+  color: #fff;
 }
