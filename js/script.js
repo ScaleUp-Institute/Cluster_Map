@@ -1,7 +1,7 @@
 // Define the UK bounds for larger screens (landscape)
 var ukBoundsLandscape = L.latLngBounds(
-  L.latLng(49.5, -10.5), // Southwest coordinates
-  L.latLng(61.0, 2.1)    // Northeast coordinates
+  L.latLng(49.5, -10.5),
+  L.latLng(61.0, 2.1)
 );
 
 // Define base map layers
@@ -22,100 +22,60 @@ var streetMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
   noWrap: true
 });
 
-// Create an object to hold the base layers
 var baseMaps = {
   'Light Map': lightMap,
   'Dark Map': darkMap,
   'Street Map': streetMap
 };
 
-// **Define the universityLayer before using it**
-var universityLayer = L.layerGroup();
-// Define the infrastructure layer group
+var universityLayer    = L.layerGroup();
 var infrastructureLayer = L.layerGroup();
-// Define the support program layer group
 var supportProgramLayer = L.layerGroup();
 
-// **Create an object to hold the overlay layers**
-var overlays = {
-  // Add other overlays as needed
-};
+var overlays = {};
 
-// Create the map instance
 var map = L.map('map', {
   maxBoundsViscosity: 1.0,
   minZoom: 4,
   maxZoom: 18,
-  layers: [lightMap] // Set the default base layer here
+  layers: [lightMap]
 });
 
-// Call the function to set the initial map view
 setMapViewBasedOnScreenSize();
 
-// Remove the default zoom control and re-add it to the desired position
 map.removeControl(map.zoomControl);
 L.control.zoom({ position: 'topleft' }).addTo(map);
-
-// **Add the layer control to the map**
 L.control.layers(baseMaps, overlays, { position: 'topleft' }).addTo(map);
 
-// Function to set the map view based on screen size
 function setMapViewBasedOnScreenSize() {
   var isPortrait = window.innerHeight > window.innerWidth;
-
   if (isPortrait) {
-    // On portrait screens (smartphones), set a different center and zoom level
-    var centerLatLng = [54.5, -4.0]; // Adjust center as needed
-    var zoomLevel = 6; // Increase zoom level to zoom in on the UK
-
-    map.setView(centerLatLng, zoomLevel);
-
-    // Adjust maxBounds for portrait mode to prevent panning too far
-    map.setMaxBounds([
-      [49.5, -13.0], // Southwest coordinates
-      [61.0, 5.0]    // Northeast coordinates
-    ]);
+    map.setView([54.5, -4.0], 6);
+    map.setMaxBounds([[49.5, -13.0],[61.0, 5.0]]);
   } else {
-    // On landscape screens, fit the UK bounds
     map.fitBounds(ukBoundsLandscape);
-
-    // Set maxBounds to the landscape bounds
     map.setMaxBounds(ukBoundsLandscape);
   }
 }
 
-// Include Cluster 0 in totals?
-const COUNT_CLUSTER0_COMPANIES = false; // false = exclude Cluster 0 companies
-const COUNT_CLUSTER0_CLUSTERS  = false; // false = exclude Cluster 0 from unique cluster count
-
-// Map event listeners
-// Hide info box when clicking on the map (outside polygons)
 map.on('click', function (e) {
   var infoBox = document.getElementById('info-box');
-  if (infoBox) {
-    infoBox.classList.add('hidden');
-  }
+  if (infoBox) infoBox.classList.add('hidden');
 });
 
-// Create custom panes
-var displayMode = 'both'; // 'points', 'polygons', or 'both'
+var displayMode = 'both';
 map.createPane('polygonsPane');
-map.getPane('polygonsPane').style.zIndex = 400; // Below markerPane (600)
+map.getPane('polygonsPane').style.zIndex = 400;
 map.createPane('finalAreasBoundaryPane');
 map.getPane('finalAreasBoundaryPane').style.zIndex = 350;
 map.getPane('markerPane').style.zIndex = 600;
-// Ensure popupPane is above other panes
 map.getPane('popupPane').style.zIndex = 700;
-map.createPane('laInspectPane');
-map.getPane('laInspectPane').style.zIndex = 450;
-map.createPane('emp750Pane');
-map.getPane('emp750Pane').style.zIndex = 650; // above normal markerPane (600)
 
 // Global variables
 var csvData;
 var localAuthoritiesLayer;
 var finalAreasLayer;
-var finalAreasBoundaryLayer;   // thin outline version
+var finalAreasBoundaryLayer;
 var finalAreasGeoJSONData;
 var scaleupData;
 var scaleupLayers = {};
@@ -126,37 +86,26 @@ var sectorControl;
 var clusterControl;
 var clusterRegions = {};
 var clusterLayers = {};
-var currentSectors = []; // Array to hold selected sectors
+var currentSectors = [];
 window.selectionOrder = [];
-var currentClusters = []; // Array to hold selected clusters
+var currentClusters = [];
 var polygonVisibility = false;
 var clusterColors = {};
 var sectorColors = {};
 var sectorPolygonLayers = {};
-var clusterSummaryData = {}; // Object to hold summary data for clusters
-var sectorStats = {}; // Object to hold overall statistics per sector
-var polygonToggleControl = null; // Initialize as null
+var clusterSummaryData = {};
+var sectorStats = {};
+var polygonToggleControl = null;
 var allPolygons = [];
 var currentHighlightedPolygon = null;
-var allPolygons = []; // Global array to store all polygons
 var highlightedPolygons = [];
 var magnifyingGlass;
 var universityData = [];
 var infrastructureData = [];
 var supportProgramData = [];
-var companyData = [];        // per-sector filtered data used by the map
-var masterClusterData = [];  // all rows from the new cluster file
-var masterCompanyData = [];
+var companyData = [];
+var masterClusterData = [];
 var companyDetailsByNumber = {};
-var laInspectLayer;
-let laGroupControl = null;
-let laRegionCountControl = null;
-window.companyData = window.companyData || [];
-window.clusterSummaryData = window.clusterSummaryData || {};
-// Track which company IDs actually got rendered as markers in the last draw
-let RENDERED_COMPANY_IDS = new Set();
-
-
 
 // List of company numbers to exclude
 var excludedCompanyNumbers = [
@@ -177,17 +126,17 @@ var layerNames = {
 };
 
 var areaColors = {
-  'Buckinghamshire': '#d0f0c0',                  // Light green
+  'Buckinghamshire': '#d0f0c0',
   'Cambridgeshire and Peterborough': '#a2d9b1',
   'Cheshire and Warrington': '#75c2a3',
   'Cornwall and Isles of Scilly': '#4aab94',
   'Cumbria': '#1d9486',
-  'Devon': '#007d77',                            // Medium teal
+  'Devon': '#007d77',
   'Dorset': '#006e6a',
   'East Midlands CCA': '#005f5e',
   'East Sussex': '#004f51',
-  'Essex': '#003f45',                            // Dark teal
-  'Gloucestershire': '#cce5ff',                  // Light blue
+  'Essex': '#003f45',
+  'Gloucestershire': '#cce5ff',
   'Greater Lincolnshire': '#99ccff',
   'Greater Manchester CA': '#66b2ff',
   'Hampshire area': '#3399ff',
@@ -196,12 +145,12 @@ var areaColors = {
   'Kent': '#0059b3',
   'Lancashire': '#004d99',
   'Leicester and Leicestershire': '#004080',
-  'Liverpool City Region CA': '#003366',         // Dark blue
+  'Liverpool City Region CA': '#003366',
   'London': '#00264d',
   'New Anglia': '#001a33',
   'North East CA': '#00111f',
   'Oxfordshire': '#000d17',
-  'Solent': '#d0f0c0',                           // Repeat colors if needed
+  'Solent': '#d0f0c0',
   'The Marches': '#a2d9b1',
   'Somerset': '#75c2a3',
   'South East Midlands': '#4aab94',
@@ -223,14 +172,12 @@ var areaColors = {
   'Wales': '#003366'
 };
 
-// Define color scales for scaleup data columns
 var scaleupColorScales = {
   'Scaleup density per 100k (2022)': chroma.scale(['#eff3ff', '#084594']).classes(5),
   'Avg growth in scaleup density (2013-2022)': chroma.scale(['#fee5d9', '#a50f15']).classes(5)
 };
 
-// List of sectors and corresponding CSV files
-window.SECTORS = {
+var sectors = {
   'Advanced Manufacturing': 'Adv_man_clusters10.csv',
   'Agritech': 'Agritech_clusters7.csv',
   'Creative Industries': 'Creative_Industries_clusters15.csv',
@@ -239,10 +186,7 @@ window.SECTORS = {
   'Professional Services': 'Prof_Services_clusters25.csv',
   'Technology': 'Techs_clusters35.csv',
   'Telecoms Technology': 'TelecomsTechs_clusters15.csv',
-  'Life Sciences': 'LifeSciences_clusters20.csv',
-
-  // NEW — API-backed sector
-  'Defence': '__API__'
+  'Life Sciences': 'LifeSciences_clusters20.csv'
 };
 
 var summaryStatsFiles = {
@@ -269,607 +213,161 @@ var financialDataFiles = {
   'Telecoms Technology': 'financials_Telecoms.csv'
 };
 
-// Assign colors to sectors
 var sectorColors = {
-  'Advanced Manufacturing': 'rgba(255, 0, 0, 0.5)',    // Red with transparency
-  'Agritech': '#008080',                              // Teal
-  'Creative Industries': '#FF69B4',                   // Bright pink
-  'Fintech': '#800000',                               // Maroon
-  'Life Sciences': '#800080',                         // Purple
-  'Net Zero': '#1646a0',                              // Dark Blue
-  'Clean Tech': '#FFB6C1',                            // Dusky pink
-  'Professional Services': '#008000',                 // Green
-  'Telecoms Technology': '#A9A9A9',                    // Grey
-  'Technology': '#FFA500'                              // Orange
+  'Advanced Manufacturing': 'rgba(255, 0, 0, 0.5)',
+  'Agritech': '#008080',
+  'Creative Industries': '#FF69B4',
+  'Fintech': '#800000',
+  'Life Sciences': '#800080',
+  'Net Zero': '#1646a0',
+  'Clean Tech': '#FFB6C1',
+  'Professional Services': '#008000',
+  'Telecoms Technology': '#A9A9A9',
+  'Technology': '#FFA500'
 };
 
-// Auto-assign a color for any sector that does not have one yet
-function getSectorColor(sectorName) {
-  // If we already have a color, reuse it
-  if (sectorColors[sectorName]) {
-    return sectorColors[sectorName];
-  }
-
-  // Simple deterministic palette based on sector count
-  const palette = chroma.scale('Set2').colors(12);  // or any categorical palette
-  const existingKeys = Object.keys(sectorColors);
-  const idx = existingKeys.length % palette.length;
-
-  const color = palette[idx];
-  sectorColors[sectorName] = color;
-  return color;
-}
-
-// Mapping of internal sector names to display names
-window.sectorDisplayNames = window.sectorDisplayNames || {};
-window.sectorDisplayNames['Telecoms Technology'] = 'Telecoms';
-window.sectorDisplayNames['Defence'] = 'Defence';
-
-var HIGHLIGHT_LA_LIST = [
-  "Belfast City","Lisburn and Castlereagh","Antrim and Newtownabbey",
-  "Ards and North Down","Mid and East Antrim",
-  "Blaenau Gwent","Bridgend","Caerphilly","Cardiff","Merthyr Tydfil",
-  "Monmouthshire","Newport","Rhondda Cynon Taf","Torfaen","Vale of Glamorgan",
-  "East Dunbartonshire","East Renfrewshire","Glasgow City","Inverclyde",
-  "North Lanarkshire","Renfrewshire","South Lanarkshire","West Dunbartonshire",
-  "Bolton","Bury","Manchester","Oldham","Rochdale","Salford","Stockport",
-  "Tameside","Trafford","Wigan",
-  "Halton","Knowsley","Liverpool","Sefton","St Helens","Wirral",
-  "County Durham","Gateshead","Newcastle","North Tyneside","Northumberland",
-  "South Tyneside","Sunderland",
-  "Barnsley","Doncaster","Rotherham","Sheffield",
-  "Bradford","Calderdale","Kirklees","Leeds","Wakefield",
-  "Birmingham","Coventry","Dudley","Sandwell","Solihull","Walsall","Wolverhampton",
-  "Bath and North East Somerset","Bristol","South Gloucestershire",
-  "City of Edinburgh","East Lothian","Fife","Midlothian","Scottish Borders","West Lothian","Angus",
-"Dundee City",
-"Perth and Kinross"
-];
-
-// Master list is still HIGHLIGHT_LA_LIST (all targets)
-var HIGHLIGHT_LA_GROUPS = {
-  'all'              : HIGHLIGHT_LA_LIST,
-  'none'             : [],
-
-  // Northern Ireland
-  'ni'               : ["Belfast City","Lisburn and Castlereagh","Antrim and Newtownabbey","Ards and North Down","Mid and East Antrim"],
-
-  // Wales (SE)
-  'wales-se'         : ["Blaenau Gwent","Bridgend","Caerphilly","Cardiff","Merthyr Tydfil","Monmouthshire","Newport","Rhondda Cynon Taf","Torfaen","Vale of Glamorgan"],
-
-  // Glasgow City Region (Scotland)
-  'glasgow-region'   : ["East Dunbartonshire","East Renfrewshire","Glasgow City","Inverclyde","North Lanarkshire","Renfrewshire","South Lanarkshire","West Dunbartonshire"],
-
-  'edinburgh-city-region': [
-  "City of Edinburgh",
-  "East Lothian",
-  "Fife",
-  "Midlothian",
-  "Scottish Borders",
-  "West Lothian"
-],
-
-'tay-cities': [
-  "Angus",
-  "Dundee City",
-  "Perth and Kinross"
-],
-
-  // Combined Authorities / Regions
-  'greater-manchester': ["Bolton","Bury","Manchester","Oldham","Rochdale","Salford","Stockport","Tameside","Trafford","Wigan"],
-  'lcr'              : ["Halton","Knowsley","Liverpool","Sefton","St Helens","Wirral"],                       // Liverpool City Region
-  'north-east'       : ["County Durham","Gateshead","Newcastle","North Tyneside","Northumberland","South Tyneside","Sunderland"],
-  'south-yorks'      : ["Barnsley","Doncaster","Rotherham","Sheffield"],
-  'west-yorks'       : ["Bradford","Calderdale","Kirklees","Leeds","Wakefield"],
-  'wmca'             : ["Birmingham","Coventry","Dudley","Sandwell","Solihull","Walsall","Wolverhampton"],   // West Midlands CA
-  'woeca'            : ["Bath and North East Somerset","Bristol","South Gloucestershire"],                     // West of England
-  'south-east': [
-  // Buckinghamshire area
-  "Buckinghamshire",
-  "Milton Keynes",
-
-  // Oxfordshire
-  "Oxford",
-  "Cherwell",
-  "West Oxfordshire",
-  "South Oxfordshire",
-  "Vale of White Horse",
-
-  // Berkshire area
-  "West Berkshire",
-  "Reading",
-  "Wokingham",
-  "Bracknell Forest",
-  "Windsor and Maidenhead",
-  "Slough",
-
-  // Hampshire area
-  "Basingstoke and Deane",
-  "East Hampshire",
-  "Eastleigh",
-  "Fareham",
-  "Gosport",
-  "Hart",
-  "Havant",
-  "New Forest",
-  "Rushmoor",
-  "Test Valley",
-  "Winchester",
-  "Portsmouth",
-  "Southampton",
-  "Isle of Wight",
-
-  // Surrey
-  "Elmbridge",
-  "Epsom and Ewell",
-  "Guildford",
-  "Mole Valley",
-  "Reigate and Banstead",
-  "Runnymede",
-  "Spelthorne",
-  "Surrey Heath",
-  "Tandridge",
-  "Waverley",
-  "Woking",
-
-  // Kent
-  "Ashford",
-  "Canterbury",
-  "Dartford",
-  "Dover",
-  "Folkestone and Hythe",
-  "Gravesham",
-  "Maidstone",
-  "Sevenoaks",
-  "Swale",
-  "Thanet",
-  "Tonbridge and Malling",
-  "Tunbridge Wells",
-  "Medway",
-
-  // East Sussex
-  "Eastbourne",
-  "Hastings",
-  "Lewes",
-  "Rother",
-  "Wealden",
-  "Brighton and Hove",
-
-  // West Sussex
-  "Chichester",
-  "Arun",
-  "Worthing",
-  "Adur",
-  "Horsham",
-  "Crawley",
-  "Mid Sussex"
-], 
-
-'cambridgeshire-peterborough': [
-  "Cambridge",
-  "East Cambridgeshire",
-  "Fenland",
-  "Huntingdonshire",
-  "South Cambridgeshire",
-  "Peterborough"
-]
+var sectorDisplayNames = {
+  'Telecoms Technology': 'Telecoms',
 };
 
-HIGHLIGHT_LA_GROUPS.d2n2 = [
-  "High Peak","Derbyshire Dales","Derby","South Derbyshire","Erewash",
-  "Rushcliffe","Nottingham","Broxtowe","Gedling","Ashfield","Amber Valley",
-  "North East Derbyshire","Chesterfield","Bolsover","Mansfield",
-  "Newark and Sherwood","Bassetlaw"
-];
+// ── Helper functions ──────────────────────────────────────────
 
-// 2) Helpers
-function normName(s){
-  return (s || '')
-    .toLowerCase()
-    .replace(/\*/g,'')
-    .replace(/,\s*city of$/,'')   // "Bristol, City of" -> "Bristol"
-    .replace(/^\s*city of\s+/,'') // "City of Bristol"  -> "Bristol"
-    .replace(/\s+city$/,'')
-    .replace(/[^a-z]/g,'');       // remove spaces & punctuation
+function normalizeSectorName(str) {
+  return (str || '').trim().replace(/_/g, ' ');
 }
 
-function buildTargetSet(list){
-  const set = new Set();
-  (list || []).forEach(n => set.add(normName(n))); // safe if list missing
-  return set;
+function parseNumber(value) {
+  if (typeof value === 'string') {
+    value = value.replace(/[^0-9.-]+/g, '');
+  }
+  var parsedValue = parseFloat(value);
+  return isNaN(parsedValue) ? 0 : parsedValue;
 }
 
-// 3) Aliases / normalizations (add more if needed)
-const TARGET_ALIASES = new Map([
-  ['thescottishborders', 'scottishborders'],
-  ['cityofbristol',     'bristol'],
-  ['bristolcityof',     'bristol'],
-  ['newcastleupontyne', 'newcastle']   // treat “Newcastle upon Tyne” as “Newcastle”
-]);
-
-// 4) Active list + lazy getter (works with group toggles)
-let CURRENT_LA_LIST = Array.isArray(HIGHLIGHT_LA_LIST) ? HIGHLIGHT_LA_LIST.slice() : [];
-let TARGET_SET = null;
-
-function setActiveTargetList(list){
-  CURRENT_LA_LIST = Array.isArray(list) ? list.slice() : [];
-  TARGET_SET = null;  // force rebuild next access
+function isFemaleFoundedFlag(value) {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'boolean') return value === true;
+  if (typeof value === 'number') return value === 1;
+  const s = String(value).trim().toLowerCase();
+  return s === '1' || s === 'true' || s === 'yes' || s === 'y';
 }
 
-function getTargetSet(){
-  if (!TARGET_SET) TARGET_SET = buildTargetSet(CURRENT_LA_LIST);
-  return TARGET_SET;
+function formatTurnover(value) {
+  if (typeof value !== 'number' || isNaN(value)) return 'N/A';
+  if (value >= 1e9) return '£' + (value / 1e9).toFixed(1) + 'B';
+  if (value >= 1e6) return '£' + (value / 1e6).toFixed(1) + 'M';
+  if (value >= 1e3) return '£' + (value / 1e3).toFixed(1) + 'K';
+  return '£' + value.toFixed(0);
 }
 
-// 5) Unified checker
-function isTargetLA(nameRaw){
-  const set = getTargetSet();
-  const ns  = normName(nameRaw);
-
-  if (set.has(ns)) return true;
-
-  // direct alias hit
-  const alias = TARGET_ALIASES.get(ns);
-  if (alias && set.has(alias)) return true;
-
-  // permissive: “newcastle upon …” counts for “newcastle”
-  if (ns.startsWith('newcastleupon') && set.has('newcastle')) return true;
-
-  return false;
+function getColor(area) {
+  return areaColors[area] || '#FFFFFF';
 }
 
-let CURRENT_LA_GROUP_KEY = 'all';
+function getClusterColor(clusterId) {
+  var clusterNumber = clusterId.split('_')[1];
+  if (clusterNumber === '0') return '#D3D3D3';
+  return clusterColors[clusterId];
+}
 
-function setLAGroup(key){
-  CURRENT_LA_GROUP_KEY = key || 'all';
+function getScaleupDensityColor(value) {
+  if (value < 40)                    return '#00008B';
+  if (value >= 40 && value < 45)     return '#4169E1';
+  if (value >= 45 && value < 50)     return '#87CEFA';
+  if (value >= 50 && value <= 60)    return '#7FFFD4';
+  if (value > 60)                    return '#006400';
+  return '#FFFFFF';
+}
 
-  const nextList = (HIGHLIGHT_LA_GROUPS[key] !== undefined)
-    ? HIGHLIGHT_LA_GROUPS[key]
-    : HIGHLIGHT_LA_GROUPS.all;
+function getAvgGrowthColor(value) {
+  if (value < 0)                  return '#00008B';
+  if (value >= 0 && value < 1)    return '#87CEFA';
+  if (value >= 1 && value <= 2)   return '#20B2AA';
+  if (value > 2)                  return '#006400';
+  return '#FFFFFF';
+}
 
-  setActiveTargetList(nextList);
-
-  if (typeof laInspectLayer !== 'undefined' && laInspectLayer && typeof laBaseStyle === 'function') {
-    laInspectLayer.setStyle(laBaseStyle);   // live restyle
-  } else if (typeof buildLaInteractLayer === 'function') {
-    buildLaInteractLayer();                 // (re)build if needed
+function getScaleupColor(value, columnName) {
+  if (columnName === 'Scaleup density per 100k (2022)') {
+    return getScaleupDensityColor(value);
+  } else if (columnName === 'Avg growth in scaleup density (2013-2022)') {
+    return getAvgGrowthColor(value);
+  } else {
+    var scale = scaleupColorScales[columnName];
+    if (!scale) { console.error('No color scale found for column:', columnName); return '#FFFFFF'; }
+    var min = getMinValue(columnName);
+    var max = getMaxValue(columnName);
+    if (isNaN(min) || isNaN(max) || min === max) return '#FFFFFF';
+    scale.domain([min, max]);
+    return (typeof value === 'number' && !isNaN(value)) ? scale(value).hex() : '#FFFFFF';
   }
 }
 
-// Build LA polygons for a given list of names
-function getLAFeaturesForList(nameList){
-  if (!localAuthoritiesLayer || !Array.isArray(nameList) || !nameList.length) return [];
-  const want = buildTargetSet(nameList); // uses your normName/buildTargetSet
-  const feats = [];
-
-  localAuthoritiesLayer.eachLayer(l => {
-    const f = l.toGeoJSON();
-    const raw = (f.properties.lad || f.properties.LAD23NM || '').trim();
-    if (!raw) return;
-    if (want.has(normName(raw))) {
-      feats.push({ feature: f, bbox: turf.bbox(f) });
-    }
-  });
-  return feats;
+function getMinValue(columnName) {
+  var values = scaleupData.map(row => row[columnName]).filter(v => typeof v === 'number' && !isNaN(v));
+  return values.length === 0 ? 0 : Math.min(...values);
 }
 
-function pointInBBox(pt, bbox) {
-  const [x, y] = pt;
-  return x >= bbox[0] && x <= bbox[2] && y >= bbox[1] && y <= bbox[3];
+function getMaxValue(columnName) {
+  var values = scaleupData.map(row => row[columnName]).filter(v => typeof v === 'number' && !isNaN(v));
+  return values.length === 0 ? 1 : Math.max(...values);
 }
 
-// Core counter — totals for a region (companies + unique clusters)
-function computeRegionCountsByList(nameList, opts = { perSector: false }) {
-  const polys = getLAFeaturesForList(nameList);
-  if (!polys.length) {
-    console.warn('No polygons found for the provided region list.');
-    return {
-      companies: 0, clusters: 0, perSector: {},
-      overallCompanies: 0, overallClusters: 0, perCluster: []
-    };
+function getContrastColor(hexColor) {
+  hexColor = hexColor.replace('#', '');
+  if (hexColor.length === 3) {
+    hexColor = hexColor.split('').map(h => h + h).join('');
   }
-  if (!Array.isArray(companyData) || companyData.length === 0) {
-    console.warn('No companyData loaded/selected.');
-    return {
-      companies: 0, clusters: 0, perSector: {},
-      overallCompanies: 0, overallClusters: 0, perCluster: []
-    };
+  var r = parseInt(hexColor.substr(0, 2), 16);
+  var g = parseInt(hexColor.substr(2, 2), 16);
+  var b = parseInt(hexColor.substr(4, 2), 16);
+  var luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5 ? '#000000' : '#FFFFFF';
+}
+
+function getSelectedSectors() {
+  return Array.from(
+    document.querySelectorAll('.sector-chip.selected')
+  ).map(chip => chip.dataset.value);
+}
+
+function getAllClusterIds() {
+  return companyData.reduce(function (acc, company) {
+    const cid = company.clusterId;
+    if (!cid) return acc;
+    const clusterNum = String(company.cluster ?? '').trim();
+    if (clusterNum === '0') return acc;
+    if (!acc.includes(cid)) acc.push(cid);
+    return acc;
+  }, []);
+}
+
+function convexHull(points) {
+  if (points.length < 3) return points;
+  points = points.slice().sort(function (a, b) {
+    return a[0] - b[0] || a[1] - b[1];
+  });
+  var lower = [];
+  for (var i = 0; i < points.length; i++) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], points[i]) <= 0) lower.pop();
+    lower.push(points[i]);
   }
-
-  // --- overall (for “out of” totals) ---
-  let overallCompanies = 0;
-  const overallClustersSet = new Set();
-  const overallByCluster   = new Map(); // cid -> { total, sector, clusterNumber, clusterName }
-
-  companyData.forEach(c => {
-    const sid = c.sector || 'Unknown';
-    const clusterNum = (c.cluster != null ? String(c.cluster).trim() : '0');
-    const isC0 = (clusterNum === '0');
-    const cid  = c.clusterId || `${sid}_${clusterNum}`;
-
-    // companies overall
-    if (!isC0 || COUNT_CLUSTER0_COMPANIES) {
-      overallCompanies += 1;
-      const rec = overallByCluster.get(cid) || {
-        total: 0,
-        sector: sid,
-        clusterNumber: clusterNum,
-        clusterName: c.Cluster_name || `Cluster ${clusterNum}`
-      };
-      rec.total += 1;
-      overallByCluster.set(cid, rec);
-    }
-
-    // clusters overall
-    if (!isC0 || COUNT_CLUSTER0_CLUSTERS) {
-      overallClustersSet.add(cid);
-    }
-  });
-
-  // --- in-region tallies ---
-  let companies = 0;
-  const clustersSet = new Set();
-  const perSector = {};
-  const inRegionByCluster = new Map(); // cid -> { inRegion, sector, clusterNumber, clusterName }
-
-  companyData.forEach(c => {
-    const lng = parseFloat(c.Longitude);
-    const lat = parseFloat(c.Latitude);
-    if (!isFinite(lng) || !isFinite(lat)) return;
-
-    const sid = c.sector || 'Unknown';
-    const clusterNum = (c.cluster != null ? String(c.cluster).trim() : '0');
-    const isC0 = (clusterNum === '0');
-    const cid  = c.clusterId || `${sid}_${clusterNum}`;
-    const pt   = [lng, lat];
-
-    // inside ANY polygon of the region?
-    for (let i = 0; i < polys.length; i++) {
-      const { feature, bbox } = polys[i];
-      if (!pointInBBox(pt, bbox)) continue;
-      if (turf.booleanPointInPolygon(pt, feature)) {
-        // companies in region
-        if (!isC0 || COUNT_CLUSTER0_COMPANIES) {
-          companies += 1;
-
-          if (opts.perSector) {
-            const srec = (perSector[sid] = perSector[sid] || { companies: 0, clustersSet: new Set() });
-            srec.companies += 1;
-            if (!isC0 || COUNT_CLUSTER0_CLUSTERS) srec.clustersSet.add(cid);
-          }
-          // per-cluster in-region
-          const crec = inRegionByCluster.get(cid) || {
-            inRegion: 0,
-            sector: sid,
-            clusterNumber: clusterNum,
-            clusterName: c.Cluster_name || `Cluster ${clusterNum}`
-          };
-          crec.inRegion += 1;
-          inRegionByCluster.set(cid, crec);
-        }
-        // clusters in region (unique)
-        if (!isC0 || COUNT_CLUSTER0_CLUSTERS) {
-          clustersSet.add(cid);
-        }
-        break; // stop at first containing polygon
-      }
-    }
-  });
-
-  // finalize per-sector clusters count
-  if (opts.perSector) {
-    Object.values(perSector).forEach(srec => {
-      srec.clusters = srec.clustersSet ? srec.clustersSet.size : 0;
-      delete srec.clustersSet;
-    });
+  var upper = [];
+  for (var i = points.length - 1; i >= 0; i--) {
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], points[i]) <= 0) upper.pop();
+    upper.push(points[i]);
   }
-
-  // build per-cluster array with “in / total”
-  const perCluster = [];
-  inRegionByCluster.forEach((irec, cid) => {
-    const orec = overallByCluster.get(cid) || { total: 0, sector: irec.sector, clusterNumber: irec.clusterNumber, clusterName: irec.clusterName };
-    perCluster.push({
-      clusterId: cid,
-      sector: irec.sector,
-      clusterNumber: irec.clusterNumber,
-      clusterName: irec.clusterName,
-      inRegion: irec.inRegion,
-      total: orec.total
-    });
-  });
-  // sort by in-region desc
-  perCluster.sort((a,b)=> b.inRegion - a.inRegion);
-
-  return {
-    companies,
-    clusters: clustersSet.size,
-    perSector: opts.perSector ? perSector : undefined,
-    overallCompanies,
-    overallClusters: overallClustersSet.size,
-    perCluster
-  };
+  upper.pop();
+  lower.pop();
+  return lower.concat(upper);
 }
 
-// Convenience: count for current group
-function computeCurrentRegionCounts(opts = { perSector: false }) {
-  return computeRegionCountsByList(CURRENT_LA_LIST || [], opts);
+function cross(o, a, b) {
+  return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
 }
 
-// CSV helpers (safe to add even if you already have similar ones)
-function regionCountsToCSV(result, groupLabel = CURRENT_LA_GROUP_KEY) {
-  const rows = [
-    ['Area Group', groupLabel],
-    ['Companies', result.companies],
-    ['Clusters',  result.clusters],
-    [], ['Sector','Companies','Clusters']
-  ];
-  const ps = result.perSector || {};
-  Object.keys(ps).sort().forEach(sector => {
-    rows.push([sector, ps[sector].companies, ps[sector].clusters]);
-  });
-  return rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-}
+// ── Data loading chain ────────────────────────────────────────
 
-function downloadCSV(filename, csvText) {
-  const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-const LaGroupControl = L.Control.extend({
-  onAdd: function(){
-    const wrap = L.DomUtil.create('div','la-group-control');
-    wrap.style.background = '#fff';
-    wrap.style.border = '1px solid #ccc';
-    wrap.style.borderRadius = '4px';
-    wrap.style.padding = '6px';
-    wrap.style.boxShadow = '0 1px 4px rgba(0,0,0,.2)';
-
-    const label = L.DomUtil.create('label','',wrap);
-    label.textContent = 'Area Group';
-    label.style.display='block';
-    label.style.fontSize='12px';
-    label.style.marginBottom='4px';
-
-    const sel = L.DomUtil.create('select','',wrap);
-    sel.style.minWidth = '160px';
-    sel.innerHTML = `
-      <option value="all">All target areas</option>
-      <option value="none">None (no highlight)</option>
-      <option value="greater-manchester">Greater Manchester</option>
-      <option value="lcr">Liverpool City Region</option>
-      <option value="north-east">North East</option>
-      <option value="south-yorks">South Yorkshire</option>
-      <option value="west-yorks">West Yorkshire</option>
-      <option value="wmca">West Midlands CA</option>
-      <option value="woeca">West of England</option>
-      <option value="wales-se">Wales (SE)</option>
-      <option value="glasgow-region">Glasgow City Region</option>
-      <option value="edinburgh-city-region">Edinburgh City Region</option>
-      <option value="ni">Northern Ireland</option>
-      <option value="d2n2">Derbyshire–Nottinghamshire (D2N2)</option>
-      <option value="south-east">South East</option>
-      <option value="tay-cities">Tay Cities</option>
-      <option value="cambridgeshire-peterborough">Cambridgeshire & Peterborough</option>
-    `;
-
-    L.DomEvent.on(sel,'change', (e)=>{
-      setLAGroup(e.target.value);
-      L.DomEvent.stopPropagation(e);
-    });
-    L.DomEvent.disableClickPropagation(wrap); // don't pan map when clicking
-
-    return wrap;
-  }
-});
-
-// Build LA polygons for a given list of names (case/format tolerant)
-function getLAFeaturesForList(nameList){
-  if (!localAuthoritiesLayer || !Array.isArray(nameList) || !nameList.length) return [];
-  const want = buildTargetSet(nameList); // reuse your normName/buildTargetSet
-  const feats = [];
-
-  localAuthoritiesLayer.eachLayer(l => {
-    const f = l.toGeoJSON();
-    const raw = (f.properties.lad || f.properties.LAD23NM || '').trim();
-    if (!raw) return;
-    if (want.has(normName(raw))) {
-      feats.push({ feature: f, bbox: turf.bbox(f) });
-    }
-  });
-  return feats;
-}
-
-function pointInBBox(pt, bbox) {
-  const [x, y] = pt;
-  return x >= bbox[0] && x <= bbox[2] && y >= bbox[1] && y <= bbox[3];
-}
-
-function hasCoords(c){
-  const lat = parseFloat(c.Latitude), lng = parseFloat(c.Longitude);
-  return Number.isFinite(lat) && Number.isFinite(lng);
-}
-function isCluster0(c){
-  const n = (c.cluster != null ? String(c.cluster).trim() : '0');
-  return n === '0';
-}
-function includeCompany(c){
-  if (!hasCoords(c)) return false; // can’t render without coords
-  const id = String(c.Companynumber).trim();
-  if (excludedCompanyNumbers && excludedCompanyNumbers.includes(id)) return false;
-  // NOTE: we are intentionally NOT excluding Cluster 0 here,
-  // because you asked to first find non-C0 + non-excluded that are missing.
-  return true;
-}
-
-// Audit which eligible companies are NOT showing as markers—and WHY
-function auditRenderedCompanies(opts = { respectDisplayMode: true }) {
-  if (!Array.isArray(companyData) || companyData.length === 0) {
-    console.warn('auditRenderedCompanies: no companyData loaded yet.');
-    return;
-  }
-
-  const pointsEnabled = (displayMode === 'points' || displayMode === 'both');
-  const selectedSectors  = new Set(currentSectors || []);
-  const selectedClusters = new Set(currentClusters || []);
-
-  const issues = []; // rows we’ll report
-  const tally  = {}; // reason -> count
-
-  function add(reason, c){
-    tally[reason] = (tally[reason] || 0) + 1;
-    issues.push({
-      reason,
-      id: String(c.Companynumber).trim(),
-      name: c.Companyname || '',
-      sector: c.sector || '',
-      cluster: c.cluster,
-      clusterId: c.clusterId,
-      lat: c.Latitude, lng: c.Longitude
-    });
-  }
-
-  companyData.forEach(c => {
-    // Only look at companies we *could* render (coords present, not excluded)
-    if (!includeCompany(c)) return;
-
-    // Skip Cluster 0 for this audit? -> No; you said “first figure out non-C0”
-    if (isCluster0(c)) return;
-
-    // Sector must be selected
-    if (!selectedSectors.has(c.sector)) { add('sector-not-selected', c); return; }
-
-    // Cluster must be checked in the right panel
-    if (!selectedClusters.has(c.clusterId)) { add('cluster-unchecked', c); return; }
-
-    // If points are visually off, that explains it
-    if (opts.respectDisplayMode && !pointsEnabled) { add('points-disabled-by-displayMode', c); return; }
-
-    // At this point we expect a marker; did we record it?
-    const id = String(c.Companynumber).trim();
-    if (!RENDERED_COMPANY_IDS.has(id)) {
-      // Marker not created or not added to map
-      add('marker-not-created', c);
-      return;
-    }
-  });
-
-  // Summary in console
-  console.group('Audit: eligible companies missing on map');
-  console.table(issues);
-  console.log('Summary by reason:', tally);
-  console.log('Total missing:', issues.length);
-  console.groupEnd();
-
-  return { issues, tally };
-}
-
-// Initialize the application by loading LAD data
 Papa.parse('data/lad_data.csv', {
   download: true,
   header: true,
@@ -887,9 +385,7 @@ Papa.parse('data/lad_data.csv', {
 function loadLocalAuthoritiesLayer() {
   fetch('data/uk-regions.geojson')
     .then(response => response.json())
-    .then(geojsonData => {
-      mergeData(geojsonData);
-    })
+    .then(geojsonData => { mergeData(geojsonData); })
     .catch(error => console.error('Error loading GeoJSON:', error));
 }
 
@@ -898,9 +394,7 @@ function mergeData(geojsonData) {
   csvData.forEach(function (row) {
     var ladCode = row.LAD23CD ? row.LAD23CD.trim().toUpperCase() : null;
     if (ladCode) {
-      if (row['Final area']) {
-        row['Final area'] = row['Final area'].trim();
-      }
+      if (row['Final area']) row['Final area'] = row['Final area'].trim();
       csvDataLookup[ladCode] = row;
     } else {
       console.warn('Missing LAD23CD in CSV row:', row);
@@ -908,18 +402,17 @@ function mergeData(geojsonData) {
   });
 
   var unknownLADCount = 0;
-
   geojsonData.features.forEach(function (feature) {
     var ladCode = feature.properties.LAD23CD ? feature.properties.LAD23CD.trim().toUpperCase() : null;
     if (ladCode && csvDataLookup[ladCode]) {
       feature.properties = {
         ...feature.properties,
         ...csvDataLookup[ladCode],
-        lad: csvDataLookup[ladCode].lad || feature.properties.LAD23NM || ladCode // Ensure 'lad' property is set
+        lad: csvDataLookup[ladCode].lad || feature.properties.LAD23NM || ladCode
       };
     } else {
       console.warn(`No matching CSV data for LAD code: ${ladCode}`);
-      feature.properties.lad = feature.properties.LAD23NM || 'Unknown'; // Assign a default 'lad' value
+      feature.properties.lad = feature.properties.LAD23NM || 'Unknown';
       unknownLADCount++;
     }
   });
@@ -932,122 +425,28 @@ function mergeData(geojsonData) {
     onEachFeature: onEachLocalAuthorityFeature
   });
 
-  // Build the interactive LA overlay (hover/label styling)
-  buildLaInteractLayer();
-
-  // Put controls on the map (once)
-  if (!laGroupControl) {
-    laGroupControl = new LaGroupControl({ position: 'topleft' }).addTo(map);
-  }
-  if (!laRegionCountControl) {
-    laRegionCountControl = new LaRegionCountControl({ position:'topleft' }).addTo(map);
-  }
-
-  // Pick a default group (or preserve current)
-  setLAGroup(CURRENT_LA_GROUP_KEY || 'all');
-
-  // Continue with your existing flow
   loadFinalAreasLayer();
 }
 
-function laBaseStyle(feature) {
-  const nameRaw = (feature.properties.lad || feature.properties.LAD23NM || '').trim();
-  const target  = isTargetLA(nameRaw);
-
-  return target ? {
-    pane: 'laInspectPane',
-    color: '#000000',          // was blue → now black
-    weight: 2.2,
-    fillColor: '#007BFF',      // keep your blue fill
-    fillOpacity: 0.5          // was ~0.22 → a little stronger
-  } : {
-    pane: 'laInspectPane',
-    color: '#999999',
-    weight: 0.9,
-    fillColor: '#f6f8ff',
-    fillOpacity: 0.14          // was ~0.10 → a little stronger wash
-  };
-}
-
-function buildLaInteractLayer() {
-  if (!localAuthoritiesLayer) return;
-
-  // Build from the already-merged LA layer
-  const laFC = localAuthoritiesLayer.toGeoJSON();
-
-  // Remove any previous instance
-  if (laInspectLayer && map.hasLayer(laInspectLayer)) {
-    map.removeLayer(laInspectLayer);
-  }
-
-  laInspectLayer = L.geoJSON(laFC, {
-    pane: 'laInspectPane',
-    interactive: true,
-    style: laBaseStyle,
-    onEachFeature: function (feature, layer) {
-      const name = (feature.properties.lad || feature.properties.LAD23NM || 'Unknown').trim();
-
-      // Tooltip under the cursor
-      layer.bindTooltip(name, {
-        sticky: true,
-        direction: 'bottom',
-        offset: L.point(0, 18),
-        className: 'la-tooltip',
-        opacity: 0.95
-      });
-
-      // Hover highlight (thicker/darker)
-      layer.on({
-        mouseover: e => {
-          const name = (e.target.feature.properties.lad || e.target.feature.properties.LAD23NM || '').trim();
-          const target = isTargetLA(name);
-
-          e.target.setStyle(target ? {
-            color: '#0056d6',
-            weight: 3,
-            fillColor: '#007BFF',
-            fillOpacity: 0.30
-          } : {
-            color: '#777',
-            weight: 1.5,
-            fillColor: '#eef2ff',
-            fillOpacity: 0.18
-          });
-          e.target.bringToFront();
-        },
-        mouseout: e => laInspectLayer.resetStyle(e.target)
-      });
-    }
-  }).addTo(map);
-}
-
-// Hide LA tooltips while any popup is open (keeps things uncluttered)
-map.on('popupopen', () => {
-  if (laInspectLayer) laInspectLayer.eachLayer(l => l.closeTooltip());
-});
-
-function loadFinalAreasLayer () {
+function loadFinalAreasLayer() {
   fetch('data/final_areas.geojson')
-    .then(r  => r.json())
+    .then(r => r.json())
     .then(gj => {
-      finalAreasGeoJSONData = gj;          // store it
-      buildFaLookup();                     // ← build name→feature map NOW
-      loadScaleupData();                   // continue normal flow
+      finalAreasGeoJSONData = gj;
+      buildFaLookup();
+      loadScaleupData();
     })
     .catch(err => console.error('Error loading Final Areas GeoJSON:', err));
 }
 
-/* ---------- build the lookup only after geojson is ready ---------- */
-let faNameToFeature = {};                  // global
+let faNameToFeature = {};
 let finalAreaNames  = [];
 
-function buildFaLookup () {
+function buildFaLookup() {
   faNameToFeature = {};
   finalAreaNames  = [];
-
   finalAreasGeoJSONData.features.forEach(f => {
-    const name = (f.properties['Final area'] || '')
-                   .trim();
+    const name = (f.properties['Final area'] || '').trim();
     if (name) {
       faNameToFeature[name.toUpperCase()] = f;
       finalAreaNames.push(name);
@@ -1056,53 +455,19 @@ function buildFaLookup () {
   finalAreaNames.sort();
 }
 
-function zoomToFinalArea(nameRaw){
+function zoomToFinalArea(nameRaw) {
   const name = nameRaw.trim().toUpperCase();
   const feat = faNameToFeature[name];
-  if(!feat){ alert('Final Area not found'); return; }
-
+  if (!feat) { alert('Final Area not found'); return; }
   const layer = L.geoJSON(feat);
-  const bounds = layer.getBounds();
-  map.fitBounds(bounds.pad(0.2));
-
-  // temporary highlight overlay
-  const flash = L.geoJSON(feat,{
-    pane:'polygonsPane',
-    style:{color:'#007BFF',weight:3,fillOpacity:0},
-    interactive:false
+  map.fitBounds(layer.getBounds().pad(0.2));
+  const flash = L.geoJSON(feat, {
+    pane: 'polygonsPane',
+    style: { color: '#007BFF', weight: 3, fillOpacity: 0 },
+    interactive: false
   }).addTo(map);
-
-  setTimeout(()=>map.removeLayer(flash), 2000);
+  setTimeout(() => map.removeLayer(flash), 2000);
 }
-
-Papa.parse('data/company_stats_with_financials.csv', {   // <-- change this path/name
-  download: true,
-  header: true,
-  dynamicTyping: true,
-  skipEmptyLines: true,
-  complete: function (results) {
-    console.log('Raw parsed rows from master CSV:', results.data.length);
-
-    masterClusterData = results.data.filter(function (row) {
-      // Be defensive about column names
-      const compNum = row.CompanyNumber || row.Companynumber || row.companynumber;
-      const lat     = row.Latitude;
-      const lng     = row.Longitude;
-
-      return compNum && lat && lng;
-    });
-
-    console.log('Filtered masterClusterData rows:', masterClusterData.length);
-    console.log('Sample row:', masterClusterData[0]);
-
-    // Now that data is ready AND the DOM should be loaded, build the chips
-    populateSectorCheckboxes();
-  },
-  error: function (err) {
-    console.error('❌ Error parsing master cluster CSV:', err);
-  }
-});
-
 
 function loadScaleupData() {
   Papa.parse('data/scaleup_data.csv', {
@@ -1124,7 +489,6 @@ function loadScaleupData() {
 function processScaleupData() {
   try {
     var scaleupDataLookup = {};
-
     scaleupData.forEach(function (row) {
       var areaName = row['LOCAL AREA'] ? row['LOCAL AREA'].trim() : null;
       if (areaName) {
@@ -1133,30 +497,20 @@ function processScaleupData() {
           if (typeof value === 'string') {
             value = value.replace(/[^0-9.-]+/g, '');
             value = parseFloat(value);
-            if (isNaN(value)) {
-              console.warn('Invalid number in scaleup data for area', areaName, 'column', columnName, 'value:', row[columnName]);
-              value = null;
-            }
+            if (isNaN(value)) { value = null; }
             row[columnName] = value;
           } else if (typeof value !== 'number') {
             row[columnName] = null;
           }
         });
         scaleupDataLookup[areaName] = row;
-      } else {
-        console.warn('Missing LOCAL AREA in scaleup data row:', row);
       }
     });
 
     finalAreasGeoJSONData.features.forEach(function (feature) {
       var areaName = feature.properties['Final area'];
       if (areaName && scaleupDataLookup[areaName]) {
-        feature.properties = {
-          ...feature.properties,
-          ...scaleupDataLookup[areaName]
-        };
-      } else {
-        console.warn(`No matching scaleup data for area: ${areaName}`);
+        feature.properties = { ...feature.properties, ...scaleupDataLookup[areaName] };
       }
     });
 
@@ -1166,48 +520,31 @@ function processScaleupData() {
       onEachFeature: onEachFinalAreaFeature
     });
 
-    // ---------- build once‑only thin‑outline layer ----------
     if (!finalAreasBoundaryLayer) {
       finalAreasBoundaryLayer = L.geoJSON(finalAreasGeoJSONData, {
-        pane: 'finalAreasBoundaryPane',   // the low‑z‑index pane you created
-        keyboard: false,          // ← no focus outline
+        pane: 'finalAreasBoundaryPane',
+        keyboard: false,
         style: {
           className: 'final-area-boundary',
           color: '#000',
           weight: 1.2,
-          fillOpacity: 0        // hollow
+          fillOpacity: 0
         },
         interactive: true,
         onEachFeature: function (feature, layer) {
-        // 1) tooltip with Final‑Area name
-        layer.bindTooltip(
-          feature.properties['Final area'] || 'Unnamed',
-          {
-            sticky: true,
-            direction: 'bottom',
-            offset: L.point(0, 25),     // ← 25 px below the cursor
-            className: 'final-area-tooltip',
-            opacity: 0.95
-          }
-        );
-
-        // 2) hover style
-        layer.on({
-          mouseover: e => {
-            e.target.setStyle({ color:'#007BFF', weight:3 });
-            // ensure above other panes while hovered
-            e.target.bringToFront();
-          },
-          mouseout: e => {
-            finalAreasBoundaryLayer.resetStyle(e.target);
-          }
-        });
-      }
+          layer.bindTooltip(
+            feature.properties['Final area'] || 'Unnamed',
+            { sticky: true, direction: 'bottom', offset: L.point(0, 25), className: 'final-area-tooltip', opacity: 0.95 }
+          );
+          layer.on({
+            mouseover: e => { e.target.setStyle({ color: '#007BFF', weight: 3 }); e.target.bringToFront(); },
+            mouseout:  e => { finalAreasBoundaryLayer.resetStyle(e.target); }
+          });
+        }
       });
     }
 
     createScaleupLayers();
-
   } catch (error) {
     console.error('Error processing scaleup data:', error);
   } finally {
@@ -1215,11 +552,8 @@ function processScaleupData() {
   }
 }
 
-// hide all Final‑Area tooltips while any map popup is open
 map.on('popupopen', () => {
-  if (finalAreasBoundaryLayer) {
-    finalAreasBoundaryLayer.eachLayer(l => l.closeTooltip());
-  }
+  if (finalAreasBoundaryLayer) finalAreasBoundaryLayer.eachLayer(l => l.closeTooltip());
 });
 
 function loadClusterRegions(callback) {
@@ -1229,33 +563,21 @@ function loadClusterRegions(callback) {
     skipEmptyLines: true,
     complete: function (results) {
       var data = results.data;
-      if (!data.length) {
-        console.warn('cluster_regions.csv is empty');
-        callback();
-        return;
-      }
+      if (!data.length) { console.warn('cluster_regions.csv is empty'); callback(); return; }
 
-      // Treat all columns except "CLUSTER No" as sector names
       var firstRow = data[0];
-      var sectorColumns = Object.keys(firstRow).filter(function (col) {
-        return col && col !== 'CLUSTER No';
-      });
+      var sectorColumns = Object.keys(firstRow).filter(col => col && col !== 'CLUSTER No');
 
       data.forEach(function (row) {
         var clusterNo = row['CLUSTER No'];
         if (!clusterNo) return;
-
         sectorColumns.forEach(function (sectorName) {
           var region = row[sectorName];
           if (!region) return;
-
-          if (!clusterRegions[sectorName]) {
-            clusterRegions[sectorName] = {};
-          }
+          if (!clusterRegions[sectorName]) clusterRegions[sectorName] = {};
           clusterRegions[sectorName][clusterNo] = region;
         });
       });
-
       callback();
     },
     error: function (error) {
@@ -1265,31 +587,28 @@ function loadClusterRegions(callback) {
   });
 }
 
+// ── initSectorsFromMaster ─────────────────────────────────────
+// Must be defined before loadMasterClusters() is called.
+
 function initSectorsFromMaster() {
   if (!masterClusterData || !masterClusterData.length) {
     console.warn('masterClusterData is empty – cannot init sectors');
     return;
   }
 
-  // 1) Get unique *normalised* sector names
   const uniqueSectors = Array.from(
     new Set(
       masterClusterData
-        .map(row => normalizeSectorName(row.Sector))
+        .map(row => (row.Sector || '').trim().replace(/_/g, ' '))
         .filter(Boolean)
     )
   ).sort();
 
-  // 2) Overwrite the old sectors object (no file paths now)
   sectors = {};
-  uniqueSectors.forEach(name => {
-    sectors[name] = true;
-  });
+  uniqueSectors.forEach(name => { sectors[name] = true; });
 
-  // 3) Generate fresh colours for ALL these sectors
   sectorColors = {};
   const palette = chroma.scale('Set2').colors(uniqueSectors.length || 1);
-
   uniqueSectors.forEach((name, idx) => {
     sectorColors[name] = palette[idx % palette.length];
   });
@@ -1297,433 +616,199 @@ function initSectorsFromMaster() {
   console.log('Sectors initialised from master file:', uniqueSectors);
   console.log('Sector colours:', sectorColors);
 
-  // 4) Rebuild chips using the nice names ("Advanced Manufacturing", etc.)
-  populateSectorCheckboxes();
+  populateSectorCheckboxes(uniqueSectors);
 }
 
-function initSectorChipsFromMaster() {
-  if (!masterClusterData.length) {
-    console.warn('No rows in masterClusterData – sector chips not initialised.');
-    return;
-  }
+// ── loadMasterClusters ────────────────────────────────────────
 
-  // unique Sector values, cleaned
-  var sectorSet = new Set();
-  masterClusterData.forEach(function (row) {
-    if (selectedSector === sectorsList[0] && companyData.length === 0) {
-      console.log('Raw row keys from masterClusterData:', Object.keys(row));
-      console.log(
-        'Keys containing "emp":',
-        Object.keys(row).filter(k => k.toLowerCase().includes('emp'))
-      );
-      console.log('Sample Emp field values:', {
-        Emp_750_v1: row.Emp_750_v1,
-        Emp_750_v2: row.Emp_750_v2,
-        Emp_750_v3: row.Emp_750_v3,
-        exactKeys: Object.fromEntries(
-          Object.entries(row).filter(([k]) => k.toLowerCase().includes('emp'))
-        )
+function loadMasterClusters() {
+  Papa.parse('data/cluster_points_final.csv', {
+    download: true,
+    header: true,
+    dynamicTyping: true,
+    skipEmptyLines: true,
+    complete: function (results) {
+      masterClusterData = results.data.filter(function (row) {
+        return row.Companynumber && row.Sector != null;
       });
-    }
-    if (row.Sector) sectorSet.add(row.Sector);
-  });
 
-  var sectorsList = Array.from(sectorSet).sort();
-  populateSectorCheckboxes(sectorsList);
+      masterClusterData.forEach(function (row) {
+        row.Latitude      = row.Latitude  != null ? parseFloat(row.Latitude)  : NaN;
+        row.Longitude     = row.Longitude != null ? parseFloat(row.Longitude) : NaN;
+        row.cluster       = row.cluster   != null ? row.cluster.toString()    : '0';
+        row.Sector        = (row.Sector   || '').trim();
+        row.Companynumber = row.Companynumber.toString().trim();
+        row.Companyname   = row.Companyname || 'Unknown';
+      });
+
+      console.log('Loaded master clusters:', masterClusterData.length);
+      initSectorsFromMaster();
+    },
+    error: function (err) {
+      console.error('Error parsing master clusters CSV:', err);
+    }
+  });
 }
 
-// Load University Data
+loadMasterClusters();
+
+// ── Other data loads ──────────────────────────────────────────
+
 Papa.parse('data/university_data.csv', {
   header: true,
   download: true,
   dynamicTyping: true,
-  complete: function(results) {
+  complete: function (results) {
     universityData = results.data;
     console.log('University data loaded:', universityData);
-
-    // Remove the code that checks `show-universities` here.
-    // The layers will be handled by updateOverlays() now.
   }
 });
-
-function populateInfrastructureLayer(data) {
-  infrastructureData = data;
-}
 
 Papa.parse('data/Infrastructure_data.csv', {
   download: true,
   header: true,
   dynamicTyping: true,
   skipEmptyLines: true,
-  complete: function(results) {
-    populateInfrastructureLayer(results.data);
-  },
-  error: function(error) {
-    console.error('Error parsing business parks CSV:', error);
-  }
+  complete: function (results) { infrastructureData = results.data; },
+  error: function (error) { console.error('Error parsing infrastructure CSV:', error); }
 });
 
-function populateSupportProgramLayer(data) {
-  supportProgramData = data;
-}
-
-// Load Support Program data
 Papa.parse('data/support_program.csv', {
   download: true,
   header: true,
   dynamicTyping: true,
   skipEmptyLines: true,
-  complete: function(results) {
-    populateSupportProgramLayer(results.data);
-  },
-  error: function(err) {
-    console.error('Error parsing Support Program CSV:', err);
-  }
+  complete: function (results) { supportProgramData = results.data; },
+  error: function (err) { console.error('Error parsing Support Program CSV:', err); }
 });
 
+Papa.parse('data/company_stats_with_financials.csv', {
+  download: true,
+  header: true,
+  dynamicTyping: true,
+  skipEmptyLines: true,
+  complete: function (results) {
+    companyDetailsByNumber = {};
+    results.data.forEach(function (row) {
+      var num = row.CompanyNumber ? row.CompanyNumber.toString().trim() : null;
+      if (!num) return;
+      companyDetailsByNumber[num] = row;
+    });
+    console.log('Company details loaded:', Object.keys(companyDetailsByNumber).length, 'records');
+  },
+  error: function (err) { console.error('Error parsing company details CSV:', err); }
+});
+
+// ── Map setup ─────────────────────────────────────────────────
+
 function finalizeMapSetup() {
-  console.log('finalizeMapSetup called'); // Debugging log
+  console.log('finalizeMapSetup called');
   updateSearchControl('');
-  updateLegend(''); // Initialize the search control
+  updateLegend('');
   addLegend();
 }
 
-// Updated snippet: Define the sector stats panel and map controls, then toggle them in sync
 document.querySelectorAll('#layer-selection input[type=checkbox]').forEach(function (checkbox) {
   checkbox.addEventListener('change', function () {
-    // Define references for the panel and controls (so we can toggle them)
-    const panel = document.getElementById('sector-stats-panel');
+    const panel    = document.getElementById('sector-stats-panel');
     const controls = document.querySelector('.leaflet-control-container');
 
     var sectorCheckboxes = document.querySelectorAll('.sector-checkbox');
     if (this.checked) {
-      // Deselect and uncheck all sectors
       sectorCheckboxes.forEach(function (sectorCheckbox) {
-        if (sectorCheckbox.checked) {
-          sectorCheckbox.checked = false;
-        }
+        if (sectorCheckbox.checked) sectorCheckbox.checked = false;
       });
       currentSectors = [];
       removeClusterLayers();
       document.getElementById('overall-stats-button').style.display = 'none';
 
-      // Toggle the panel and controls, so they slide if needed
       panel.classList.toggle('show');
       controls.classList.toggle('controls-shift-right');
 
-      // Add the selected map layer
       switch (this.id) {
-        case 'local-authorities':
-          map.addLayer(localAuthoritiesLayer);
-          break;
-        case 'final-areas':
-          /* highlight WMCA, wash out others */
-          map.addLayer(finalAreasLayer);
-          break;
-        case 'scaleup-density':
-          map.addLayer(scaleupLayers['Scaleup density per 100k (2022)']);
-          break;
-        case 'avg-growth':
-          map.addLayer(scaleupLayers['Avg growth in scaleup density (2013-2022)']);
-          break;
-        default:
-          console.warn('Unknown layer:', this.id);
+        case 'local-authorities': map.addLayer(localAuthoritiesLayer); break;
+        case 'final-areas':       map.addLayer(finalAreasLayer);       break;
+        case 'scaleup-density':   map.addLayer(scaleupLayers['Scaleup density per 100k (2022)']); break;
+        case 'avg-growth':        map.addLayer(scaleupLayers['Avg growth in scaleup density (2013-2022)']); break;
+        default: console.warn('Unknown layer:', this.id);
       }
 
-      // Uncheck other map layers
       document.querySelectorAll('#layer-selection input[type=checkbox]').forEach(function (cb) {
         if (cb !== checkbox && cb.checked) {
           cb.checked = false;
-          // Remove their layers from the map
           switch (cb.id) {
-            case 'local-authorities':
-              if (map.hasLayer(localAuthoritiesLayer)) {
-                map.removeLayer(localAuthoritiesLayer);
-              }
-              break;
-            case 'final-areas':
-                 if (map.hasLayer(finalAreasBoundaryLayer)) {
-                   map.removeLayer(finalAreasBoundaryLayer);
-                 }
-              break;
-            case 'scaleup-density':
-              if (map.hasLayer(scaleupLayers['Scaleup density per 100k (2022)'])) {
-                map.removeLayer(scaleupLayers['Scaleup density per 100k (2022)']);
-              }
-              break;
-            case 'avg-growth':
-              if (map.hasLayer(scaleupLayers['Avg growth in scaleup density (2013-2022)'])) {
-                map.removeLayer(scaleupLayers['Avg growth in scaleup density (2013-2022)']);
-              }
-              break;
-            default:
-              console.warn('Unknown layer:', cb.id);
+            case 'local-authorities': if (map.hasLayer(localAuthoritiesLayer)) map.removeLayer(localAuthoritiesLayer); break;
+            case 'final-areas':       if (map.hasLayer(finalAreasBoundaryLayer)) map.removeLayer(finalAreasBoundaryLayer); break;
+            case 'scaleup-density':   if (map.hasLayer(scaleupLayers['Scaleup density per 100k (2022)'])) map.removeLayer(scaleupLayers['Scaleup density per 100k (2022)']); break;
+            case 'avg-growth':        if (map.hasLayer(scaleupLayers['Avg growth in scaleup density (2013-2022)'])) map.removeLayer(scaleupLayers['Avg growth in scaleup density (2013-2022)']); break;
+            default: console.warn('Unknown layer:', cb.id);
           }
         }
       });
 
-      // Update the legend and search control
       var layerName = layerNames[this.id];
       updateLegend(layerName);
       updateSearchControl(layerName);
     } else {
-      // Layer is unchecked
       switch (this.id) {
-        case 'local-authorities':
-          if (map.hasLayer(localAuthoritiesLayer)) {
-            map.removeLayer(localAuthoritiesLayer);
-          }
-          break;
-        case 'final-areas':
-          if (map.hasLayer(finalAreasLayer)) {
-            map.removeLayer(finalAreasLayer);
-          }
-          break;
-        case 'scaleup-density':
-          if (map.hasLayer(scaleupLayers['Scaleup density per 100k (2022)'])) {
-            map.removeLayer(scaleupLayers['Scaleup density per 100k (2022)']);
-          }
-          break;
-        case 'avg-growth':
-          if (map.hasLayer(scaleupLayers['Avg growth in scaleup density (2013-2022)'])) {
-            map.removeLayer(scaleupLayers['Avg growth in scaleup density (2013-2022)']);
-          }
-          break;
-        default:
-          console.warn('Unknown layer:', this.id);
+        case 'local-authorities': if (map.hasLayer(localAuthoritiesLayer)) map.removeLayer(localAuthoritiesLayer); break;
+        case 'final-areas':       if (map.hasLayer(finalAreasLayer))       map.removeLayer(finalAreasLayer);       break;
+        case 'scaleup-density':   if (map.hasLayer(scaleupLayers['Scaleup density per 100k (2022)'])) map.removeLayer(scaleupLayers['Scaleup density per 100k (2022)']); break;
+        case 'avg-growth':        if (map.hasLayer(scaleupLayers['Avg growth in scaleup density (2013-2022)'])) map.removeLayer(scaleupLayers['Avg growth in scaleup density (2013-2022)']); break;
+        default: console.warn('Unknown layer:', this.id);
       }
-
-      // Hide the legend and search control
       updateLegend('');
       updateSearchControl('');
     }
 
-    // After handling layer selection, check if no sectors are chosen
     if (currentSectors.length === 0) {
-      // Remove any university or infrastructure markers
-      if (map.hasLayer(universityLayer)) {
-        map.removeLayer(universityLayer);
-      }
-      if (map.hasLayer(infrastructureLayer)) {
-        map.removeLayer(infrastructureLayer);
-      }
-
-      // Set the overlay dropdown to 'none'
+      if (map.hasLayer(universityLayer))     map.removeLayer(universityLayer);
+      if (map.hasLayer(infrastructureLayer)) map.removeLayer(infrastructureLayer);
       var overlaySelect = document.getElementById('overlay-select');
-      if (overlaySelect) {
-        overlaySelect.value = 'none';
-      }
-
+      if (overlaySelect) overlaySelect.value = 'none';
       hideSectorStats();
-
     }
 
-    // Close any open popups
     map.closePopup();
   });
 });
 
+// ── Style functions ───────────────────────────────────────────
+
 function localAuthoritiesStyle(feature) {
-  return {
-    fillColor: getColor(feature.properties['Final area']),
-    weight: 0.5,
-    color: '#333',
-    fillOpacity: 0.8,
-    interactive: true
-  };
+  return { fillColor: getColor(feature.properties['Final area']), weight: 0.5, color: '#333', fillOpacity: 0.8, interactive: true };
 }
 
 function finalAreasStyle(feature) {
-  return {
-    fillColor: getColor(feature.properties['Final area']),
-    weight: 1,
-    color: '#000',
-    fillOpacity: 0.7,
-    interactive: true
-  };
+  return { fillColor: getColor(feature.properties['Final area']), weight: 1, color: '#000', fillOpacity: 0.7, interactive: true };
 }
 
-function getColor(area) {
-  return areaColors[area] || '#FFFFFF';
-}
-
-function getClusterColor(clusterId) {
-  var clusterNumber = clusterId.split('_')[1];
-  if (clusterNumber === '0') {
-    return '#D3D3D3'; // Light grey for Cluster 0
-  }
-  return clusterColors[clusterId];
-}
-
-function getScaleupDensityColor(value) {
-  if (value < 40) {
-    return '#00008B';
-  } else if (value >= 40 && value < 45) {
-    return '#4169E1';
-  } else if (value >= 45 && value < 50) {
-    return '#87CEFA';
-  } else if (value >= 50 && value <= 60) {
-    return '#7FFFD4';
-  } else if (value > 60) {
-    return '#006400';
-  } else {
-    return '#FFFFFF';
-  }
-}
-
-function getAvgGrowthColor(value) {
-  if (value < 0) {
-    return '#00008B'; // Dark blue
-  } else if (value >= 0 && value < 1) {
-    return '#87CEFA'; // Light blue
-  } else if (value >= 1 && value <= 2) {
-    return '#20B2AA'; // Light blue-green (teal)
-  } else if (value > 2) {
-    return '#006400'; // Dark green
-  } else {
-    return '#FFFFFF'; // Default color for invalid or missing data
-  }
-}
-
-function getScaleupColor(value, columnName) {
-  if (columnName === 'Scaleup density per 100k (2022)') {
-    return getScaleupDensityColor(value);
-  } else if (columnName === 'Avg growth in scaleup density (2013-2022)') {
-    return getAvgGrowthColor(value);
-  } else {
-    var scale = scaleupColorScales[columnName];
-    if (!scale) {
-      console.error('No color scale found for column:', columnName);
-      return '#FFFFFF';
-    }
-
-    var min = getMinValue(columnName);
-    var max = getMaxValue(columnName);
-
-    if (isNaN(min) || isNaN(max) || min === max) {
-      console.error('Invalid min or max value for column:', columnName, 'Min:', min, 'Max:', max);
-      return '#FFFFFF';
-    }
-
-    scale.domain([min, max]);
-
-    if (typeof value === 'number' && !isNaN(value)) {
-      return scale(value).hex();
-    } else {
-      return '#FFFFFF';
-    }
-  }
-}
-
-function getMinValue(columnName) {
-  var values = scaleupData.map(row => row[columnName]).filter(v => typeof v === 'number' && !isNaN(v));
-  if (values.length === 0) {
-    console.error('No valid numeric values found for column:', columnName);
-    return 0;
-  }
-  return Math.min(...values);
-}
-
-function getMaxValue(columnName) {
-  var values = scaleupData.map(row => row[columnName]).filter(v => typeof v === 'number' && !isNaN(v));
-  if (values.length === 0) {
-    console.error('No valid numeric values found for column:', columnName);
-    return 1;
-  }
-  return Math.max(...values);
-}
-
-function onEachLocalAuthorityFeature(feature, layer) {
-  var props = feature.properties;
-
-  layer.layerSource = 'Local Authorities';
-
-  var popupContent = `
-    <div class="popup-content">
-      <h3>${props.lad || props.LAD23NM}</h3>
-      <p><strong>Final Area:</strong> ${props['Final area'] || 'N/A'}</p>
-    </div>
-  `;
-
-  layer.bindPopup(popupContent);
-
-  layer.on({
-    mouseover: highlightFeature,
-    mouseout: resetHighlight,
-    click: zoomToFeature
-  });
-}
-
-function onEachFinalAreaFeature(feature, layer) {
-  var props = feature.properties;
-
-  layer.layerSource = 'Final Areas';
-
-  var popupContent = `
-    <div class="popup-content">
-      <h3>${props['Final area']}</h3>
-    </div>
-  `;
-
-  layer.bindPopup(popupContent);
-
-  layer.on({
-    mouseover: highlightFeature,
-    mouseout: resetHighlight,
-    click: zoomToFeature
-  });
-}
-
-// Define a highlight style
 function highlightPolygon(polygon) {
-  polygon.setStyle({
-    weight: 3,
-    color: '#999894',       // Grey border for highlight
-    fillOpacity: 0.5        // Increased fill opacity for visibility
-  });
-
-  // Bring the highlighted polygon to the front
-  if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
-    polygon.bringToFront();
-  }
+  polygon.setStyle({ weight: 3, color: '#999894', fillOpacity: 0.5 });
+  if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) polygon.bringToFront();
 }
 
-// Define a function to reset polygon style to default
 function resetPolygonStyle(polygon) {
   polygon.setStyle({
-    weight: polygon.originalStyle.weight,
-    color: polygon.originalStyle.color,
+    weight:      polygon.originalStyle.weight,
+    color:       polygon.originalStyle.color,
     fillOpacity: polygon.originalStyle.fillOpacity
   });
 }
 
 function highlightFeature(e) {
   var layer = e.target;
-
-  layer.setStyle({
-    weight: 3,
-    color: '#666',
-    fillOpacity: 0.9
-  });
-
-  if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
-    layer.bringToFront();
-  }
+  layer.setStyle({ weight: 3, color: '#666', fillOpacity: 0.9 });
+  if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) layer.bringToFront();
 }
 
 function resetHighlight(e) {
   var layer = e.target;
-
   if (layer.layerSource) {
-    var layerSource = layer.layerSource;
-
-    if (layerSource === 'Local Authorities' && localAuthoritiesLayer) {
-      localAuthoritiesLayer.resetStyle(layer);
-    } else if (layerSource === 'Final Areas' && finalAreasLayer) {
-      finalAreasLayer.resetStyle(layer);
-    } else if (scaleupLayers[layerSource]) {
-      scaleupLayers[layerSource].resetStyle(layer);
-    }
+    var src = layer.layerSource;
+    if (src === 'Local Authorities' && localAuthoritiesLayer)    localAuthoritiesLayer.resetStyle(layer);
+    else if (src === 'Final Areas' && finalAreasLayer)           finalAreasLayer.resetStyle(layer);
+    else if (scaleupLayers[src])                                 scaleupLayers[src].resetStyle(layer);
   }
 }
 
@@ -1731,10 +816,23 @@ function zoomToFeature(e) {
   map.fitBounds(e.target.getBounds());
 }
 
+function onEachLocalAuthorityFeature(feature, layer) {
+  var props = feature.properties;
+  layer.layerSource = 'Local Authorities';
+  layer.bindPopup(`<div class="popup-content"><h3>${props.lad || props.LAD23NM}</h3><p><strong>Final Area:</strong> ${props['Final area'] || 'N/A'}</p></div>`);
+  layer.on({ mouseover: highlightFeature, mouseout: resetHighlight, click: zoomToFeature });
+}
+
+function onEachFinalAreaFeature(feature, layer) {
+  var props = feature.properties;
+  layer.layerSource = 'Final Areas';
+  layer.bindPopup(`<div class="popup-content"><h3>${props['Final area']}</h3></div>`);
+  layer.on({ mouseover: highlightFeature, mouseout: resetHighlight, click: zoomToFeature });
+}
+
 function createScaleupLayers() {
   ['Scaleup density per 100k (2022)', 'Avg growth in scaleup density (2013-2022)'].forEach(function (columnName) {
     var geojsonFeatures = JSON.parse(JSON.stringify(finalAreasGeoJSONData));
-
     scaleupLayers[columnName] = L.geoJSON(geojsonFeatures, {
       pane: 'polygonsPane',
       style: scaleupStyleFactory(columnName),
@@ -1746,13 +844,7 @@ function createScaleupLayers() {
 function scaleupStyleFactory(columnName) {
   return function (feature) {
     var value = feature.properties[columnName];
-    return {
-      fillColor: getScaleupColor(value, columnName),
-      weight: 1,
-      color: '#000',
-      fillOpacity: 0.7,
-      interactive: true
-    };
+    return { fillColor: getScaleupColor(value, columnName), weight: 1, color: '#000', fillOpacity: 0.7, interactive: true };
   };
 }
 
@@ -1761,34 +853,18 @@ function onEachScaleupFeatureFactory(columnName) {
     var props = feature.properties;
     var value = props[columnName] !== undefined ? props[columnName] : 'No data';
     var noOfScaleups = props['No of Scaleups (2022)'] !== undefined ? props['No of Scaleups (2022)'] : 'No data';
-
     layer.layerSource = columnName;
-
-    var popupContent = `
-      <div class="popup-content">
-        <h3>${props['Final area']}</h3>
-        <p><strong>${columnName}:</strong> ${value}</p>
-        <p><strong>No of Scaleups (2022):</strong> ${noOfScaleups}</p>
-      </div>
-    `;
-
-    layer.bindPopup(popupContent);
-
-    layer.on({
-      mouseover: highlightFeature,
-      mouseout: resetHighlight,
-      click: zoomToFeature
-    });
+    layer.bindPopup(`<div class="popup-content"><h3>${props['Final area']}</h3><p><strong>${columnName}:</strong> ${value}</p><p><strong>No of Scaleups (2022):</strong> ${noOfScaleups}</p></div>`);
+    layer.on({ mouseover: highlightFeature, mouseout: resetHighlight, click: zoomToFeature });
   };
 }
 
+// ── Legend ────────────────────────────────────────────────────
+
 function addLegend() {
-  if (legend) {
-    map.removeControl(legend);
-  }
+  if (legend) map.removeControl(legend);
 
   legend = L.control({ position: 'bottomleft' });
-
   legend.onAdd = function () {
     var div = L.DomUtil.create('div', 'info legend');
     div.innerHTML = `
@@ -1796,9 +872,7 @@ function addLegend() {
         <span><strong>Legend</strong></span>
         <button id="legend-toggle">Hide</button>
       </div>
-      <div id="legend-content">
-        <!-- Legend entries will be inserted here -->
-      </div>
+      <div id="legend-content"></div>
     `;
     this._div = div;
     this.update('');
@@ -1811,63 +885,32 @@ function addLegend() {
 
     if (layerName === 'Scaleup density per 100k (2022)') {
       legendContainer.style.display = 'block';
-      contentDiv.innerHTML = '';
-      contentDiv.innerHTML += `<strong>${layerName}</strong><br>`;
-      var labels = [];
-
-      labels.push(
-        '<i style="background:#006400"></i> Greater than 60'
-      );
-      labels.push(
-        '<i style="background:#7FFFD4"></i> 50 - 60'
-      );
-      labels.push(
-        '<i style="background:#87CEFA"></i> 45 - 50'
-      );
-      labels.push(
-        '<i style="background:#4169E1"></i> 40 - 45'
-      );
-      labels.push(
+      contentDiv.innerHTML = `<strong>${layerName}</strong><br>`;
+      contentDiv.innerHTML += [
+        '<i style="background:#006400"></i> Greater than 60',
+        '<i style="background:#7FFFD4"></i> 50 - 60',
+        '<i style="background:#87CEFA"></i> 45 - 50',
+        '<i style="background:#4169E1"></i> 40 - 45',
         '<i style="background:#00008B"></i> Fewer than 40'
-      );
-
-      contentDiv.innerHTML += labels.join('<br>');
+      ].join('<br>');
     } else if (layerName === 'Avg growth in scaleup density (2013-2022)') {
       legendContainer.style.display = 'block';
-      contentDiv.innerHTML = '';
-      contentDiv.innerHTML += `<strong>${layerName}</strong><br>`;
-      var labels = [];
-    
-      labels.push(
-        '<i style="background:#006400"></i> Greater than 2'
-      );
-      labels.push(
-        '<i style="background:#20B2AA"></i> 1 - 2'
-      );
-      labels.push(
-        '<i style="background:#87CEFA"></i> 0 - 1'
-      );
-      labels.push(
+      contentDiv.innerHTML = `<strong>${layerName}</strong><br>`;
+      contentDiv.innerHTML += [
+        '<i style="background:#006400"></i> Greater than 2',
+        '<i style="background:#20B2AA"></i> 1 - 2',
+        '<i style="background:#87CEFA"></i> 0 - 1',
         '<i style="background:#00008B"></i> Fewer than 0'
-      );
-    
-      contentDiv.innerHTML += labels.join('<br>');
+      ].join('<br>');
     } else if (layerName === 'Sectors' && currentSectors.length > 0) {
-      // Show the legend
       legendContainer.style.display = 'block';
-      contentDiv.innerHTML = '';
-      contentDiv.innerHTML += '<strong>Sectors</strong><br>';
-  
-      // Loop through currentSectors to build legend entries
+      contentDiv.innerHTML = '<strong>Sectors</strong><br>';
       currentSectors.forEach(function (sector) {
-        var color = getSectorColor(sector);
+        var color = sectorColors[sector] || '#FFFFFF';
         var displayName = sectorDisplayNames[sector] || sector;
-        contentDiv.innerHTML +=
-            '<i style="background:' + color + '"></i> ' +
-            displayName + '<br>';
+        contentDiv.innerHTML += '<i style="background:' + color + '"></i> ' + displayName + '<br>';
       });
-  }
-   else {
+    } else {
       legendContainer.style.display = 'none';
       contentDiv.innerHTML = '';
     }
@@ -1876,9 +919,8 @@ function addLegend() {
   legend.addTo(map);
 
   map.whenReady(function () {
-    var toggleButton = document.getElementById('legend-toggle');
+    var toggleButton  = document.getElementById('legend-toggle');
     var legendContent = document.getElementById('legend-content');
-
     if (toggleButton) {
       toggleButton.onclick = function () {
         if (legendContent.style.display === 'none') {
@@ -1889,170 +931,795 @@ function addLegend() {
           toggleButton.textContent = 'Show';
         }
       };
-    } else {
-      console.error('legend-toggle button not found.');
     }
   });
 }
 
 function updateLegend(activeLayerName) {
-  if (legend) {
-    legend.update(activeLayerName);
-  }
+  if (legend) legend.update(activeLayerName);
 }
 
+function updateLegendForClusters() {}
 
-function formatTurnover(value) {
-  if (typeof value !== 'number' || isNaN(value)) {
-    return 'N/A';
+// ── Sector & cluster UI ───────────────────────────────────────
+
+function populateSectorCheckboxes(sectorsList) {
+  const container = document.getElementById('sector-chips');
+  if (!container) {
+    console.error('#sector-chips container not found');
+    return;
   }
 
-  // Determine the appropriate notation
-  if (value >= 1e9) {
-    // Value is in billions
-    return '£' + (value / 1e9).toFixed(1) + 'B';
-  } else if (value >= 1e6) {
-    // Value is in millions
-    return '£' + (value / 1e6).toFixed(1) + 'M';
-  } else if (value >= 1e3) {
-    // Value is in thousands
-    return '£' + (value / 1e3).toFixed(1) + 'K';
-  } else {
-    // Value is less than a thousand
-    return '£' + value.toFixed(0);
-  }
-}
+  container.innerHTML = '';
 
-function updateLegendForClusters() {
-}
+  sectorsList.forEach(sector => {
+    const chip = document.createElement('div');
+    chip.className     = 'sector-chip';
+    chip.textContent   = sectorDisplayNames[sector] || sector;
+    chip.dataset.value = sector;
 
-function getClusterNameById(clusterId) {
-  var company = companyData.find(function (comp) {
-    return comp.clusterId === clusterId;
+    chip.onclick = () => {
+      chip.classList.toggle('selected');
+
+      if (chip.classList.contains('selected')) {
+        if (!window.selectionOrder.includes(sector)) window.selectionOrder.push(sector);
+      } else {
+        window.selectionOrder = window.selectionOrder.filter(s => s !== sector);
+      }
+
+      handleSectorSelectionChange();
+      updateDisplayModeToggleVisibility();
+    };
+
+    container.appendChild(chip);
   });
-  if (company) {
-    return company.Cluster_name + ' (Cluster ' + company.cluster + ')';
-  }
-  return clusterId;
 }
 
-// Handle "Overall Stats" Button Click
-document.getElementById('overall-stats-button').addEventListener('click', function() {
-  const statsPanel = document.getElementById('sector-stats-panel');
-  // Grab everything that sits on the left side in Leaflet
+function handleSectorSelectionChange() {
+  currentSectors = getSelectedSectors();
+
+  if (currentSectors.length > 0) {
+    loadSectorsData(currentSectors);
+    document.getElementById('overall-stats-button').style.display = 'block';
+  } else {
+    currentClusters = [];
+    removeClusterLayers();
+    document.getElementById('overall-stats-button').style.display = 'none';
+    updateLegend('');
+  }
+
+  updateOverlays();
+}
+
+function loadSectorsData(sectorsList) {
+  const statsPanel    = document.getElementById('sector-stats-panel');
+  const ctrlContainer = document.querySelector('.leaflet-control-container');
+
+  if (!sectorsList || !sectorsList.length) {
+    companyData        = [];
+    clusterSummaryData = {};
+    removeClusterLayers();
+    updateLegend('');
+    document.getElementById('overall-stats-button').style.display = 'none';
+    if (statsPanel)    statsPanel.classList.remove('show');
+    if (ctrlContainer) ctrlContainer.classList.remove('controls-shift-right');
+    return;
+  }
+
+  if (!Array.isArray(masterClusterData) || !masterClusterData.length) {
+    console.warn('masterClusterData is empty or not loaded');
+    return;
+  }
+
+  companyData        = [];
+  clusterSummaryData = {};
+
+  function sectorMatches(rowSector, selectedSector) {
+    if (!rowSector) return false;
+    const raw         = rowSector.trim();
+    const dispFromRaw = raw.replace(/_/g, ' ').trim();
+    return raw === selectedSector || dispFromRaw === selectedSector;
+  }
+
+  sectorsList.forEach(function (selectedSector) {
+    masterClusterData.forEach(function (row) {
+      if (!sectorMatches(row.Sector, selectedSector)) return;
+
+      const compNum = row.Companynumber ? row.Companynumber.toString().trim() : null;
+      if (!compNum) return;
+      if (excludedCompanyNumbers.includes(compNum)) return;
+
+      // Validate coords here so companyData only contains plottable rows
+      const lat = parseFloat(row.Latitude);
+      const lng = parseFloat(row.Longitude);
+      if (isNaN(lat) || isNaN(lng)) return;
+
+      const clusterStr  = row.cluster != null ? row.cluster.toString() : '0';
+      const sectorLabel = selectedSector;
+
+      const company = {
+        Companynumber : compNum,
+        Latitude      : lat,
+        Longitude     : lng,
+        cluster       : clusterStr,
+        sector        : sectorLabel,
+        clusterId     : `${sectorLabel}_${clusterStr}`
+      };
+
+      const det        = companyDetailsByNumber[compNum] || {};
+      const hasDetails = Object.keys(det).length > 0;
+
+      company.Companyname        = det.CompanyName        || row.Companyname || 'Unknown';
+      company.RegisteredPostcode = det.RegisteredPostcode || null;
+      company.Homepage_domain    = det.Homepage_domain    || null;
+      company.hasFinancials      = hasDetails;
+
+      company.total_employees        = hasDetails ? parseNumber(det.BestEstimateEmployees) : 0;
+      company.total_turnover         = hasDetails ? parseNumber(det.BestEstimateTurnover)  : 0;
+      company.WomenFounded           = hasDetails ? parseInt(det.WomenLed) || 0            : 0;
+      company.TotalInnovateUKFunding = hasDetails ? parseNumber(det.IUK_GBP)               : 0;
+      company.total_Investment       = hasDetails ? parseNumber(det.Investment_GBP)        : 0;
+
+      companyData.push(company);
+    });
+  });
+
+  generateClusterColors();
+  populateClusterCheckboxes();
+
+  currentClusters = getAllClusterIds().filter(cid =>
+    currentSectors.includes(cid.split('_')[0])
+  );
+
+  addCompanyClusters();
+  updateLegend(currentSectors.length > 0 ? 'Sectors' : '');
+
+  if (statsPanel && statsPanel.classList.contains('show')) {
+    computeSectorStatistics();
+    const ordered = window.selectionOrder.length ? window.selectionOrder : currentSectors;
+    showSectorStatistics(ordered);
+  }
+}
+
+function populateClusterCheckboxes() {
+  var clusterContainer = document.getElementById('cluster-checkboxes');
+  clusterContainer.innerHTML = '';
+
+  var clusters = getAllClusterIds().filter(clusterId => {
+    var sector = clusterId.split('_')[0];
+    return currentSectors.includes(sector);
+  });
+
+  clusters.forEach(function (clusterId) {
+    var cluster = companyData.find(c => c.clusterId === clusterId);
+    if (cluster) {
+      var checkbox = document.createElement('input');
+      checkbox.type  = 'checkbox';
+      checkbox.id    = 'cluster-' + clusterId;
+      checkbox.value = clusterId;
+      checkbox.classList.add('cluster-checkbox');
+      checkbox.checked = true;
+
+      var label = document.createElement('label');
+      label.htmlFor    = checkbox.id;
+      label.textContent = `${cluster.Cluster_name || clusterId} (Cluster ${cluster.cluster})`;
+      label.prepend(checkbox);
+      clusterContainer.appendChild(label);
+    }
+  });
+
+  document.querySelectorAll('.cluster-checkbox').forEach(function (checkbox) {
+    checkbox.addEventListener('change', function () {
+      currentClusters = Array.from(document.querySelectorAll('.cluster-checkbox:checked')).map(cb => cb.value);
+      updateClusterLayers();
+    });
+  });
+}
+
+document.getElementById('select-all-clusters').addEventListener('click', function () {
+  var clusterCheckboxes = document.querySelectorAll('.cluster-checkbox');
+  clusterCheckboxes.forEach(cb => { cb.checked = true; });
+  currentClusters = Array.from(clusterCheckboxes).map(cb => cb.value);
+  updateClusterLayers();
+});
+
+document.getElementById('deselect-all-clusters').addEventListener('click', function () {
+  document.querySelectorAll('.cluster-checkbox').forEach(cb => { cb.checked = false; });
+  currentClusters = [];
+  updateClusterLayers();
+});
+
+// ── Cluster layers ────────────────────────────────────────────
+
+function generateClusterColors() {
+  clusterColors = {};
+  var clustersInSelectedSectors = companyData.filter(company => currentSectors.includes(company.sector));
+  var uniqueClusters = {};
+
+  clustersInSelectedSectors.forEach(function (company) {
+    var clusterId     = company.clusterId;
+    var clusterNumber = company.cluster;
+    if (clusterNumber === '0') {
+      clusterColors[clusterId] = '#D3D3D3';
+    } else if (!uniqueClusters[clusterId]) {
+      uniqueClusters[clusterId] = true;
+    }
+  });
+
+  var clusterIds  = Object.keys(uniqueClusters);
+  var colorScale  = chroma.scale('Set1').colors(clusterIds.length > 0 ? clusterIds.length : 1);
+  clusterIds.forEach(function (clusterId, index) {
+    clusterColors[clusterId] = colorScale[index % colorScale.length];
+  });
+}
+
+function addCompanyClusters() {
+  updateClusterLayers();
+}
+
+function removeClusterLayers() {
+  for (var clusterId in clusterLayers) map.removeLayer(clusterLayers[clusterId]);
+  clusterLayers = {};
+  clusterColors = {};
+  currentClusters = [];
+  if (clusterControl) map.removeControl(clusterControl);
+  for (var sector in sectorPolygonLayers) map.removeLayer(sectorPolygonLayers[sector]);
+  sectorPolygonLayers = {};
+  if (polygonToggleControl) {
+    map.removeControl(polygonToggleControl);
+    polygonToggleControl = null;
+    displayMode = 'both';
+  }
+}
+
+function removeOtherLayers() {
+  if (localAuthoritiesLayer && map.hasLayer(localAuthoritiesLayer)) map.removeLayer(localAuthoritiesLayer);
+  if (finalAreasLayer && map.hasLayer(finalAreasLayer))             map.removeLayer(finalAreasLayer);
+  for (var key in scaleupLayers) {
+    if (map.hasLayer(scaleupLayers[key])) map.removeLayer(scaleupLayers[key]);
+  }
+  if (searchControl) map.removeControl(searchControl);
+}
+
+function updateClusterLayers() {
+  console.log('updateClusterLayers called');
+  console.log('Current displayMode:', displayMode);
+
+  function easeOut(progress) {
+    return 1 - Math.pow(1 - progress, 3);
+  }
+
+  function animateMarkersBatch(markers, finalRadius, finalFillOpacity, duration) {
+    let startTime;
+    function step(timestamp) {
+      if (!startTime) startTime = timestamp;
+      const elapsed  = timestamp - startTime;
+      let progress   = Math.min(elapsed / duration, 1);
+      progress       = easeOut(progress);
+      markers.forEach(marker => {
+        marker.setStyle({ radius: finalRadius * progress, fillOpacity: finalFillOpacity * progress });
+      });
+      if (progress < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function animatePolygonsBatch(polygons, finalFillOpacity, duration) {
+    let startTime;
+    function step(timestamp) {
+      if (!startTime) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+      let progress  = Math.min(elapsed / duration, 1);
+      progress      = easeOut(progress);
+      polygons.forEach(polygon => { polygon.setStyle({ fillOpacity: finalFillOpacity * progress }); });
+      if (progress < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  // Clear existing layers
+  allPolygons = [];
+  for (const existingId in clusterLayers) map.removeLayer(clusterLayers[existingId]);
+  clusterLayers = {};
+
+  if (currentClusters.length === 0) { updateLegend(''); return; }
+
+  // Group companies — coords already validated in loadSectorsData
+  const clusters = {};
+  companyData.forEach(company => {
+    const clusterId = company.clusterId;
+    if (!clusterId) return;
+    if (!currentClusters.includes(clusterId)) return;
+    if (!clusters[clusterId]) clusters[clusterId] = [];
+    clusters[clusterId].push(company);
+  });
+
+  const newMarkers  = [];
+  const newPolygons = [];
+
+  for (const clusterId in clusters) {
+    const clusterGroup = L.layerGroup();
+    const points       = [];
+
+    let companyCount       = 0;
+    let totalIUKFunding    = 0;
+    let femaleFoundedCount = 0;
+    let totalEmployees     = 0;
+    let totalTurnover      = 0;
+
+    const firstCompany  = clusters[clusterId][0];
+    const clusterNumber = String(firstCompany.cluster != null ? firstCompany.cluster : '0');
+
+    if (clusterNumber === '0') continue;
+
+    const sectorName  = firstCompany.sector;
+    const clusterName = 'Cluster ' + clusterNumber;
+    const region      =
+      (clusterRegions[sectorName] && clusterRegions[sectorName][clusterNumber]) ||
+      'Unknown';
+
+    clusters[clusterId].forEach(company => {
+      const lat = company.Latitude;
+      const lng = company.Longitude;
+      if (isNaN(lat) || isNaN(lng)) return; // safety net
+
+      companyCount++; // incremented after coord guard — matches visible markers
+      points.push([lat, lng]);
+
+      const iukFunding = company.TotalInnovateUKFunding;
+      if (typeof iukFunding === 'number' && !isNaN(iukFunding)) totalIUKFunding += iukFunding;
+
+      const femaleFlagSource = company.WomenFounded != null ? company.WomenFounded : company.WomenLed;
+      if (isFemaleFoundedFlag(femaleFlagSource)) femaleFoundedCount++;
+
+      const emp = parseNumber(company.total_employees);
+      const tov = parseNumber(company.total_turnover);
+      if (!isNaN(emp)) totalEmployees += emp;
+      if (!isNaN(tov)) totalTurnover  += tov;
+
+      if (displayMode === 'points' || displayMode === 'both') {
+        const marker = L.circleMarker([lat, lng], {
+          pane:        'markerPane',
+          radius:      0,
+          fillColor:   getClusterColor(clusterId),
+          color:       '#000',
+          weight:      0.2,
+          fillOpacity: 0
+        });
+
+        marker.bindPopup(`
+          <div class="popup-content">
+            <p><strong>Company Name:</strong> ${company.Companyname}</p>
+            <p><strong>Company Number:</strong> ${company.Companynumber}</p>
+            <p><strong>Cluster:</strong> ${region} (Cluster ${clusterNumber})</p>
+            <p><strong>Sector:</strong> ${company.sector}</p>
+            ${company.hasFinancials ? '' : '<p><em>No financial data available</em></p>'}
+          </div>
+        `);
+
+        marker.on({
+          mouseover: e => { e.target.setStyle({ radius: 5, weight: 1, color: '#fff', fillOpacity: 1 }); },
+          mouseout:  e => { e.target.setStyle({ radius: 3, weight: 0.2, color: '#000', fillOpacity: 0.8 }); },
+          click:     e => { e.target.openPopup(); }
+        });
+
+        clusterGroup.addLayer(marker);
+        newMarkers.push(marker);
+      }
+    });
+
+    const polygonColor = sectorColors[sectorName] || '#FFFFFF';
+
+    if ((displayMode === 'polygons' || displayMode === 'both') && points.length >= 3) {
+      const polygon = L.polygon(convexHull(points), {
+        pane:        'polygonsPane',
+        color:       polygonColor,
+        fillColor:   polygonColor,
+        fillOpacity: 0,
+        weight:      1,
+        interactive: false
+      });
+
+      polygon.originalStyle = { color: polygonColor, weight: 1, fillOpacity: 0.35 };
+
+      const femalePct = companyCount > 0 ? (femaleFoundedCount / companyCount) * 100 : null;
+      const femaleFoundedPercentageDisplay = femalePct !== null ? femalePct.toFixed(1) + '%' : 'N/A';
+      const totalEmployeesDisplay          = totalEmployees > 0 ? Math.round(totalEmployees) : 'N/A';
+      const totalTurnoverDisplay           = totalTurnover  > 0 ? formatTurnover(totalTurnover)  : 'N/A';
+      const totalIUKFundingDisplay         = totalIUKFunding > 0 ? formatTurnover(totalIUKFunding) : 'N/A';
+
+      polygon.bindPopup(`
+        <div class="popup-content">
+          <p><strong>${clusterName}</strong></p>
+          <p><strong>Region:</strong> ${region}</p>
+          <p><strong>Sector:</strong> ${sectorName}</p>
+          <p><strong>Company Count:</strong> ${companyCount}</p>
+          <p><strong>Total Employees:</strong> ${totalEmployeesDisplay}</p>
+          <p><strong>Total Turnover:</strong> ${totalTurnoverDisplay}</p>
+          <p><strong>% Female-Founded Companies:</strong> ${femaleFoundedPercentageDisplay}</p>
+          <p><strong>Total IUK Grant Funding:</strong> ${totalIUKFundingDisplay}</p>
+        </div>
+      `);
+
+      clusterGroup.addLayer(polygon);
+
+      allPolygons.push({
+        layer: polygon,
+        properties: {
+          clusterNumber,
+          sectorName,
+          clusterName,
+          clusterId,
+          region,
+          companyCount,
+          totalEmployees:                totalEmployeesDisplay,
+          totalTurnover:                 totalTurnoverDisplay,
+          femaleFoundedPercentageDisplay,
+          totalIUKFundingDisplay
+        }
+      });
+
+      newPolygons.push(polygon);
+    }
+
+    clusterLayers[clusterId] = clusterGroup;
+    clusterGroup.addTo(map);
+  }
+
+  if (newMarkers.length  > 0) animateMarkersBatch(newMarkers,   3, 0.8,  800);
+  if (newPolygons.length > 0) animatePolygonsBatch(newPolygons, 0.35,    800);
+
+  updateLegend(currentSectors.length > 0 ? 'Sectors' : '');
+}
+
+// ── Stats panel ───────────────────────────────────────────────
+
+document.getElementById('overall-stats-button').addEventListener('click', function () {
+  const statsPanel   = document.getElementById('sector-stats-panel');
   const leftControls = document.querySelectorAll('.leaflet-left');
 
-  // If panel is already open, hide it and unshift controls:
   if (statsPanel.classList.contains('show')) {
     hideSectorStats();
     return;
   }
 
-  // Otherwise, compute & show fresh stats, then shift all .leaflet-left controls:
   computeSectorStatistics();
   showSectorStatistics(currentSectors);
-
   leftControls.forEach(el => el.classList.add('controls-shift-right'));
 });
 
-/* ----------  Toggle Final‑Area boundaries button  ---------- */
-const BoundaryToggle = L.Control.extend({
-  onAdd: function(){
-    const btn = L.DomUtil.create('button','boundary-toggle');
-    btn.title = 'Show Final‑Area boundaries';
-    btn.innerHTML = 'Borders';
-    btn.style.cssText =
-      'background:#fff;border:1px solid #888;border-radius:4px;'+
-      'padding:2px 6px;font:14px/1 sans-serif;cursor:pointer;';
-    let active = false;
+function computeSectorStatistics() {
+  sectorStats = {};
 
-    btn.onclick = e=>{
-      e.stopPropagation();
-      active = !active;
-
-      if(active){
-        if(finalAreasBoundaryLayer) finalAreasBoundaryLayer.addTo(map);
-        map.eachLayer(l=>{           // dim *tile* layers only
-          if(l instanceof L.TileLayer) l.setOpacity(0.4);
-        });
-
-        if (!faSearchControl) {
-          faSearchControl = new FinalAreaSearchControl({ position:'topleft' }).addTo(map);
-        }
-        btn.style.background='#007BFF';
-        btn.style.color='#fff';
-      }else{
-        if(finalAreasBoundaryLayer) map.removeLayer(finalAreasBoundaryLayer);
-        map.eachLayer(l=>{
-          if(l instanceof L.TileLayer) l.setOpacity(1);
-        });
-        if (faSearchControl) {
-          map.removeControl(faSearchControl);
-          faSearchControl = null;
-        }
-        btn.style.background='#fff';
-        btn.style.color='#000';
-      }
-    };
-
-    return btn;
-  }
-});
-new BoundaryToggle({position:'topleft'}).addTo(map);
-
-
-function addSearchControl() {
-  // Remove existing search control if any
-  if (searchControl) {
-    map.removeControl(searchControl);
+  if (!Array.isArray(companyData) || companyData.length === 0) {
+    console.warn('computeSectorStatistics: no companyData available');
+    return;
   }
 
-  // Define the search control
-  searchControl = new L.Control.Search({
-    layer: localAuthoritiesLayer || finalAreasLayer,
-    propertyName: localAuthoritiesLayer ? 'lad' : 'Final area', // Use 'lad' for Local Authorities, otherwise 'Final area'
-    marker: false,
-    initial: false,
-    zoom: 12,
-    title: 'Search for Area',
-    moveToLocation: function (latlng) {
-      map.fitBounds(latlng.layer.getBounds());
-      highlightFeature({ target: latlng.layer });
+  companyData.forEach(function (company) {
+    const sector = company.sector || company.Sector;
+    if (!sector) return;
+
+    if (!sectorStats[sector]) {
+      sectorStats[sector] = {
+        companyCount:            0,
+        companiesWithFinancials: 0,
+        totalEmployees:          0,
+        totalTurnover:           0,
+        totalIUKFunding:         0,
+        totalInvestment:         0,
+        femaleFoundedCount:      0,
+        femaleFoundedPercentage: 0
+      };
+    }
+
+    const stats = sectorStats[sector];
+    stats.companyCount += 1;
+    if (company.hasFinancials) stats.companiesWithFinancials += 1;
+
+    stats.totalEmployees  += parseNumber(company.total_employees);
+    stats.totalTurnover   += parseNumber(company.total_turnover);
+    stats.totalIUKFunding += parseNumber(company.TotalInnovateUKFunding);
+    stats.totalInvestment += parseNumber(company.total_Investment);
+
+    if (isFemaleFoundedFlag(company.WomenFounded)) stats.femaleFoundedCount += 1;
+  });
+
+  Object.keys(sectorStats).forEach(function (sector) {
+    const stats = sectorStats[sector];
+    stats.femaleFoundedPercentage = stats.companyCount > 0
+      ? (stats.femaleFoundedCount / stats.companyCount) * 100
+      : 0;
+  });
+}
+
+function showSectorStatistics(selectedSectors) {
+  const statsPanel = document.getElementById('sector-stats-panel');
+  if (!statsPanel) { console.error('No stats panel found in the DOM'); return; }
+
+  statsPanel.innerHTML = `
+    <div class="stats-header">
+      <h2>Sector Stats</h2>
+      <button class="close-panel-btn" onclick="hideSectorStats()">&times;</button>
+    </div>
+  `;
+
+  if (!selectedSectors || !selectedSectors.length) {
+    statsPanel.innerHTML += `<div class="stats-card"><p>No sectors selected.</p></div>`;
+    statsPanel.classList.add('show');
+    statsPanel.classList.remove('hidden');
+    return;
+  }
+
+  selectedSectors.forEach(sector => {
+    const stats = sectorStats[sector];
+    if (!stats) {
+      statsPanel.innerHTML += `<div class="stats-card"><h3>${sector}</h3><p>No statistics available.</p></div>`;
+      return;
+    }
+
+    const noFinancials = stats.companyCount - stats.companiesWithFinancials;
+    const noFinancialsNote = noFinancials > 0
+      ? `<p style="font-size:12px;color:#888;">(${noFinancials} with no financial data)</p>`
+      : '';
+
+    statsPanel.innerHTML += `
+      <div class="stats-card">
+        <h3>${sector}</h3>
+        <p><strong>Companies:</strong> ${stats.companyCount}</p>
+        ${noFinancialsNote}
+        <p><strong>Total Employees:</strong> ${stats.totalEmployees > 0 ? Math.round(stats.totalEmployees) : 'N/A'}</p>
+        <p><strong>Total Turnover:</strong> ${stats.totalTurnover > 0 ? formatTurnover(stats.totalTurnover) : 'N/A'}</p>
+        <p><strong>% Female-Founded:</strong> ${stats.femaleFoundedPercentage.toFixed(1)}%</p>
+        <p><strong>IUK Funding:</strong> ${stats.totalIUKFunding > 0 ? formatTurnover(stats.totalIUKFunding) : 'N/A'}</p>
+        <p><strong>Investment:</strong> ${stats.totalInvestment > 0 ? formatTurnover(stats.totalInvestment) : 'N/A'}</p>
+      </div>
+    `;
+  });
+
+  statsPanel.classList.remove('hidden');
+  statsPanel.classList.add('show');
+}
+
+function hideSectorStats() {
+  const statsPanel   = document.getElementById('sector-stats-panel');
+  const leftControls = document.querySelectorAll('.leaflet-left');
+  statsPanel.classList.remove('show');
+  leftControls.forEach(el => el.classList.remove('controls-shift-right'));
+}
+
+// ── Map click / hover handlers ────────────────────────────────
+
+map.on('mousemove', handleMapMouseMove);
+map.on('click',    handleMapClick);
+
+function isPointInPolygon(latlng, polygon) {
+  var layerPoint = map.latLngToLayerPoint(latlng);
+  var inside     = false;
+  var parts      = polygon._parts;
+  if (!parts) return false;
+
+  for (var i = 0; i < parts.length; i++) {
+    var part = parts[i];
+    var len  = part.length;
+    for (var j = 0, k = len - 1; j < len; k = j++) {
+      var xi = part[j].x, yi = part[j].y;
+      var xj = part[k].x, yj = part[k].y;
+      var intersect = ((yi > layerPoint.y) !== (yj > layerPoint.y)) &&
+                      (layerPoint.x < (xj - xi) * (layerPoint.y - yi) / (yj - yi) + xi);
+      if (intersect) inside = !inside;
+    }
+  }
+  return inside;
+}
+
+function handleMapMouseMove(e) {
+  var latlng = e.latlng;
+
+  highlightedPolygons.forEach(function (polygon) { resetPolygonStyle(polygon); });
+  highlightedPolygons = [];
+
+  allPolygons.forEach(function (polygonData) {
+    var polygon = polygonData.layer;
+    if (isPointInPolygon(latlng, polygon)) {
+      highlightPolygon(polygon);
+      highlightedPolygons.push(polygon);
+    }
+  });
+}
+
+function handleMapClick(e) {
+  var latlng          = e.latlng;
+  var polygonsAtPoint = [];
+
+  allPolygons.forEach(function (polygonData) {
+    var polygon = polygonData.layer;
+    if (isPointInPolygon(latlng, polygon)) {
+      var alreadyAdded = polygonsAtPoint.some(pd => pd.layer._leaflet_id === polygon._leaflet_id);
+      if (!alreadyAdded) polygonsAtPoint.push(polygonData);
     }
   });
 
-  searchControl.on('search:locationfound', function(e) {
-    e.layer.openPopup();
+  if (polygonsAtPoint.length === 0) {
+    map.closePopup();
+  } else if (polygonsAtPoint.length === 1) {
+    showPolygonInfoPopup(polygonsAtPoint[0], latlng);
+  } else {
+    showPolygonSelectionPopup(polygonsAtPoint, latlng);
+  }
+}
+
+function showPolygonInfoPopup(polygonData, latlng) {
+  var props             = polygonData.properties;
+  var sectorDisplayName = sectorDisplayNames[props.sectorName] || props.sectorName;
+
+  L.popup().setLatLng(latlng).setContent(`
+    <div class="popup-content">
+      <h3>${props.region} (Cluster ${props.clusterNumber})</h3>
+      <p><strong>Sector:</strong> ${sectorDisplayName}</p>
+      <p><strong>Company Count:</strong> ${props.companyCount}</p>
+      <p><strong>Total Employees:</strong> ${props.totalEmployees}</p>
+      <p><strong>Total Turnover:</strong> ${props.totalTurnover}</p>
+      <p><strong>% Female-Founded Companies:</strong> ${props.femaleFoundedPercentageDisplay}</p>
+      <p><strong>Total IUK Grant Funding:</strong> ${props.totalIUKFundingDisplay}</p>
+    </div>
+  `).openOn(map);
+}
+
+function showPolygonInfo(polygonData) {
+  var props             = polygonData.properties;
+  var sectorDisplayName = sectorDisplayNames[props.sectorName] || props.sectorName;
+  var content = `
+    <button id="info-box-close" class="info-box-close">&times;</button>
+    <h3>${props.region} (Cluster ${props.clusterNumber})</h3>
+    <p><strong>Sector:</strong> ${sectorDisplayName}</p>
+    <p><strong>Company Count:</strong> ${props.companyCount}</p>
+    <p><strong>Total Employees:</strong> ${props.totalEmployees}</p>
+    <p><strong>Total Turnover:</strong> ${props.totalTurnover}</p>
+    <p><strong>% Female-Founded Companies:</strong> ${props.femaleFoundedPercentageDisplay}</p>
+    <p><strong>Total IUK Grant Funding:</strong> ${props.totalIUKFundingDisplay}</p>
+  `;
+  var infoBox = document.getElementById('info-box');
+  if (infoBox) {
+    infoBox.innerHTML = content;
+    infoBox.classList.remove('hidden');
+    L.DomEvent.disableClickPropagation(infoBox);
+    var closeButton = document.getElementById('info-box-close');
+    if (closeButton) {
+      closeButton.addEventListener('click', function (e) {
+        infoBox.classList.add('hidden');
+        e.stopPropagation();
+      });
+    }
+  }
+}
+
+function showPolygonSelectionPopup(polygonsData, latlng) {
+  var content = document.createElement('div');
+  content.className = 'popup-content';
+
+  var tabsContainer        = document.createElement('div');
+  tabsContainer.className  = 'tabs-container';
+  var tabLinks             = document.createElement('ul');
+  tabLinks.className       = 'tab-links';
+  var tabContentContainer  = document.createElement('div');
+  tabContentContainer.className = 'tab-content';
+
+  var currentlyHighlightedPolygon = null;
+
+  polygonsData.forEach(function (polygonData, index) {
+    var props             = polygonData.properties;
+    var sectorDisplayName = sectorDisplayNames[props.sectorName] || props.sectorName;
+    var sectorColor       = sectorColors[props.sectorName] || '#FFFFFF';
+
+    var tabLinkItem = document.createElement('li');
+    var tabLink     = document.createElement('a');
+    tabLink.href    = '#';
+    tabLink.setAttribute('data-index', index);
+    tabLink.textContent = `Cluster ${props.clusterNumber} (${sectorDisplayName})`;
+    tabLink.style.backgroundColor = sectorColor;
+    tabLink.style.color = getContrastColor(sectorColor);
+
+    if (index === 0) {
+      tabLinkItem.classList.add('active');
+      var darkerColor = chroma(sectorColor).darken(1).hex();
+      tabLink.style.backgroundColor = darkerColor;
+      tabLink.style.color = getContrastColor(darkerColor);
+    }
+
+    tabLinkItem.appendChild(tabLink);
+    tabLinks.appendChild(tabLinkItem);
+
+    var tabContent = document.createElement('div');
+    tabContent.className = 'tab';
+    tabContent.setAttribute('data-index', index);
+    if (index === 0) tabContent.classList.add('active');
+
+    tabContent.innerHTML = `
+      <p><strong>Sector:</strong> ${sectorDisplayName}</p>
+      <p><strong>Company Count:</strong> ${props.companyCount}</p>
+      <p><strong>Total Employees:</strong> ${props.totalEmployees}</p>
+      <p><strong>Total Turnover:</strong> ${props.totalTurnover}</p>
+      <p><strong>% Female-Founded Companies:</strong> ${props.femaleFoundedPercentageDisplay}</p>
+      <p><strong>Total IUK Grant Funding:</strong> ${props.totalIUKFundingDisplay}</p>
+    `;
+
+    tabContentContainer.appendChild(tabContent);
+
+    tabLink.addEventListener('click', function (e) {
+      e.preventDefault();
+      switchTab(e.currentTarget.getAttribute('data-index'));
+    });
   });
 
-  map.addControl(searchControl);
+  tabsContainer.appendChild(tabLinks);
+  tabsContainer.appendChild(tabContentContainer);
+  content.appendChild(tabsContainer);
+
+  L.popup().setLatLng(latlng).setContent(content).openOn(map);
+
+  function switchTab(index) {
+    tabLinks.querySelectorAll('li').forEach(function (linkItem) {
+      linkItem.classList.remove('active');
+      var link        = linkItem.querySelector('a');
+      var sc          = sectorColors[polygonsData[link.getAttribute('data-index')].properties.sectorName] || '#FFFFFF';
+      link.style.backgroundColor = sc;
+      link.style.color = getContrastColor(sc);
+    });
+    tabContentContainer.querySelectorAll('.tab').forEach(tc => tc.classList.remove('active'));
+
+    var selectedLinkItem = tabLinks.querySelector(`a[data-index="${index}"]`).parentElement;
+    selectedLinkItem.classList.add('active');
+    var selectedLink  = selectedLinkItem.querySelector('a');
+    var sc            = sectorColors[polygonsData[index].properties.sectorName] || '#FFFFFF';
+    var darkerColor   = chroma(sc).darken(1).hex();
+    selectedLink.style.backgroundColor = darkerColor;
+    selectedLink.style.color = getContrastColor(darkerColor);
+
+    tabContentContainer.querySelector(`.tab[data-index="${index}"]`).classList.add('active');
+    highlightSelectedPolygon(polygonsData[index].layer);
+  }
+
+  function highlightSelectedPolygon(polygon) {
+    if (currentlyHighlightedPolygon && currentlyHighlightedPolygon !== polygon) {
+      resetPolygonStyle(currentlyHighlightedPolygon);
+    }
+    highlightPolygon(polygon);
+    currentlyHighlightedPolygon = polygon;
+  }
+
+  highlightSelectedPolygon(polygonsData[0].layer);
+
+  map.on('popupclose', function () {
+    if (currentlyHighlightedPolygon) {
+      resetPolygonStyle(currentlyHighlightedPolygon);
+      currentlyHighlightedPolygon = null;
+    }
+  });
 }
+
+// ── Search control ────────────────────────────────────────────
 
 var searchControl;
 
 function updateSearchControl(activeLayerName) {
-  if (searchControl) {
-    map.removeControl(searchControl);
-    searchControl = null;
-  }
+  if (searchControl) { map.removeControl(searchControl); searchControl = null; }
 
-  var searchLayer;
-  var propertyName;
+  var searchLayer, propertyName;
 
   if (activeLayerName === 'Local Authorities' && localAuthoritiesLayer) {
-    searchLayer = localAuthoritiesLayer;
-    propertyName = 'lad' || 'LAD23NM'; // Adjust based on your data
+    searchLayer  = localAuthoritiesLayer;
+    propertyName = 'lad';
   } else if (activeLayerName === 'Final Areas' && finalAreasLayer) {
-    searchLayer = finalAreasLayer;
+    searchLayer  = finalAreasLayer;
     propertyName = 'Final area';
   } else if (activeLayerName === 'Scaleup density per 100k (2022)' && scaleupLayers['Scaleup density per 100k (2022)']) {
-    searchLayer = scaleupLayers['Scaleup density per 100k (2022)'];
+    searchLayer  = scaleupLayers['Scaleup density per 100k (2022)'];
     propertyName = 'Final area';
   } else if (activeLayerName === 'Avg growth in scaleup density (2013-2022)' && scaleupLayers['Avg growth in scaleup density (2013-2022)']) {
-    searchLayer = scaleupLayers['Avg growth in scaleup density (2013-2022)'];
+    searchLayer  = scaleupLayers['Avg growth in scaleup density (2013-2022)'];
     propertyName = 'Final area';
   } else {
-    // No search control for this layer
     return;
   }
 
@@ -2068,1980 +1735,70 @@ function updateSearchControl(activeLayerName) {
       highlightFeature({ target: latlng.layer });
     }
   });
-
-  searchControl.on('search:locationfound', function(e) {
-    e.layer.openPopup();
-  });
-
+  searchControl.on('search:locationfound', function (e) { e.layer.openPopup(); });
   searchControl.addTo(map);
 }
 
-// Function to parse numbers and handle strings with commas or symbols
-function parseNumber(value) {
-  if (typeof value === 'string') {
-    value = value.replace(/[^0-9.-]+/g, ''); // Remove non-numeric characters
-  }
-  var parsedValue = parseFloat(value);
-  return isNaN(parsedValue) ? 0 : parsedValue;
-};
-
-function enrichCompanyDataFromMaster() {
-  if (!masterCompanyData || !masterCompanyData.length || !companyData || !companyData.length) {
-    console.warn('enrichCompanyDataFromMaster: missing masterCompanyData or companyData');
-    return;
-  }
-
-  // Build lookup by CompanyNumber from the metadata file
-  const metaByNumber = {};
-  masterCompanyData.forEach(row => {
-    const raw = row.CompanyNumber != null ? String(row.CompanyNumber).trim() : '';
-    if (!raw) return;
-    metaByNumber[raw] = row;
-  });
-
-  companyData.forEach(company => {
-    const key = company.Companynumber != null ? String(company.Companynumber).trim() : '';
-    const meta = metaByNumber[key];
-    if (!meta) {
-      // No enrichment for this company
-      return;
-    }
-
-    // Correct name field from CompanyName (capital N)
-    company.Companyname = meta.CompanyName || company.Companyname || 'Unknown';
-
-    // Employees, turnover, investment, IUK funding
-    company.total_employees          = parseNumber(meta.BestEstimateEmployees);
-    company.total_turnover           = parseNumber(meta.BestEstimateTurnover);
-    company.total_investment         = parseNumber(meta.Investment_GBP);
-    company.TotalInnovateUKFunding   = parseNumber(meta.IUK_GBP);
-
-    // Female founded, from WomenLed TRUE/FALSE
-    const wl = meta.WomenLed;
-    company.WomenFounded =
-      wl === true  ||
-      wl === 'TRUE' ||
-      wl === 'True' ||
-      wl === 'true' ||
-      wl === 1     ||
-      wl === '1'
-        ? 1
-        : 0;
-  });
-}
-
-
-// Function to interpret various "female founded" encodings
-function isFemaleFoundedFlag(value) {
-  if (value === null || value === undefined) return false;
-
-  if (typeof value === 'number') {
-    return value === 1;
-  }
-
-  const s = String(value).trim().toLowerCase();
-  return s === '1' || s === 'yes' || s === 'y' || s === 'true';
-}
-
-// RTIC mapping for API-backed sectors
-window.DATACITY_SECTOR_CODES = Object.assign(
-  { 'Defence': 'RTIC0096' },
-  window.DATACITY_SECTOR_CODES || {}
-);
-
-function parseBool(value) {
-  if (typeof value === 'boolean') return value;
-  if (typeof value === 'string') {
-    const v = value.trim().toUpperCase();
-    return v === 'TRUE' || v === 'YES' || v === '1';
-  }
-  if (typeof value === 'number') return value === 1;
-  return false;
-}
-
-function parseNumber(value) {
-  if (typeof value === 'string') {
-    value = value.replace(/[^0-9.-]+/g, '');
-  }
-  const parsed = parseFloat(value);
-  return isNaN(parsed) ? 0 : parsed;
-}
-
-function loadSectorsData(sectorsList) {
-  const statsPanel    = document.getElementById('sector-stats-panel');
-  const ctrlContainer = document.querySelector('.leaflet-control-container');
-
-  // If nothing selected, clear everything and bail
-  if (!sectorsList || !sectorsList.length) {
-    companyData        = [];
-    clusterSummaryData = {};
-    removeClusterLayers();
-    updateLegend('');
-    document.getElementById('overall-stats-button').style.display = 'none';
-
-    if (statsPanel)    statsPanel.classList.remove('show');
-    if (ctrlContainer) ctrlContainer.classList.remove('controls-shift-right');
-    return;
-  }
-
-  if (!Array.isArray(masterClusterData) || !masterClusterData.length) {
-    console.warn('masterClusterData is empty or not loaded yet');
-    return;
-  }
-
-  companyData        = [];
-  clusterSummaryData = {};   // we’ll ignore this until you have summary files
-
-  // Helper so this works whether chips show "Advanced_Manufacturing"
-  // or "Advanced Manufacturing"
-  function sectorMatches(rowSector, selectedSector) {
-    if (!rowSector) return false;
-    var raw         = rowSector.toString().trim();
-    var dispFromRaw = raw.replace(/_/g, ' ').trim();
-
-    return raw === selectedSector || dispFromRaw === selectedSector;
-  }
-
-  sectorsList.forEach(function (selectedSector) {
-    masterClusterData.forEach(function (row) {
-
-      if (selectedSector === sectorsList[0] && companyData.length === 0) {
-        console.log('Raw row keys from masterClusterData:', Object.keys(row));
-        console.log(
-          'Keys containing "emp":',
-          Object.keys(row).filter(k => k.toLowerCase().includes('emp'))
-        );
-        console.log('Sample Emp field values:', {
-          Emp_750_v1: row.Emp_750_v1,
-          Emp_750_v2: row.Emp_750_v2,
-          Emp_750_v3: row.Emp_750_v3,
-          exactKeys: Object.fromEntries(
-            Object.entries(row).filter(([k]) => k.toLowerCase().includes('emp'))
-          )
-        });
-      }
-
-      if (!sectorMatches(row.Sector, selectedSector)) return;
-
-      // Company number as string
-      var compNum = row.CompanyNumber
-        ? row.CompanyNumber.toString().trim()
-        : null;
-      if (!compNum) return;
-
-      // Drop excluded companies
-      if (excludedCompanyNumbers.includes(compNum)) return;
-
-      // Coordinates
-      var lat = parseFloat(row.Latitude);
-      var lng = parseFloat(row.Longitude);
-      if (isNaN(lat) || isNaN(lng)) return;
-
-      // Cluster id, skip cluster 0 entirely
-      var clusterStr = row.cluster != null
-        ? row.cluster.toString()
-        : '0';
-      if (clusterStr === '0') return;
-
-      var sectorLabel = selectedSector; // match chip label exactly
-
-      var company = {
-        Companynumber:          compNum,
-        Companyname:            row.CompanyName || 'Unknown',
-        Latitude:               lat,
-        Longitude:              lng,
-        cluster:                clusterStr,
-        sector:                 sectorLabel,
-        clusterId:              sectorLabel + '_' + clusterStr,
-        RegisteredPostcode:     row.RegisteredPostcode || null,
-        Homepage_domain:        row.Homepage_domain || null,
-
-        // NEW BOOLEAN FLAGS
-        BPE:                    parseBool(row.BPE),
-        NatWest:                parseBool(row.NatWest),
-        Emp_750_v1:             parseBool(row.Emp_750_v1),
-        Emp_750_v2:             parseBool(row.Emp_750_v2),
-        Emp_750_v3: parseBool(
-          row.Emp_750_v3 ??
-          row['Emp_750_v3'] ??
-          row['Emp_750_v3 '] ??
-          row[' Emp_750_v3'] ??
-          row['EMP_750_V3']
-        ),
-        MMC_500:                parseBool(row.MMC_500),
-        Gov_Dfn:                parseBool(row.Gov_Dfn),
-
-        // numeric fields via existing parseNumber helper
-        total_employees:        parseNumber(row.BestEstimateEmployees),
-        total_turnover:         parseNumber(row.BestEstimateTurnover),
-        total_investment:       parseNumber(row.Investment_GBP),
-        TotalInnovateUKFunding: parseNumber(row.IUK_GBP),
-
-        // WomenLed is TRUE/FALSE
-        WomenFounded:
-          row.WomenLed === true   ||
-          row.WomenLed === 'TRUE' ||
-          row.WomenLed === 'True' ||
-          row.WomenLed === 'true' ||
-          row.WomenLed === 1      ||
-          row.WomenLed === '1'
-            ? 1
-            : 0,
-
-        // no growth yet
-        BestEstimateGrowthPercentagePerYear: null
-      };
-
-      companyData.push(company);
-    });
-  });
-
-  console.log(
-    'Emp_750_v3 TRUE count after loadSectorsData:',
-    companyData.filter(c => c.Emp_750_v3 === true).length
-  );
-
-  if (companyData.length) {
-    console.log('Sample company keys:', Object.keys(companyData[0]));
-    console.log(
-      'Sample TRUE companies:',
-      companyData.filter(c => c.Emp_750_v3 === true).slice(0, 5)
-    );
-  }
-
-  console.log('companyData size after loadSectorsData:', companyData.length);
-
-  // Rebuild clusters based on the new companyData
-  generateClusterColors();
-  populateClusterCheckboxes();
-
-  currentClusters = getAllClusterIds().filter(function (cid) {
-    return currentSectors.includes(cid.split('_')[0]);
-  });
-
-  addCompanyClusters();
-  updateLegend(currentSectors.length > 0 ? 'Sectors' : '');
-
-  // If the stats panel is open, refresh it with the new data
-  if (statsPanel && statsPanel.classList.contains('show')) {
-    computeSectorStatistics();
-    var ordered = window.selectionOrder.length
-      ? window.selectionOrder
-      : currentSectors;
-    showSectorStatistics(ordered);
-  }
-}
-
-// Select All Clusters
-document.getElementById('select-all-clusters').addEventListener('click', function() {
-  var clusterCheckboxes = document.querySelectorAll('.cluster-checkbox');
-  clusterCheckboxes.forEach(function(checkbox) {
-    checkbox.checked = true;
-  });
-  currentClusters = Array.from(clusterCheckboxes).map(cb => cb.value);
-  updateClusterLayers();
-});
-
-// Deselect All Clusters
-document.getElementById('deselect-all-clusters').addEventListener('click', function() {
-  var clusterCheckboxes = document.querySelectorAll('.cluster-checkbox');
-  clusterCheckboxes.forEach(function(checkbox) {
-    checkbox.checked = false;
-  });
-  currentClusters = [];
-  updateClusterLayers();
-});
-
-
-function computeSectorStatistics() {
-  sectorStats = {};
-
-  companyData.forEach(function (company) {
-    var sector = company.sector;
-    if (!sector) return;
-
-    if (!sectorStats[sector]) {
-      sectorStats[sector] = {
-        companyCount:        0,
-        totalEmployees:      0,
-        totalTurnover:       0,
-        totalIUKFunding:     0,
-        totalInvestment:     0,
-        femaleFoundedCount:  0,
-        averageGrowthRate:   0,   // placeholder until you have data
-        femaleFoundedPercentage: 0
-      };
-    }
-
-    var stats = sectorStats[sector];
-    stats.companyCount += 1;
-
-    stats.totalEmployees  += company.total_employees      || 0;
-    stats.totalTurnover   += company.total_turnover       || 0;
-    stats.totalIUKFunding += company.TotalInnovateUKFunding || 0;
-    stats.totalInvestment += company.total_investment     || 0;
-
-    if (company.WomenFounded === 1) {
-      stats.femaleFoundedCount += 1;
-    }
-  });
-
-  // Final percentages
-  for (var sectorName in sectorStats) {
-    var s = sectorStats[sectorName];
-    if (s.companyCount > 0) {
-      s.femaleFoundedPercentage =
-        (s.femaleFoundedCount / s.companyCount) * 100;
-    } else {
-      s.femaleFoundedPercentage = 0;
-    }
-    // averageGrowthRate stays 0 until you actually have it
-  }
-}
-
-function showSectorStatistics(selectedSectors) {
-  const statsPanel = document.getElementById('sector-stats-panel');
-  if (!statsPanel) {
-    console.error('No stats panel found in the DOM');
-    return;
-  }
-
-  // Clear old content
-  statsPanel.innerHTML = `
-    <div class="stats-header">
-      <h2>Sector Stats</h2>
-      <button class="close-panel-btn" onclick="hideSectorStats()">&times;</button>
-    </div>
-  `;
-
-  // Build card layouts for each sector
-  selectedSectors.forEach(sector => {
-    const stats = sectorStats[sector];
-    if (!stats) {
-      statsPanel.innerHTML += `
-        <div class="stats-card">
-          <h3>${sector}</h3>
-          <p>No statistics available.</p>
-        </div>
-      `;
-      return;
-    }
-
-    statsPanel.innerHTML += `
-      <div class="stats-card">
-        <h3>${sector}</h3>
-        <p><strong>Companies:</strong> ${stats.companyCount}</p>
-        <p><strong>Total Employees:</strong> ${Math.round(stats.totalEmployees)}</p>
-        <p><strong>Total Turnover:</strong> ${formatTurnover(stats.totalTurnover)}</p>
-        <p><strong>% Female-Founded:</strong> ${stats.femaleFoundedPercentage.toFixed(2)}%</p>
-        <p><strong>IUK Funding:</strong> ${formatTurnover(stats.totalIUKFunding)}</p>
-        <p><strong>Investment:</strong> ${formatTurnover(stats.totalInvestment)}</p>
-      </div>
-    `;
-  });
-
-  statsPanel.classList.remove('hidden');
-  statsPanel.classList.add('show');
-}
-
-// Simple hide function
-function hideSectorStats() {
-  const statsPanel = document.getElementById('sector-stats-panel');
-  // Again grab all .leaflet-left elements
-  const leftControls = document.querySelectorAll('.leaflet-left');
-
-  // Hide the panel
-  statsPanel.classList.remove('show');
-
-  // Remove the shift class so everything moves back
-  leftControls.forEach(el => el.classList.remove('controls-shift-right'));
-}
-
-function removeClusterLayers() {
-  for (var clusterId in clusterLayers) {
-    map.removeLayer(clusterLayers[clusterId]);
-  }
-  clusterLayers = {};
-  clusterColors = {};
-  currentClusters = [];
-  if (clusterControl) {
-    map.removeControl(clusterControl);
-  }
-  // Remove sector polygons
-  for (var sector in sectorPolygonLayers) {
-    map.removeLayer(sectorPolygonLayers[sector]);
-  }
-  sectorPolygonLayers = {};
-
-  // Reset display mode if needed
-  if (polygonToggleControl) {
-    map.removeControl(polygonToggleControl);
-    polygonToggleControl = null;
-    displayMode = 'both'; // Reset to default
-    console.log('Display Mode Control removed during cluster removal.');
-  }
-}
-
-
-function removeOtherLayers() {
-  if (localAuthoritiesLayer && map.hasLayer(localAuthoritiesLayer)) map.removeLayer(localAuthoritiesLayer);
-  if (finalAreasLayer && map.hasLayer(finalAreasLayer)) map.removeLayer(finalAreasLayer);
-  for (var key in scaleupLayers) {
-    if (map.hasLayer(scaleupLayers[key])) map.removeLayer(scaleupLayers[key]);
-  }
-  if (searchControl) {
-    map.removeControl(searchControl);
-  }
-}
-
-function addCompanyClusters() {
-  updateClusterLayers();
-}
-
-var companyClusterLayer = L.geoJSON(null, {
-  onEachFeature: function (feature, layer) {
-    // Bind popup with company details
-    var company = feature.properties;
-    var popupContent = `
-      <div class="popup-content">
-        <p><strong>Company Name:</strong> ${company.Companyname}</p>
-        <p><strong>Company Number:</strong> ${company.Companynumber}</p>
-        <p><strong>Cluster:</strong> ${company.Cluster_name} (Cluster ${company.cluster})</p>
-        <p><strong>Sector:</strong> ${company.sector}</p>
-      </div>
-    `;
-    layer.bindPopup(popupContent);
-  }
-});
-
-// Handle sector-chip clicks or Select-All / Deselect-All
-function handleSectorSelectionChange () {
-  currentSectors = getSelectedSectors();
-
-  if (currentSectors.length > 0) {
-    loadSectorsData(currentSectors);
-    document.getElementById('overall-stats-button').style.display = 'block';
-  } else {
-    currentClusters = [];
-    removeClusterLayers();
-    document.getElementById('overall-stats-button').style.display = 'none';
-    updateLegend('');
-  }
-
-  updateOverlays(); // keeps universities / infra / support in sync with sectors
-}
-
-function populateSectorCheckboxes() {
-  const container = document.getElementById('sector-chips');
-  console.log('populateSectorCheckboxes called');
-
-  if (!container) {
-    console.error('❌ No #sector-chips container found in DOM');
-    return;
-  }
-
-  container.innerHTML = '';
-
-  // Safety: check data
-  if (!Array.isArray(masterClusterData)) {
-    console.error('❌ masterClusterData is not an array:', masterClusterData);
-    return;
-  }
-
-  console.log('masterClusterData length:', masterClusterData.length);
-
-  const seen = new Set();
-  const sectorList = [];
-
-  masterClusterData.forEach(row => {
-    // Defensive logging so we see the shape
-    if (!row || row.Sector === undefined) return;
-
-    const raw = String(row.Sector).trim();
-    if (!raw || seen.has(raw)) return;
-
-    seen.add(raw);
-    const display = raw.replace(/_/g, ' ').trim();
-    sectorList.push({ raw, display });
-  });
-
-  console.log('Unique sectors found:', sectorList);
-
-  if (!sectorList.length) {
-    const msg = document.createElement('p');
-    msg.textContent = 'No sectors found in data file.';
-    msg.style.fontStyle = 'italic';
-    container.appendChild(msg);
-    return;
-  }
-
-  // Optional: sort alphabetically by display label
-  sectorList.sort((a, b) => a.display.localeCompare(b.display));
-
-  // Build chips
-  sectorList.forEach(({ raw, display }) => {
-    const chip = document.createElement('div');
-    chip.className     = 'sector-chip';
-    chip.textContent   = display;
-    chip.dataset.value = display; // this matches loadSectorsData’s sectorMatches
-
-    chip.onclick = () => {
-      chip.classList.toggle('selected');
-
-      if (chip.classList.contains('selected')) {
-        if (!window.selectionOrder.includes(display)) {
-          window.selectionOrder.push(display);
-        }
+// ── Boundary toggle ───────────────────────────────────────────
+
+const BoundaryToggle = L.Control.extend({
+  onAdd: function () {
+    const btn = L.DomUtil.create('button', 'boundary-toggle');
+    btn.title = 'Show Final-Area boundaries';
+    btn.innerHTML = 'Borders';
+    btn.style.cssText = 'background:#fff;border:1px solid #888;border-radius:4px;padding:2px 6px;font:14px/1 sans-serif;cursor:pointer;';
+    let active = false;
+
+    btn.onclick = e => {
+      e.stopPropagation();
+      active = !active;
+
+      if (active) {
+        if (finalAreasBoundaryLayer) finalAreasBoundaryLayer.addTo(map);
+        map.eachLayer(l => { if (l instanceof L.TileLayer) l.setOpacity(0.4); });
+        if (!faSearchControl) faSearchControl = new FinalAreaSearchControl({ position: 'topleft' }).addTo(map);
+        btn.style.background = '#007BFF';
+        btn.style.color      = '#fff';
       } else {
-        window.selectionOrder = window.selectionOrder.filter(s => s !== display);
-      }
-
-      handleSectorSelectionChange();
-      if (typeof updateDisplayModeToggleVisibility === 'function') {
-        updateDisplayModeToggleVisibility();
+        if (finalAreasBoundaryLayer) map.removeLayer(finalAreasBoundaryLayer);
+        map.eachLayer(l => { if (l instanceof L.TileLayer) l.setOpacity(1); });
+        if (faSearchControl) { map.removeControl(faSearchControl); faSearchControl = null; }
+        btn.style.background = '#fff';
+        btn.style.color      = '#000';
       }
     };
 
-    container.appendChild(chip);
-  });
-
-  console.log('✅ Sector chips rendered:', sectorList.length);
-}
-
-// Select All Sectors
-document.getElementById('select-all-sectors').addEventListener('click', () => {
-  document.querySelectorAll('.sector-chip').forEach(chip => chip.classList.add('selected'));
-  handleSectorSelectionChange();
+    return btn;
+  }
 });
+new BoundaryToggle({ position: 'topleft' }).addTo(map);
 
-// Deselect All Sectors
-document.getElementById('deselect-all-sectors').addEventListener('click', () => {
-  document.querySelectorAll('.sector-chip').forEach(chip => chip.classList.remove('selected'));
-  window.selectionOrder = [];
-  handleSectorSelectionChange();
-  updateDisplayModeToggleVisibility();
-});
+// ── Overlays ──────────────────────────────────────────────────
 
-function updateClusterLayers() {
-  console.log('updateClusterLayers called');
-  console.log('Current displayMode:', displayMode);
-
-  // 1) Animation helpers
-  function easeOut(progress) {
-    return 1 - Math.pow(1 - progress, 3);
-  }
-
-  function animateMarkersBatch(markers, duration) {
-    let startTime;
-
-    function step(timestamp) {
-      if (!startTime) startTime = timestamp;
-      const elapsed = timestamp - startTime;
-      let progress = Math.min(elapsed / duration, 1);
-
-      progress = easeOut(progress);
-
-      markers.forEach(marker => {
-        const targetRadius = marker._targetRadius || 3;
-        const targetOpacity = marker._targetFillOpacity || 0.8;
-
-        marker.setStyle({
-          radius: targetRadius * progress,
-          fillOpacity: targetOpacity * progress
-        });
-      });
-
-      if (progress < 1) {
-        requestAnimationFrame(step);
-      }
-    }
-
-    requestAnimationFrame(step);
-  }
-
-  function animatePolygonsBatch(polygons, finalFillOpacity, duration) {
-    let startTime;
-
-    function step(timestamp) {
-      if (!startTime) startTime = timestamp;
-      const elapsed = timestamp - startTime;
-      let progress = Math.min(elapsed / duration, 1);
-      progress = easeOut(progress);
-
-      polygons.forEach(polygon => {
-        polygon.setStyle({
-          fillOpacity: finalFillOpacity * progress
-        });
-      });
-
-      if (progress < 1) {
-        requestAnimationFrame(step);
-      }
-    }
-    requestAnimationFrame(step);
-  }
-
-  // 2) Clear existing layers
-  allPolygons = [];
-
-  for (const existingId in clusterLayers) {
-    map.removeLayer(clusterLayers[existingId]);
-  }
-  clusterLayers = {};
-
-  if (currentClusters.length === 0) {
-    updateLegend('');
-    return;
-  }
-
-  // Group companies into visible clusters
-  const clusters = {};
-  companyData.forEach(company => {
-    const clusterId = company.clusterId;
-    if (!clusterId) return;
-    if (!currentClusters.includes(clusterId)) return;
-
-    if (!clusters[clusterId]) {
-      clusters[clusterId] = [];
-    }
-    clusters[clusterId].push(company);
-  });
-
-  const newMarkers  = [];
-  const newPolygons = [];
-
-  // 4) Build each cluster
-  for (const clusterId in clusters) {
-    const companies = clusters[clusterId];
-    if (!companies.length) continue;
-
-    const clusterNumber = String(companies[0].cluster);
-    if (clusterNumber === '0') {
-      // skip noise cluster
-      continue;
-    }
-
-    const sectorName = companies[0].sector;
-    const clusterName = companies[0].Cluster_name || 'Cluster ' + clusterNumber;
-
-    const region =
-      (clusterRegions[sectorName] &&
-      clusterRegions[sectorName][clusterNumber]) ||
-      'Unknown';
-
-    // NEW: cluster-level Emp_750_v3 count
-    const totalCompaniesInCluster = companies.length;
-    const emp750CountInCluster = companies.filter(c => c.Emp_750_v3 === true).length;
-
-    const clusterGroup = L.layerGroup();
-    const points = [];
-
-    let totalEmployees = 0;
-    let totalTurnover = 0;
-    let totalInvestment = 0;
-    let totalIUK = 0;
-    let femaleFoundedCount = 0;
-
-    companies.forEach(company => {
-      const lat = company.Latitude;
-      const lng = company.Longitude;
-
-      if (typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng)) {
-        points.push([lat, lng]);
-      }
-
-      totalEmployees += parseNumber(company.total_employees);
-      totalTurnover  += parseNumber(company.total_turnover);
-      totalInvestment += parseNumber(company.total_investment);
-      totalIUK       += parseNumber(company.TotalInnovateUKFunding);
-
-      if (company.WomenFounded === 1) {
-        femaleFoundedCount += 1;
-      }
-
-      if (displayMode === 'points' || displayMode === 'both') {
-        const isEmp750 = company.Emp_750_v3 === true;
-
-        const baseClusterColor = getClusterColor(clusterId);
-        const highlightClusterColor = chroma(baseClusterColor).darken(1.2).hex();
-
-        const marker = L.circleMarker([lat, lng], {
-          pane: isEmp750 ? 'emp750Pane' : 'markerPane',
-          radius: 0,
-          fillColor: isEmp750 ? highlightClusterColor : baseClusterColor,
-          color: '#000000',
-          weight: isEmp750 ? 1.2 : 0.2,
-          fillOpacity: 0
-        });
-
-        // restore normal points, make Emp_750_v3 only slightly bigger
-        marker._targetRadius = isEmp750 ? 5 : 3;
-        marker._targetFillOpacity = isEmp750 ? 1 : 0.8;
-        marker._isEmp750 = isEmp750;
-        marker._baseColor = baseClusterColor;
-        marker._highlightColor = highlightClusterColor;
-
-        marker.bindPopup(`
-          <div class="popup-content">
-            <p><strong>Company Name:</strong> ${company.Companyname}</p>
-            <p><strong>Company Number:</strong> ${company.Companynumber}</p>
-            <p><strong>Cluster:</strong> ${region} (Cluster ${clusterNumber})</p>
-            <p><strong>Sector:</strong> ${company.sector}</p>
-            <p><strong>Emp_750_v3:</strong> ${company.Emp_750_v3 ? 'TRUE' : 'FALSE'}</p>
-            ${
-              company.Emp_750_v3 === true
-                ? `<p><strong>Mid-market in this cluster:</strong> ${emp750CountInCluster} out of ${totalCompaniesInCluster}</p>`
-                : ''
-            }
-          </div>
-        `);
-
-        marker.on({
-          mouseover: e => {
-            const isEmp750 = e.target._isEmp750;
-
-            e.target.setStyle({
-              radius: isEmp750 ? 6.5 : 5,
-              weight: isEmp750 ? 1.8 : 1,
-              color: '#ffffff',
-              fillOpacity: 1
-            });
-
-            e.target.bringToFront();
-          },
-          mouseout: e => {
-            const isEmp750 = e.target._isEmp750;
-
-            e.target.setStyle({
-              radius: isEmp750 ? 5 : 3,
-              weight: isEmp750 ? 1.2 : 0.2,
-              color: '#000000',
-              fillColor: isEmp750 ? e.target._highlightColor : e.target._baseColor,
-              fillOpacity: isEmp750 ? 1 : 0.8
-            });
-          },
-          click: e => {
-            e.target.openPopup();
-          }
-        });
-
-        clusterGroup.addLayer(marker);
-        newMarkers.push(marker);
-      }
-    });
-
-    const companyCount = companies.length;
-    const femaleFoundedPercentage =
-      companyCount > 0 ? (femaleFoundedCount / companyCount) * 100 : 0;
-
-    const totalEmployeesDisplay = companyCount ? Math.round(totalEmployees) : 'N/A';
-    const totalTurnoverDisplay  = companyCount ? formatTurnover(totalTurnover) : 'N/A';
-    const totalIUKDisplay       = totalIUK > 0 ? formatTurnover(totalIUK) : 'N/A';
-
-    const polygonColor = sectorColors[sectorName] || '#FFFFFF';
-
-    if ((displayMode === 'polygons' || displayMode === 'both') && points.length >= 3) {
-      const polygon = L.polygon(convexHull(points), {
-        pane: 'polygonsPane',
-        color: polygonColor,
-        fillColor: polygonColor,
-        fillOpacity: 0,   // start transparent for animation
-        weight: 1,
-        interactive: false
-      });
-
-      polygon.originalStyle = {
-        color: polygonColor,
-        weight: 1,
-        fillOpacity: 0.4   // a bit stronger fill
-      };
-
-      polygon.bindPopup(`
-        <div class="popup-content">
-          <p><strong>${clusterName}</strong></p>
-          <p><strong>Region:</strong> ${region}</p>
-          <p><strong>Sector:</strong> ${sectorName}</p>
-          <p><strong>Company Count:</strong> ${companyCount}</p>
-          <p><strong>Total Employees:</strong> ${totalEmployeesDisplay}</p>
-          <p><strong>Total Turnover:</strong> ${totalTurnoverDisplay}</p>
-          <p><strong>% Female-Founded Companies:</strong> ${femaleFoundedPercentage.toFixed(1)}%</p>
-          <p><strong>Total IUK Grant Funding:</strong> ${totalIUKDisplay}</p>
-        </div>
-      `);
-
-      clusterGroup.addLayer(polygon);
-
-      allPolygons.push({
-        layer: polygon,
-        properties: {
-          clusterNumber,
-          sectorName,
-          clusterName,
-          clusterId,
-          region,
-          companyCount,
-          totalEmployees: totalEmployeesDisplay,
-          totalTurnover: totalTurnoverDisplay,
-          femaleFoundedPercentageDisplay: femaleFoundedPercentage.toFixed(1) + '%',
-          totalIUKFundingDisplay: totalIUKDisplay
-        }
-      });
-
-      newPolygons.push(polygon);
-    }
-
-    clusterLayers[clusterId] = clusterGroup;
-    clusterGroup.addTo(map);
-  }
-
-
-  // 5) Animate
-  if (newMarkers.length > 0) {
-    animateMarkersBatch(newMarkers, 800);
-  }
-  if (newPolygons.length > 0) {
-    animatePolygonsBatch(newPolygons, 0.35, 800);
-  }
-
-  // 6) Legend
-  if (currentSectors.length > 0) {
-    updateLegend('Sectors');
-  } else {
-    updateLegend('');
-  }
-}
-
-
-map.on('mousemove', handleMapMouseMove);
-map.on('click', handleMapClick);
-
-function generateClusterColors() {
-  clusterColors = {}; // Reset cluster colors
-
-  var clustersInSelectedSectors = companyData.filter(function (company) {
-    return currentSectors.includes(company.sector);
-  });
-
-  var uniqueClusters = {};
-
-  clustersInSelectedSectors.forEach(function (company) {
-    var clusterId = company.clusterId;
-    var clusterNumber = company.cluster;
-
-    if (clusterNumber === '0') {
-      clusterColors[clusterId] = '#D3D3D3'; // Light grey for Cluster 0
-    } else if (!uniqueClusters[clusterId]) {
-      uniqueClusters[clusterId] = true;
-    }
-  });
-
-  var clusterIds = Object.keys(uniqueClusters);
-  var numClusters = clusterIds.length;
-  var colorScale = chroma.scale('Set1').colors(numClusters > 0 ? numClusters : 1); // Prevent errors if numClusters is 0
-
-  clusterIds.forEach(function (clusterId, index) {
-    clusterColors[clusterId] = colorScale[index % colorScale.length];
-  });
-}
-
-function getAllClusterIds() {
-  var clusterIds = companyData.reduce(function (acc, company) {
-    var clusterId = company.clusterId;
-    if (!acc.includes(clusterId)) {
-      acc.push(clusterId);
-    }
-    return acc;
-  }, []);
-  return clusterIds;
-}
-
-function populateClusterCheckboxes() {
-  var clusterContainer = document.getElementById('cluster-checkboxes');
-  clusterContainer.innerHTML = ''; // Clear existing checkboxes
-
-  var clusters = getAllClusterIds().filter(clusterId => {
-    var sector = clusterId.split('_')[0];
-    return currentSectors.includes(sector);
-  });
-
-  clusters.forEach(function (clusterId) {
-    var cluster = companyData.find(c => c.clusterId === clusterId);
-    if (cluster) {
-      var sectorDisplayName = sectorDisplayNames[cluster.sector] || cluster.sector;
-      var checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.id = 'cluster-' + clusterId;
-      checkbox.value = clusterId;
-      checkbox.classList.add('cluster-checkbox');
-      checkbox.checked = true; // Check by default if desired
-
-      var label = document.createElement('label');
-      label.htmlFor = checkbox.id;
-      label.textContent = `${cluster.Cluster_name} (Cluster ${cluster.cluster})`; // Keep as is or adjust if needed
-
-      label.prepend(checkbox);
-      clusterContainer.appendChild(label);
-    }
-  });
-
-  // Attach event listeners to the checkboxes
-  var clusterCheckboxes = document.querySelectorAll('.cluster-checkbox');
-  clusterCheckboxes.forEach(function(checkbox) {
-    checkbox.addEventListener('change', function() {
-      currentClusters = Array.from(document.querySelectorAll('.cluster-checkbox:checked')).map(cb => cb.value);
-      updateClusterLayers();
-    });
-  });
-}
-
-function convexHull(points) {
-  if (points.length < 3) {
-    return points;
-  }
-  points = points.slice().sort(function (a, b) {
-    return a[0] - b[0] || a[1] - b[1];
-  });
-
-  var lower = [];
-  for (var i = 0; i < points.length; i++) {
-    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], points[i]) <= 0) {
-      lower.pop();
-    }
-    lower.push(points[i]);
-  }
-
-  var upper = [];
-  for (var i = points.length - 1; i >= 0; i--) {
-    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], points[i]) <= 0) {
-      upper.pop();
-    }
-    upper.push(points[i]);
-  }
-
-  upper.pop();
-  lower.pop();
-  return lower.concat(upper);
-}
-
-function cross(o, a, b) {
-  return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
-}
-
-function showClusterInfo(clusterInfo) {
-  var content = `
-    <button id="info-box-close" class="info-box-close">&times;</button>
-    <h3>${props.region} (Cluster ${props.clusterNumber})</h3>
-    <p><strong>Sector:</strong> ${clusterInfo.sectorName}</p>
-    <p><strong>Company Count:</strong> ${clusterInfo.companyCount}</p>
-    <p><strong>Total Employees:</strong> ${clusterInfo.totalEmployees}</p>
-    <p><strong>Total Turnover:</strong> ${clusterInfo.totalTurnover}</p>
-    <p><strong>Average Growth Rate:</strong> ${clusterInfo.averageGrowthRateDisplay}</p>
-    <p><strong>% Female-Founded Companies:</strong> ${clusterInfo.femaleFoundedPercentageDisplay}</p>
-    <p><strong>Total IUK Grant Funding:</strong> ${clusterInfo.totalIUKFundingDisplay}</p>
-  `;
-
-  var infoBox = document.getElementById('info-box');
-  if (infoBox) {
-    infoBox.innerHTML = content;
-    infoBox.classList.remove('hidden');
-
-    // Disable click events from propagating to the map
-    L.DomEvent.disableClickPropagation(infoBox);
-
-    // Add event listener for close button
-    var closeButton = document.getElementById('info-box-close');
-    if (closeButton) {
-      closeButton.addEventListener('click', function (e) {
-        infoBox.classList.add('hidden');
-        e.stopPropagation(); // Prevent the click from propagating to the map
-      });
-    } else {
-      console.error('Close button not found in info box');
-    }
-  } else {
-    console.error('Info box element not found');
-  }
-}
-
-function handleMapClick(e) {
-  var latlng = e.latlng;
-  var polygonsAtPoint = [];
-
-  allPolygons.forEach(function(polygonData) {
-    var polygon = polygonData.layer;
-    if (isPointInPolygon(latlng, polygon)) {
-      // Check if the polygon is already in polygonsAtPoint
-      var alreadyAdded = polygonsAtPoint.some(function(pd) {
-        return pd.layer._leaflet_id === polygon._leaflet_id;
-      });
-
-      if (!alreadyAdded) {
-        polygonsAtPoint.push(polygonData);
-      }
-    }
-  });
-
-  if (polygonsAtPoint.length === 0) {
-    // Hide info box if no polygons are found
-    var infoBox = document.getElementById('info-box');
-    if (infoBox) {
-      infoBox.classList.add('hidden');
-    }
-  } else if (polygonsAtPoint.length === 1) {
-    // Show info for the single polygon
-    showPolygonInfo(polygonsAtPoint[0]);
-  } else {
-    // Multiple polygons: allow the user to select one
-    showPolygonSelectionDialog(polygonsAtPoint);
-  }
-}
-
-function isPointInPolygon(latlng, polygon) {
-  var layerPoint = map.latLngToLayerPoint(latlng);
-  var inside = false;
-  var parts = polygon._parts;
-
-  for (var i = 0; i < parts.length; i++) {
-    var part = parts[i];
-    var len = part.length;
-    for (var j = 0, k = len - 1; j < len; k = j++) {
-      var xi = part[j].x,
-          yi = part[j].y,
-          xj = part[k].x,
-          yj = part[k].y,
-          intersect = ((yi > layerPoint.y) !== (yj > layerPoint.y)) &&
-                      (layerPoint.x < (xj - xi) * (layerPoint.y - yi) / (yj - yi) + xi);
-      if (intersect) inside = !inside;
-    }
-  }
-
-  return inside;
-}
-
-function showPolygonInfo(polygonData) {
-  var props = polygonData.properties;
-  var sectorDisplayName = sectorDisplayNames[props.sectorName] || props.sectorName;
-
-  var content = `
-    <button id="info-box-close" class="info-box-close">&times;</button>
-    <h3>${props.region} (Cluster ${props.clusterNumber})</h3>
-    <p><strong>Sector:</strong> ${sectorDisplayName}</p>
-    <p><strong>Company Count:</strong> ${props.companyCount}</p>
-    <p><strong>Total Employees:</strong> ${props.totalEmployees}</p>
-    <p><strong>Total Turnover:</strong> ${props.totalTurnover}</p>
-    <p><strong>% Female-Founded Companies:</strong> ${props.femaleFoundedPercentageDisplay}</p>
-    <p><strong>Total IUK Grant Funding:</strong> ${props.totalIUKFundingDisplay}</p>
-  `;
-
-  var infoBox = document.getElementById('info-box');
-  if (infoBox) {
-    infoBox.innerHTML = content;
-    infoBox.classList.remove('hidden');
-
-    // Add event listener for close button
-    var closeButton = document.getElementById('info-box-close');
-    if (closeButton) {
-      closeButton.addEventListener('click', function (e) {
-        infoBox.classList.add('hidden');
-        e.stopPropagation();
-      });
-    }
-  } else {
-    console.error('Info box element not found');
-  }
-}
-
-function showPolygonSelectionDialog(polygonsData) {
-  var content = `
-    <button id="info-box-close" class="info-box-close">&times;</button>
-    <h3>Select a Cluster</h3>
-    <ul>
-  `;
-
-  polygonsData.forEach(function (polygonData, index) {
-    var props = polygonData.properties;
-    content += `
-      <li>
-        <a href="#" data-index="${index}">${props.clusterName} - Sector: ${props.sectorName}</a>
-      </li>
-    `;
-  });
-
-  content += `</ul>`;
-
-  var infoBox = document.getElementById('info-box');
-  if (infoBox) {
-    infoBox.innerHTML = content;
-    infoBox.classList.remove('hidden');
-
-    // Add event listener for close button
-    var closeButton = document.getElementById('info-box-close');
-    if (closeButton) {
-      closeButton.addEventListener('click', function (e) {
-        infoBox.classList.add('hidden');
-        e.stopPropagation();
-      });
-    }
-
-    // Add event listeners for selection links
-    var links = infoBox.querySelectorAll('a[data-index]');
-    links.forEach(function (link) {
-      link.addEventListener('click', function (e) {
-        e.preventDefault();
-        var index = parseInt(e.currentTarget.getAttribute('data-index'));
-        showPolygonInfo(polygonsData[index]);
-      });
-    });
-  } else {
-    console.error('Info box element not found');
-  }
-}
-
-function handleMapMouseMove(e) {
-  var latlng = e.latlng;
-  var polygonsAtPoint = [];
-
-  // Reset styles for previously highlighted polygons
-  highlightedPolygons.forEach(function(polygon) {
-    resetPolygonStyle(polygon);
-  });
-  highlightedPolygons = [];
-
-  // Loop through all polygons to check if the cursor is over them
-  allPolygons.forEach(function(polygonData) {
-    var polygon = polygonData.layer;
-    if (isPointInPolygon(latlng, polygon)) {
-      polygonsAtPoint.push(polygon);
-    }
-  });
-
-  // Highlight all polygons under the cursor
-  polygonsAtPoint.forEach(function(polygon) {
-    highlightPolygon(polygon);
-    highlightedPolygons.push(polygon);
-  });
-}
-
-function isPointInPolygon(latlng, polygon) {
-  var layerPoint = map.latLngToLayerPoint(latlng);
-  var inside = false;
-  var parts = polygon._parts;
-
-  if (!parts) {
-    return false;
-  }
-
-  for (var i = 0; i < parts.length; i++) {
-    var part = parts[i];
-    var len = part.length;
-    for (var j = 0, k = len - 1; j < len; k = j++) {
-      var xi = part[j].x,
-          yi = part[j].y,
-          xj = part[k].x,
-          yj = part[k].y,
-          intersect = ((yi > layerPoint.y) !== (yj > layerPoint.y)) &&
-                      (layerPoint.x < (xj - xi) * (layerPoint.y - yi) / (yj - yi) + xi);
-      if (intersect) inside = !inside;
-    }
-  }
-
-  return inside;
-}
-
-function handleMapClick(e) {
-  var latlng = e.latlng;
-  var polygonsAtPoint = [];
-
-  allPolygons.forEach(function(polygonData) {
-    var polygon = polygonData.layer;
-    if (isPointInPolygon(latlng, polygon)) {
-      // Prevent duplicates
-      var alreadyAdded = polygonsAtPoint.some(function(pd) {
-        return pd.layer._leaflet_id === polygon._leaflet_id;
-      });
-
-      if (!alreadyAdded) {
-        polygonsAtPoint.push(polygonData);
-      }
-    }
-  });
-
-  if (polygonsAtPoint.length === 0) {
-    // Close any open popups
-    map.closePopup();
-  } else if (polygonsAtPoint.length === 1) {
-    // Show info for the single polygon in a popup at the clicked location
-    showPolygonInfoPopup(polygonsAtPoint[0], latlng);
-  } else {
-    // Multiple polygons: allow the user to select one via a popup
-    showPolygonSelectionPopup(polygonsAtPoint, latlng);
-  }
-}
-
-function showPolygonInfoPopup(polygonData, latlng) {
-  var props = polygonData.properties;
-  var sectorDisplayName = sectorDisplayNames[props.sectorName] || props.sectorName;
-
-  var content = `
-    <div class="popup-content">
-      <h3>${props.region} (Cluster ${props.clusterNumber})</h3>
-      <p><strong>Sector:</strong> ${sectorDisplayName}</p>
-      <p><strong>Company Count:</strong> ${props.companyCount}</p>
-      <p><strong>Total Employees:</strong> ${props.totalEmployees}</p>
-      <p><strong>Total Turnover:</strong> ${props.totalTurnover}</p>
-      <p><strong>% Female-Founded Companies:</strong> ${props.femaleFoundedPercentageDisplay}</p>
-      <p><strong>Total IUK Grant Funding:</strong> ${props.totalIUKFundingDisplay}</p>
-    </div>
-  `;
-
-  L.popup()
-    .setLatLng(latlng)
-    .setContent(content)
-    .openOn(map);
-}
-
-
-
-function showPolygonSelectionPopup(polygonsData, latlng) {
-  var content = document.createElement('div');
-  content.className = 'popup-content';
-
-  var tabsContainer = document.createElement('div');
-  tabsContainer.className = 'tabs-container';
-
-  var tabLinks = document.createElement('ul');
-  tabLinks.className = 'tab-links';
-
-  var tabContentContainer = document.createElement('div');
-  tabContentContainer.className = 'tab-content';
-
-  var currentlyHighlightedPolygon = null; // For tracking the highlighted polygon
-
-  polygonsData.forEach(function (polygonData, index) {
-    var props = polygonData.properties;
-    var sectorDisplayName = sectorDisplayNames[props.sectorName] || props.sectorName;
-
-    // Get the sector color
-    var sectorColor = getSectorColor(props.sectorName);
-
-    // Create tab link
-    var tabLinkItem = document.createElement('li');
-    var tabLink = document.createElement('a');
-    tabLink.href = '#';
-    tabLink.setAttribute('data-index', index);
-
-    // Only display the cluster number
-    tabLink.textContent = `Cluster ${props.clusterNumber} (${sectorDisplayName})`;
-
-    // Apply the sector color as the background color
-    tabLink.style.backgroundColor = sectorColor;
-
-    // Adjust the text color for readability
-    var textColor = getContrastColor(sectorColor);
-    tabLink.style.color = textColor;
-
-    if (index === 0) {
-      tabLinkItem.classList.add('active');
-      // Set active tab styles with darker shade
-      var darkerColor = chroma(sectorColor).darken(1).hex();
-      tabLink.style.backgroundColor = darkerColor;
-      tabLink.style.color = getContrastColor(darkerColor);
-    }
-
-    tabLinkItem.appendChild(tabLink);
-    tabLinks.appendChild(tabLinkItem);
-
-    // Create tab content
-    var tabContent = document.createElement('div');
-    tabContent.className = 'tab';
-    tabContent.setAttribute('data-index', index);
-    if (index === 0) {
-      tabContent.classList.add('active');
-    }
-
-    // Populate tab content with polygon information
-    tabContent.innerHTML = `
-      <p><strong>Sector:</strong> ${sectorDisplayName}</p>
-      <p><strong>Company Count:</strong> ${props.companyCount}</p>
-      <p><strong>Total Employees:</strong> ${props.totalEmployees}</p>
-      <p><strong>Total Turnover:</strong> ${props.totalTurnover}</p>
-      <p><strong>% Female-Founded Companies:</strong> ${props.femaleFoundedPercentageDisplay}</p>
-      <p><strong>Total IUK Grant Funding:</strong> ${props.totalIUKFundingDisplay}</p>
-    `;
-
-    tabContentContainer.appendChild(tabContent);
-
-    // Attach event listener to tab link
-    tabLink.addEventListener('click', function (e) {
-      e.preventDefault();
-      var idx = e.currentTarget.getAttribute('data-index');
-      switchTab(idx);
-    });
-  });
-
-  tabsContainer.appendChild(tabLinks);
-  tabsContainer.appendChild(tabContentContainer);
-  content.appendChild(tabsContainer);
-
-  var popup = L.popup()
-    .setLatLng(latlng)
-    .setContent(content)
-    .openOn(map);
-
-  function switchTab(index) {
-    // Remove 'active' class from all tab links and contents
-    var allTabLinks = tabLinks.querySelectorAll('li');
-    var allTabContents = tabContentContainer.querySelectorAll('.tab');
-
-    allTabLinks.forEach(function (linkItem) {
-      linkItem.classList.remove('active');
-      // Reset tab link styles
-      var link = linkItem.querySelector('a');
-      var sectorColor = getSectorColor(
-        polygonsData[link.getAttribute('data-index')].properties.sectorName
-      );
-      link.style.backgroundColor = sectorColor;
-      link.style.color = getContrastColor(sectorColor);
-    });
-
-    allTabContents.forEach(function (tabContent) {
-      tabContent.classList.remove('active');
-    });
-
-    // Add 'active' class to the selected tab link and content
-    var selectedTabLinkItem = tabLinks.querySelector(`a[data-index="${index}"]`).parentElement;
-    selectedTabLinkItem.classList.add('active');
-
-    // Set active tab link styles with darker shade
-    var selectedLink = selectedTabLinkItem.querySelector('a');
-    var sectorColor = sectorColors[polygonsData[index].properties.sectorName] || '#FFFFFF';
-    var darkerColor = chroma(sectorColor).darken(1).hex();
-    selectedLink.style.backgroundColor = darkerColor;
-    selectedLink.style.color = getContrastColor(darkerColor);
-
-    var selectedTabContent = tabContentContainer.querySelector(`.tab[data-index="${index}"]`);
-    selectedTabContent.classList.add('active');
-
-    // Highlight the corresponding polygon
-    highlightSelectedPolygon(polygonsData[index].layer);
-  }
-
-  function highlightSelectedPolygon(polygon) {
-    // Reset previously highlighted polygon
-    if (currentlyHighlightedPolygon && currentlyHighlightedPolygon !== polygon) {
-      resetPolygonStyle(currentlyHighlightedPolygon);
-    }
-
-    // Highlight the selected polygon
-    highlightPolygon(polygon);
-
-    // Store the current polygon
-    currentlyHighlightedPolygon = polygon;
-  }
-
-  // Highlight the first polygon by default
-  highlightSelectedPolygon(polygonsData[0].layer);
-
-  // Add event listener for popup close to reset highlighting
-  map.on('popupclose', function () {
-    if (currentlyHighlightedPolygon) {
-      resetPolygonStyle(currentlyHighlightedPolygon);
-      currentlyHighlightedPolygon = null;
-    }
-  });
-}
-
-function getContrastColor(hexColor) {
-  // Remove '#' if present
-  hexColor = hexColor.replace('#', '');
-
-  // Convert short format like 'fff' to 'ffffff'
-  if (hexColor.length === 3) {
-    hexColor = hexColor.split('').map(function (hex) {
-      return hex + hex;
-    }).join('');
-  }
-
-  var r = parseInt(hexColor.substr(0, 2), 16);
-  var g = parseInt(hexColor.substr(2, 2), 16);
-  var b = parseInt(hexColor.substr(4, 2), 16);
-
-  // Calculate luminance
-  var luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-
-  // Return black for light backgrounds, white for dark backgrounds
-  return luminance > 0.5 ? '#000000' : '#FFFFFF';
-}
-
-// Handle window resize
-function onWindowResize() {
-  map.invalidateSize();
-  setMapViewBasedOnScreenSize();
-}
-window.addEventListener('resize', onWindowResize);
-
-// Add event listener for the overlay dropdown
 var overlaySelect = document.getElementById('overlay-select');
 overlaySelect.addEventListener('change', updateOverlays);
 
 function updateOverlays() {
   var value = overlaySelect.value;
 
-  // 1) Always remove all three overlays first
-  if (map.hasLayer(universityLayer))       map.removeLayer(universityLayer);
-  if (map.hasLayer(infrastructureLayer))   map.removeLayer(infrastructureLayer);
-  if (map.hasLayer(supportProgramLayer))   map.removeLayer(supportProgramLayer);
+  if (map.hasLayer(universityLayer))     map.removeLayer(universityLayer);
+  if (map.hasLayer(infrastructureLayer)) map.removeLayer(infrastructureLayer);
+  if (map.hasLayer(supportProgramLayer)) map.removeLayer(supportProgramLayer);
 
-  // 2) Universities?
-  if (value === 'universities' || value === 'both') {
-    addUniversitiesToMap();                      // repopulate universityLayer
-    if (universityLayer.getLayers().length) {
-      universityLayer.addTo(map);
-    }
-  }
+  if (value === 'universities'   || value === 'both') { addUniversitiesToMap();    if (universityLayer.getLayers().length)     universityLayer.addTo(map); }
+  if (value === 'infrastructure' || value === 'both') { addInfrastructureToMap(); if (infrastructureLayer.getLayers().length) infrastructureLayer.addTo(map); }
+  if (value === 'support-program'|| value === 'both') { addSupportProgramsToMap();if (supportProgramLayer.getLayers().length) supportProgramLayer.addTo(map); }
 
-  // 3) Infrastructure?
-  if (value === 'infrastructure' || value === 'both') {
-    addInfrastructureToMap();                    // repopulate infrastructureLayer
-    if (infrastructureLayer.getLayers().length) {
-      infrastructureLayer.addTo(map);
-    }
-  }
-
-  // 4) Support Programs?
-  if (value === 'support-program' || value === 'both') {
-    addSupportProgramsToMap();                   // repopulate supportProgramLayer
-    if (supportProgramLayer.getLayers().length) {
-      supportProgramLayer.addTo(map);
-    }
-  }
-
-  /* ── Legend visibility ─────────────────────────── */
   const legend = document.getElementById('support-legend');
-  if (!legend) return;                       // safety
-
-  const showLegend =
-    value === 'universities'   ||
-    value === 'infrastructure' ||
-    value === 'support-program'||
-    value === 'both';
-
+  if (!legend) return;
+  const showLegend = value === 'universities' || value === 'infrastructure' || value === 'support-program' || value === 'both';
   legend.style.display = showLegend ? 'flex' : 'none';
-
-  if (showLegend) populateSupportLegend();   // ensure it’s filled
-  
+  if (showLegend) populateSupportLegend();
 }
 
-// --- UNIVERSITIES ---
-function addUniversitiesToMap() {
-  universityLayer.clearLayers();
-  const selectedSectors = currentSectors;
-
-  universityData.forEach(univ => {
-    const lat      = parseFloat(univ.Latitude);
-    const lng      = parseFloat(univ.Longitude);
-    const sector   = univ.Sector;
-    const postcode = univ.Postcode || 'N/A';
-
-    if (selectedSectors.includes(sector) && !isNaN(lat) && !isNaN(lng)) {
-      // shorten website URL
-      let linkHtml = '<p><em>No website info</em></p>';
-      if (univ.Website) {
-        try { const h = new URL(univ.Website).hostname;
-              linkHtml = `<p><strong>Website:</strong> <a href="${univ.Website}" target="_blank">${h}</a></p>`; }
-        catch(e) { linkHtml = `<p><strong>Website:</strong> ${univ.Website}</p>`; }
-      }
-
-      const popupHtml = `
-        <div class="popup-content">
-          <p><strong>University Name:</strong> ${univ['University Name']}</p>
-          <p><strong>Faculty Name:</strong> ${univ['Faculty name']}</p>
-          <p><strong>Sector:</strong> ${sector}</p>
-          <p><strong>Postcode:</strong> ${postcode}</p>
-          ${linkHtml}
-        </div>
-      `;
-
-      L.marker([lat, lng], { icon: universityIcon })
-        .bindPopup(popupHtml)
-        .addTo(universityLayer);
-    }
-  });
-
-  universityLayer.addTo(map);
+function addUniversiti
+function getClusterNameById(clusterId) {
+  var company = companyData.find(function (comp) { return comp.clusterId === clusterId; });
+  if (company) return company.Cluster_name + ' (Cluster ' + company.cluster + ')';
+  return clusterId;
 }
-
-
-// --- INFRASTRUCTURE ---
-function addInfrastructureToMap() {
-  infrastructureLayer.clearLayers();
-  const selectedSectors = currentSectors;
-
-  infrastructureData.forEach(rec => {
-    const lat      = parseFloat(rec.Latitude);
-    const lng      = parseFloat(rec.Longitude);
-    const sector   = rec.Sector;
-    const name     = rec['Name of Business/Science Park'] || 'Infrastructure';
-    const postcode = rec.Postcode || 'N/A';
-
-    if (selectedSectors.includes(sector) && !isNaN(lat) && !isNaN(lng)) {
-      // shorten website URL
-      let linkHtml = '<p><em>No website info</em></p>';
-      if (rec.Website) {
-        try { const h = new URL(rec.Website).hostname;
-              linkHtml = `<p><strong>Website:</strong> <a href="${rec.Website}" target="_blank">${h}</a></p>`; }
-        catch(e) { linkHtml = `<p><strong>Website:</strong> ${rec.Website}</p>`; }
-      }
-
-      const popupHtml = `
-        <div class="popup-content">
-          <p><strong>${name}</strong></p>
-          <p><strong>Sector:</strong> ${sector}</p>
-          <p><strong>Postcode:</strong> ${postcode}</p>
-          ${linkHtml}
-        </div>
-      `;
-
-      L.marker([lat, lng], { icon: infrastructureIcon })
-        .bindPopup(popupHtml)
-        .addTo(infrastructureLayer);
-    }
-  });
-
-  infrastructureLayer.addTo(map);
-}
-
-
-// --- SUPPORT PROGRAMS ---
-function addSupportProgramsToMap() {
-  supportProgramLayer.clearLayers();
-  const selectedSectors = currentSectors;
-
-  supportProgramData.forEach(prog => {
-    if (!prog['Co-ordinates']) return;
-    const [latStr, lngStr] = prog['Co-ordinates'].split(',');
-    const lat = parseFloat(latStr), lng = parseFloat(lngStr);
-    if (isNaN(lat)||isNaN(lng)) return;
-
-    const sector  = prog['Simplified Sector Mapping'];
-    if (!selectedSectors.includes(sector)) return;
-
-    const title    = prog.Title || 'Support Program';
-    const postcode = prog.Locations_map_point_post_code || 'N/A';
-
-    // shorten website URL
-    let linkHtml = '<p><em>No website info</em></p>';
-    if (prog['Website URL']) {
-      try {
-        const h = new URL(prog['Website URL']).hostname;
-        linkHtml = `<p><strong>Website:</strong> <a href="${prog['Website URL']}" target="_blank">${h}</a></p>`;
-      } catch(e) {
-        linkHtml = `<p><strong>Website:</strong> ${prog['Website URL']}</p>`;
-      }
-    }
-
-    const popupHtml = `
-      <div class="popup-content">
-        <p><strong>${title}</strong></p>
-        <p><strong>Sector:</strong> ${sector}</p>
-        <p><strong>Postcode:</strong> ${postcode}</p>
-        ${linkHtml}
-      </div>
-    `;
-
-    L.marker([lat, lng], { icon: supportIcon })
-     .bindPopup(popupHtml)
-     .addTo(supportProgramLayer);
-  });
-}
-
-function getSelectedSectors () {
-  return Array.from(
-    document.querySelectorAll('.sector-chip.selected')
-  ).map(chip => chip.dataset.value);
-}
-
-
-// Define the custom icon for university markers
-var universityIcon = L.icon({
-  iconUrl: 'data/university_marker.png', // Path to your image
-  iconSize: [35, 35], // Size of the icon [width, height]
-  iconAnchor: [12, 41], // Point of the icon which corresponds to marker's location
-  popupAnchor: [0, -41], // Point from which the popup should open relative to the iconAnchor
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png', // Optional
-  shadowSize: [35, 35], // Optional
-  shadowAnchor: [12, 41] // Optional
-});
-
-// Define a custom icon for infrastructure markers
-var infrastructureIcon = L.icon({
-  iconUrl: 'data/infra_marker.png', // Path to your PNG file
-  iconSize: [35, 35],    // Adjust based on your image dimensions
-  iconAnchor: [12, 41],  // Adjust as needed
-  popupAnchor: [0, -41], // Adjust as needed
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-  shadowSize: [35, 35],
-  shadowAnchor: [12, 41]
-});
-
-// Define a custom icon for support program markers
-var supportIcon = L.icon({
-  iconUrl: 'data/support prog_marker.png', // Path to your PNG file
-  iconSize: [35, 35],    // Adjust based on your image dimensions
-  iconAnchor: [12, 41],  // Adjust as needed
-  popupAnchor: [0, -41], // Adjust as needed
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-  shadowSize: [35, 35],
-  shadowAnchor: [12, 41]
-});
-
-/* ----------  Support‑programme legend  ---------- */
-function populateSupportLegend(){
-  const container = document.getElementById('support-legend');
-  if(!container) return;          // safety
-
-  // clear if called twice
-  container.innerHTML = '';
-
-  const entries = [
-    {label:'Universities',     icon:universityIcon.options.iconUrl},
-    {label:'Infrastructure',  icon:infrastructureIcon.options.iconUrl},
-    {label:'Support Programs', icon:supportIcon.options.iconUrl}
-  ];
-
-  entries.forEach(e=>{
-    const row    = document.createElement('div');
-    row.className='legend-row';
-    row.innerHTML = `<img src="${e.icon}" alt="">${e.label}`;
-    container.appendChild(row);
-  });
-}
-document.addEventListener('DOMContentLoaded',populateSupportLegend);
-
-/* ----------  Final‑Area search Leaflet control  ---------- */
-let faSearchControl = null;
-
-const FinalAreaSearchControl = L.Control.extend({
-  onAdd: function () {
-
-    /* container sits in Leaflet's control stack */
-    const wrap = L.DomUtil.create('div', 'fa-search-control');
-    wrap.style.display = 'flex';
-    wrap.style.gap     = '6px';
-
-    /* text input with datalist */
-    const input = L.DomUtil.create('input', '', wrap);
-    input.type        = 'text';
-    input.placeholder = 'Find Final Area…';
-    input.id          = 'fa-search';
-
-    /* Enter key triggers zoom */
-    L.DomEvent.on(input, 'keydown', e => {
-      if (e.key === 'Enter') {
-        zoomToFinalArea(input.value);
-        input.blur();   // dismiss keyboard on mobile
-      }
-      L.DomEvent.stopPropagation(e); // don't let Leaflet treat it as map hotkey
-    });
-
-    /* optional mic (uses Web Speech API) */
-    const mic = L.DomUtil.create('button', '', wrap);
-    mic.innerHTML = '&#x1F3A4;';
-    mic.title     = 'Voice search';
-    mic.style.cssText =
-      'width:36px;background:#fff;border:1px solid #ccc;border-radius:4px;cursor:pointer;';
-
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      mic.style.display = 'none';   // browser not supported
-    } else {
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const rec = new SR();
-      rec.lang = 'en-GB';
-      rec.interimResults = false;
-      rec.onresult = e => {
-        const text = e.results[0][0].transcript;
-        input.value = text;
-        zoomToFinalArea(text);
-      };
-      rec.onstart = () => mic.style.background = '#ff6a00';
-      rec.onend   = () => mic.style.background = '#fff';
-      mic.onclick = e => { e.stopPropagation(); rec.start(); };
-    }
-
-    return wrap;
-  }
-});
-
-// Normalize names to improve matching against LAD23NM / props.lad
-function normName(s){
-  return (s||'')
-    .toLowerCase()
-    .replace(/\*/g,'')
-    .replace(/,\s*city of$/,'')   // "Bristol, City of" -> "Bristol"
-    .replace(/\s+city$/,'')
-    .replace(/[^a-z]/g,'');       // strip spaces & punctuation
-}
-
-// Build a Set of normalized targets once
-function buildTargetSet(list){
-  const set = new Set();
-  list.forEach(n => set.add(normName(n)));
-  return set;
-}
-
-// Returns a stats object: { [LA]: { totalCompanies, sectors: { [sector]: { companies, clusters } } } }
-function computeLAStatsBySector() {
-  if (!Array.isArray(companyData) || companyData.length === 0) {
-    console.warn('No companyData loaded – select sectors first.');
-    return {};
-  }
-
-  const targetLAs = getLAFeaturesForList();
-  if (!targetLAs.length) {
-    console.warn('No target LAs are active (check your Area Group / Borders).');
-    return {};
-  }
-
-  // Build stats skeleton
-  const stats = {};
-  targetLAs.forEach(({ name }) => {
-    stats[name] = { totalCompanies: 0, sectors: {} };
-  });
-
-  // Iterate companies (already filtered to selected sectors by your loader)
-  companyData.forEach(c => {
-    const lng = parseFloat(c.Longitude);
-    const lat = parseFloat(c.Latitude);
-    if (!isFinite(lng) || !isFinite(lat)) return;
-
-    const sector = c.sector || 'Unknown';
-    const clusterId = c.clusterId || `${sector}_${c.cluster || '0'}`;
-    const pt = [lng, lat];
-
-    // Find containing LA (should be at most one)
-    for (let i = 0; i < targetLAs.length; i++) {
-      const { name, feature, bbox } = targetLAs[i];
-      if (!pointInBBox(pt, bbox)) continue;
-      if (turf.booleanPointInPolygon(pt, feature)) {
-        const laStats = stats[name];
-        laStats.totalCompanies += 1;
-
-        if (!laStats.sectors[sector]) {
-          laStats.sectors[sector] = {
-            companies: 0,
-            clustersSet: new Set()
-          };
-        }
-        laStats.sectors[sector].companies += 1;
-        laStats.sectors[sector].clustersSet.add(clusterId);
-
-        break; // stop at first containing LA
-      }
-    }
-  });
-
-  // Convert cluster sets to counts for output
-  Object.values(stats).forEach(la => {
-    Object.values(la.sectors).forEach(srec => {
-      srec.clusters = srec.clustersSet.size;
-      delete srec.clustersSet;
-    });
-  });
-
-  return stats;
-}
-
-function statsToCSV(stats) {
-  const rows = [['Local Authority','Sector','Companies','Clusters']];
-  Object.entries(stats).forEach(([la, rec]) => {
-    Object.entries(rec.sectors).forEach(([sector, srec]) => {
-      rows.push([la, sector, srec.companies, srec.clusters]);
-    });
-  });
-  return rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-}
-
-function downloadCSV(filename, csvText) {
-  const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-/* Leaflet control */
-let laCountControl = null;
-const LaCountControl = L.Control.extend({
-  onAdd: function(){
-    const wrap = L.DomUtil.create('div','la-count-control');
-    wrap.style.background = '#fff';
-    wrap.style.border = '1px solid #ccc';
-    wrap.style.borderRadius = '4px';
-    wrap.style.padding = '6px';
-    wrap.style.boxShadow = '0 1px 4px rgba(0,0,0,.2)';
-
-    const btn = L.DomUtil.create('button','',wrap);
-    btn.textContent = 'Count in Areas';
-    btn.style.padding = '6px 10px';
-    btn.style.cursor = 'pointer';
-
-    L.DomEvent.on(btn,'click', (e)=>{
-      L.DomEvent.stopPropagation(e);
-      const stats = computeLAStatsBySector();
-
-      // Console preview
-      console.clear();
-      console.table(
-        Object.entries(stats).flatMap(([la, rec]) =>
-          Object.entries(rec.sectors).map(([sector, srec]) => ({
-            'Local Authority': la,
-            Sector: sector,
-            Companies: srec.companies,
-            Clusters: srec.clusters
-          }))
-        )
-      );
-
-      // CSV download
-      const csv = statsToCSV(stats);
-      downloadCSV('la_sector_counts.csv', csv);
-    });
-
-    L.DomEvent.disableClickPropagation(wrap);
-    return wrap;
-  }
-});
-
-// Add once (e.g., where you add Borders/Area Group controls)
-if (!laCountControl) {
-  laCountControl = new LaCountControl({ position:'topleft' }).addTo(map);
-}
-
-const LaRegionCountControl = L.Control.extend({
-  onAdd: function(){
-    const wrap = L.DomUtil.create('div','la-region-count-control');
-    wrap.style.background   = '#fff';
-    wrap.style.border       = '1px solid #ccc';
-    wrap.style.borderRadius = '4px';
-    wrap.style.padding      = '6px';
-    wrap.style.boxShadow    = '0 1px 4px rgba(0,0,0,.2)';
-    wrap.style.display      = 'flex';
-    wrap.style.gap          = '6px';
-    wrap.style.alignItems   = 'center';
-
-    const btn = L.DomUtil.create('button','',wrap);
-    btn.textContent = 'Count in Region';
-    btn.style.padding = '6px 10px';
-    btn.style.cursor  = 'pointer';
-
-    L.DomEvent.on(btn,'click', (e)=>{
-      L.DomEvent.stopPropagation(e);
-
-      if (!Array.isArray(CURRENT_LA_LIST) || !CURRENT_LA_LIST.length) {
-        alert('No Area Group selected.');
-        return;
-      }
-      if (!Array.isArray(companyData) || companyData.length === 0) {
-        alert('No companies loaded for the current sectors.');
-        return;
-      }
-
-      const res = computeCurrentRegionCounts({ perSector: true });
-      const glabel = CURRENT_LA_GROUP_KEY || 'current';
-
-      let html = `
-        <div class="popup-content">
-          <h3>Counts — ${glabel.replace(/-/g,' ')}</h3>
-          <p><strong>Companies:</strong> ${res.companies} <span style="opacity:.7">(out of ${res.overallCompanies})</span></p>
-          <p><strong>Clusters:</strong> ${res.clusters} <span style="opacity:.7">(out of ${res.overallClusters})</span></p>
-      `;
-
-      const ps = res.perSector || {};
-      if (Object.keys(ps).length) {
-        html += `<div style="max-height:220px;overflow:auto;margin-top:6px;">
-                   <table style="width:100%;border-collapse:collapse;font-size:12px;">
-                     <thead>
-                       <tr>
-                         <th style="text-align:left;border-bottom:1px solid #ddd;">Sector</th>
-                         <th style="text-align:right;border-bottom:1px solid #ddd;">Companies</th>
-                         <th style="text-align:right;border-bottom:1px solid #ddd;">Clusters</th>
-                       </tr>
-                     </thead>
-                     <tbody>`;
-        Object.keys(ps).sort().forEach(sector=>{
-          html += `
-            <tr>
-              <td style="padding:2px 0;border-bottom:1px solid #f1f1f1;">${sector}</td>
-              <td style="padding:2px 0;text-align:right;border-bottom:1px solid #f1f1f1;">${ps[sector].companies}</td>
-              <td style="padding:2px 0;text-align:right;border-bottom:1px solid #f1f1f1;">${ps[sector].clusters}</td>
-            </tr>`;
-        });
-        html += `   </tbody></table></div>`;
-      }
-
-      // Per-cluster “in / total”
-      if (Array.isArray(res.perCluster) && res.perCluster.length) {
-        html += `<div style="max-height:220px;overflow:auto;margin-top:10px;">
-                  <div style="font-weight:600;margin-bottom:4px;">Clusters in region (in / total):</div>
-                  <table style="width:100%;border-collapse:collapse;font-size:12px;">
-                    <thead>
-                      <tr>
-                        <th style="text-align:left;border-bottom:1px solid #ddd;">Cluster</th>
-                        <th style="text-align:left;border-bottom:1px solid #ddd;">Sector</th>
-                        <th style="text-align:right;border-bottom:1px solid #ddd;">In&nbsp;/&nbsp;Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                `;
-        res.perCluster.forEach(row => {
-          const label = `${row.clusterName} (Cluster ${row.clusterNumber})`;
-          html += `
-            <tr>
-              <td style="padding:2px 0;border-bottom:1px solid #f1f1f1;">${label}</td>
-              <td style="padding:2px 0;border-bottom:1px solid #f1f1f1;">${row.sector}</td>
-              <td style="padding:2px 0;text-align:right;border-bottom:1px solid #f1f1f1;">${row.inRegion} / ${row.total}</td>
-            </tr>`;
-        });
-        html += `   </tbody></table></div>`;
-      }
-
-      html += `<div style="margin-top:8px;">
-                 <button id="dl-region-csv" style="padding:4px 8px;">Download CSV</button>
-               </div>
-        </div>`;
-
-      const pop = L.popup({ maxWidth: 380 })
-        .setLatLng(map.getCenter())
-        .setContent(html)
-        .openOn(map);
-
-      // Wire CSV button
-      setTimeout(()=>{
-        const dl = document.getElementById('dl-region-csv');
-        if (dl) {
-          dl.onclick = (ev)=>{
-            ev.stopPropagation();
-            const csv = regionCountsToCSV(res, glabel);
-            downloadCSV(`${glabel}_region_counts.csv`, csv);
-          };
-        }
-      },0);
-    });
-
-    L.DomEvent.disableClickPropagation(wrap);
-    return wrap;
-  }
-});
-
-async function fetchSectorFromAPI(sector) {
-  const code = DATACITY_SECTOR_CODES[sector] || sector;
-  const resp = await fetch(`/api/datacity/sector/${encodeURIComponent(code)}`, {
-    headers: { 'Accept': 'application/json' }
-  });
-  if (!resp.ok) throw new Error(`Datacity API error ${resp.status}`);
-  return await resp.json(); // { clusterData, summaryData, financialData }
-}
-
