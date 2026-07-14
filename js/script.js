@@ -1990,10 +1990,9 @@ function updateClusterLayers() {
     const firstCompany  = clusters[clusterId][0];
     const clusterNumber = String(firstCompany.cluster != null ? firstCompany.cluster : '0');
 
-    // Hide cluster 0 completely
-    if (clusterNumber === '0') {
-      continue;
-    }
+    // Cluster 0 = noise. Show its points as grey markers, but no polygon
+    // (a hull around scattered noise would span the whole country).
+    const isNoiseCluster = (clusterNumber === '0');
 
     const sectorName  = firstCompany.sector;
     const clusterName = 'Cluster ' + clusterNumber;
@@ -2075,7 +2074,8 @@ function updateClusterLayers() {
     const polygonColor =
       sectorColors[sectorName] || '#FFFFFF';
 
-    if ((displayMode === 'polygons' || displayMode === 'both') &&
+    if (!isNoiseCluster &&
+        (displayMode === 'polygons' || displayMode === 'both') &&
         points.length >= 3) {
 
       const polygon = L.polygon(convexHull(points), {
@@ -2203,9 +2203,7 @@ function getAllClusterIds() {
     if (!cid) return acc;
 
     const clusterNum = String(company.cluster ?? '').trim();
-    // Skip noise / cluster 0 entirely
-    if (clusterNum === '0') return acc;
-
+    
     if (!acc.includes(cid)) {
       acc.push(cid);
     }
