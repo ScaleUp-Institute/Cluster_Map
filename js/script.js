@@ -907,9 +907,17 @@ function getColor(area) {
 function getClusterColor(clusterId) {
   var clusterNumber = clusterId.split('_')[1];
   if (clusterNumber === '0') {
-    return '#D3D3D3'; // Light grey for Cluster 0
+    return '#D3D3D3'; // Light grey for Cluster 0 (noise)
   }
-  return clusterColors[clusterId];
+  // One consistent colour per sector: a darker shade of the sector's
+  // polygon colour, so all real-cluster points in a sector match.
+  var sectorName = clusterId.split('_')[0];
+  var base = sectorColors[sectorName] || '#888888';
+  try {
+    return chroma(base).darken(1.5).hex();
+  } catch (e) {
+    return base; // fallback if the colour can't be parsed
+  }
 }
 
 function getScaleupDensityColor(value) {
