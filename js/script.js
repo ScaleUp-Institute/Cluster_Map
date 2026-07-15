@@ -1823,6 +1823,9 @@ function handleSectorSelectionChange () {
 
   // 4) Keep any university / infrastructure overlays in sync
   updateOverlays();
+
+  // Investor panel: keep in sync with sector selection
+  if (typeof refreshInvestorPanel === 'function') refreshInvestorPanel();
 }
 
 function populateSectorCheckboxes(sectorsList) {
@@ -3076,3 +3079,129 @@ const FinalAreaSearchControl = L.Control.extend({
     return wrap;
   }
 });
+
+/* =========================================================================
+   INVESTOR PANEL  (self-contained)
+   Floating toggle box over the map. Loads investors_by_sector.csv and shows,
+   grouped by sector, the investors backing the currently-selected sectors.
+   Updates live via refreshInvestorPanel() called from handleSectorSelectionChange.
+   ========================================================================= */
+(function () {
+  var investorData = [];
+  var investorBySector = {};
+  var panelOpen = false;
+
+  // ---- Load data ----
+  Papa.parse('data/investors_by_sector.csv', {
+    download: true, header: true, dynamicTyping: false, skipEmptyLines: true,
+    complete: function (res) {
+      investorData = res.data.filter(function (r) { return r.Sector && r.Investor; });
+      investorBySector = {};
+      investorData.forEach(function (r) {
+        (investorBySector[r.Sector] = investorBySector[r.Sector] || []).push(r);
+      });
+      Object.keys(investorBySector).forEach(function (s) {
+        investorBySector[s].sort(function (a, b) {
+          return (parseInt(b.CompaniesBackedInSector) || 0) - (parseInt(a.CompaniesBackedInSector) || 0);
+        });
+      });
+      console.log('Investor data loaded:', investorData.length, 'rows');
+      buildInvestorControls();
+      window.refreshInvestorPanel();
+    },
+    error: function (e) { console.error('Error loading investor data:', e); }
+  });
+
+  // ---- Build the floating toggle + panel DOM ----
+  function buildInvestorControls() {
+    if (document.getElementById('investor-toggle')) return;
+
+    var toggle = document.createElement('div');
+    toggle.id = 'investor-toggle';
+    toggle.title = 'Show investors for selected sectors';
+    toggle.innerHTML = '\uD83D\uDCB7';
+    toggle.style.cssText =
+      'position:absolute;top:70px;right:calc(25% + 10px);width:40px;height:40px;' +
+      'background:#1f78b4;color:#fff;border-radius:50%;display:none;align-items:center;' +
+      'justify-content:center;cursor:pointer;z-index:9999;box-shadow:0 2px 6px rgba(0,0,0,.3);' +
+      'font-size:18px;';
+
+    var panel = document.createElement('div');
+    panel.id = 'investor-panel';
+    panel.style.cssText =
+      'position:absolute;top:70px;right:calc(25% + 60px);width:300px;max-height:70vh;' +
+      'background:#fff;border:1px solid #ccc;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.25);' +
+      'overflow-y:auto;z-index:9998;display:none;padding:0;';
+
+    document.querySelector('.map-container').appendChild(toggle);
+    document.querySelector('.map-container').appendChild(panel);
+
+    toggle.addEventListener('click', function () {
+      panelOpen = !panelOpen;
+      panel.style.display = panelOpen ? 'block' : 'none';
+      if (panelOpen) renderInvestorPanel();
+    });
+  }
+
+  // ---- Refresh: called on sector change ----
+  window.refreshInvestorPanel = function () {
+    var toggle = document.getElementById('investor-toggle');
+    if (!toggle) return;
+    var sectors = (typeof currentSectors !== 'undefined') ? currentSectors : [];
+    if (sectors.length > 0) {
+      toggle.style.display = 'flex';
+      if (panelOpen) renderInvestorPanel();
+    } else {
+      toggle.style.display = 'none';
+      panelOpen = false;
+      var panel = document.getElementById('investor-panel');
+      if (panel) panel.style.display = 'none';
+    }
+  };
+
+  // ---- Render the grouped list ----
+  function renderInvestorPanel() {
+    var panel = document.getElementById('investor-panel');
+    if (!panel) return;
+    var sectors = (typeof currentSectors !== 'undefined') ? currentSectors.slice() : [];
+
+    var html = '<div style="position:sticky;top:0;background:#1f78b4;color:#fff;padding:10px 12px;' +
+               'display:flex;justify-content:space-between;align-items:center;">' +
+               '<strong>Investors</strong>' +
+               '<span id="investor-close" style="cursor:pointer;font-size:18px;line-height:1;">&times;</span></div>';
+
+    if (!sectors.length) {
+      html += '<div style="padding:12px;color:#888;">No sectors selected.</div>';
+    } else {
+      sectors.forEach(function (sector) {
+        var rows = investorBySector[sector] || [];
+        html += '<div style="padding:10px 12px 4px;font-weight:600;border-bottom:1px solid #eee;' +
+                'background:#f5f7fa;">' + sector +
+                ' <span style="color:#888;font-weight:400;">(' + rows.length + ')</span></div>';
+        if (!rows.length) {
+          html += '<div style="padding:6px 12px;color:#aaa;font-size:13px;">No investor data.</div>';
+          return;
+        }
+        rows.forEach(function (r) {
+          var flags = [];
+          if (String(r.PensionSWF) === '1' || String(r.PensionSWF).toLowerCase() === 'true') flags.push('Pension/SWF');
+          if (String(r.BBBBacked).toLowerCase() === 'true') flags.push('BBB');
+          var flagHtml = flags.length ? ' <span style="color:#1f78b4;font-size:11px;">[' + flags.join(', ') + ']</span>' : '';
+          html += '<div style="padding:6px 12px;border-bottom:1px solid #f2f2f2;font-size:13px;">' +
+                  '<div style="font-weight:500;">' + r.Investor +
+                  ' <span style="color:#888;font-weight:400;">\u00B7 ' + (r.CompaniesBackedInSector || 0) + '</span>' + flagHtml + '</div>' +
+                  '<div style="color:#777;font-size:12px;">' +
+                  [r.InvestorType, r.Country].filter(Boolean).join(' \u00B7 ') + '</div>' +
+                  '</div>';
+        });
+      });
+    }
+
+    panel.innerHTML = html;
+    var close = document.getElementById('investor-close');
+    if (close) close.addEventListener('click', function () {
+      panelOpen = false;
+      panel.style.display = 'none';
+    });
+  }
+})();
