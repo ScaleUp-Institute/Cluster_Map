@@ -220,6 +220,19 @@
       <button id="deselect-all-sectors">Deselect All Sectors</button><br>
       <div id="sector-chips" class="chips-container"></div>
       <button id="overall-stats-button">Sector Stats</button>
+      <div id="investor-filters" style="display:none;">
+        <h3>Investor filters</h3>
+        <label for="inv-type-filter" style="font-size:12px;color:var(--text-soft);display:block;margin-bottom:4px;">Type</label>
+        <select id="inv-type-filter" class="overlay-dropdown">
+          <option value="">All types</option>
+        </select>
+        <label class="inv-toggle">
+          <input type="checkbox" id="inv-bbb-filter"> BBB-backed only
+        </label>
+        <label class="inv-toggle">
+          <input type="checkbox" id="inv-pension-filter"> Pension / SWF only
+        </label>
+      </div>
       <button id="investor-markers-btn" style="display:none;">Show UK investors</button>
       <h3>Ecosystem Layers</h3>
       <select id="overlay-select" class="overlay-dropdown">
