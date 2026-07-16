@@ -1637,6 +1637,7 @@ function computeSectorStatistics() {
 
     // Investment
     const investment = parseNumber(
+      company.total_Investment ??
       company.Investment_GBP ??
       company.totalInvestment ??
       company.total_Dealroom_PE
