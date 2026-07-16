@@ -112,6 +112,58 @@
 </head>
 <body>
   <div class="map-container">
+
+    ------------------------------------------------------------
+PIECE 1 — HTML
+Add this just inside <div class="map-container">, near the top
+(after the opening tag, before/around the map div).
+------------------------------------------------------------
+ 
+<!-- How-to-read button (top-left of map area) -->
+<button id="help-button" title="How to read this map">
+  <i>?</i><span>How to read this map</span>
+</button>
+ 
+<!-- Empty-state prompt (shows on the map when no sectors selected) -->
+<div id="map-empty-state">
+  <div class="empty-inner">
+    <div class="empty-title">Explore the UK's scaleup clusters</div>
+    <div class="empty-sub">Select a sector from the right to see where the UK's high-growth companies concentrate.</div>
+  </div>
+</div>
+ 
+<!-- Help overlay panel -->
+<div id="help-overlay" aria-hidden="true">
+  <div id="help-card" role="dialog" aria-label="How to read this map">
+    <div class="help-head">
+      <span>How to read this map</span>
+      <button id="help-close" aria-label="Close">&times;</button>
+    </div>
+    <div class="help-body">
+      <h4>About this map</h4>
+      <p>This map shows where the UK's high-growth companies — scaleups — cluster
+      geographically, grouped by sector. Use it to explore which sectors concentrate
+      where across the country.</p>
+ 
+      <h4>What you're looking at</h4>
+      <ul>
+        <li><span class="dot" style="background:#00C2A8"></span><strong>Dots</strong> are individual companies, coloured by sector.</li>
+        <li><span class="poly"></span><strong>Shaded areas</strong> outline a cluster — companies concentrated in one place.</li>
+        <li><span class="dot" style="background:#B0B0B0"></span><strong>Grey dots</strong> are companies not in a defined cluster.</li>
+      </ul>
+ 
+      <h4>How to use it</h4>
+      <ol>
+        <li><strong>Pick sectors</strong> from the chips on the right to show where they cluster.</li>
+        <li><strong>Click a cluster or company</strong> to see details — counts, employment, and more.</li>
+        <li>Open <strong>Sector Stats</strong> for headline figures, or <strong>Investors</strong> to see who backs each sector.</li>
+      </ol>
+    </div>
+    <div class="help-foot">
+      <button id="help-got-it">Got it</button>
+    </div>
+  </div>
+</div>
     <!-- LEFT FRAME (hidden) -->
     <div class="left-frame">
       <!-- Hidden Layers accordion (if needed in the future) -->
