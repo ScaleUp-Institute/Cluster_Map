@@ -1518,7 +1518,8 @@ function loadSectorsData(sectorsList) {
         Longitude:     lng,
         cluster:       clusterStr,
         sector:        sectorLabel,
-        clusterId:     `${sectorLabel}_${clusterStr}`
+        clusterId:     `${sectorLabel}_${clusterStr}`,
+        Region:        row.Region || 'Unknown'
       };
 
       // Enrich from the details file (if we have it)
