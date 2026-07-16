@@ -737,3 +737,83 @@ button:active { transform: scale(0.98); }
   #help-button { padding: 8px; left: 56px; }
   #map-empty-state { right: 0; }
 }
+
+/* UK investor marker (GBP pin) */
+.investor-pin {
+  background: var(--teal);
+  width: 22px; height: 22px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  border: 1.5px solid #fff;
+  box-shadow: 0 1px 4px rgba(14,27,44,0.4);
+  display: flex; align-items: center; justify-content: center;
+}
+.investor-pin span {
+  transform: rotate(45deg);
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 12px;
+  font-family: var(--font-head);
+}
+ 
+/* "Show UK investors" button — matches Sector Stats button */
+#investor-markers-btn {
+  width: 100%;
+  padding: 11px;
+  background: var(--ink);
+  color: #fff;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  margin: 8px 0 6px;
+}
+#investor-markers-btn:hover { background: var(--ink-soft); }
+#investor-markers-btn.active { background: var(--teal); color: var(--ink); }
+ 
+/* Non-UK investor panel (slides in from the right) */
+#nonuk-investor-panel {
+  position: fixed;
+  top: 0; right: 0;
+  width: 320px; max-width: 90%;
+  height: 100vh;
+  background: var(--canvas);
+  box-shadow: -4px 0 18px rgba(14,27,44,0.12);
+  transform: translateX(105%);
+  transition: transform 0.32s cubic-bezier(0.4,0,0.2,1);
+  z-index: 3200;
+  overflow-y: auto;
+}
+#nonuk-investor-panel.show { transform: translateX(0); }
+.nonuk-head {
+  position: sticky; top: 0;
+  background: var(--ink); color: #fff;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 15px 18px;
+  font-family: var(--font-head); font-size: 15px; font-weight: 500;
+}
+.nonuk-head button {
+  background: none; border: none; color: var(--on-ink-dim);
+  font-size: 1.3rem; cursor: pointer; line-height: 1; padding: 0;
+}
+.nonuk-head button:hover { color: #fff; background: none; }
+.nonuk-sector-group {
+  padding: 10px 16px 4px;
+  font-weight: 600; font-size: 12.5px; color: var(--ink);
+  background: var(--panel-bg);
+  border-bottom: 0.5px solid var(--line);
+}
+.nonuk-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 16px;
+  border-bottom: 0.5px solid #f1efe8;
+  font-size: 13px;
+}
+.nonuk-row .fi {
+  width: 22px; height: 16px; flex: 0 0 auto;
+  border-radius: 2px; box-shadow: 0 0 1px rgba(0,0,0,0.3);
+}
+.nonuk-row .inv-name { font-weight: 500; color: var(--text); }
+.nonuk-row .inv-meta { color: var(--text-soft); font-size: 12px; }
+.nonuk-row .inv-count {
+  margin-left: auto; font-family: var(--font-head);
+  font-variant-numeric: tabular-nums; color: var(--text-soft);
+}
