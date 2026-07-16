@@ -1826,10 +1826,10 @@ function handleSectorSelectionChange () {
 
   // Empty state: hide once a sector is selected
   if (typeof refreshEmptyState === 'function') refreshEmptyState();
-
+  if (typeof refreshInvestorFiltersVisibility === 'function') refreshInvestorFiltersVisibility();
   if (typeof refreshInvestorMarkers === 'function') refreshInvestorMarkers();
-   if (typeof refreshNonUkPanel === 'function') refreshNonUkPanel();
-   if (typeof document.getElementById('investor-markers-btn') !== 'undefined') {
+  if (typeof refreshNonUkPanel === 'function') refreshNonUkPanel();
+  if (typeof document.getElementById('investor-markers-btn') !== 'undefined') {
      var _b=document.getElementById('investor-markers-btn');
      if(_b) _b.style.display = (currentSectors.length>0)?'block':'none';
    }
@@ -3156,6 +3156,7 @@ const FinalAreaSearchControl = L.Control.extend({
   Papa.parse('data/uk_investors_by_sector.csv', {
     download:true, header:true, skipEmptyLines:true,
     complete:function(res){ ukData = res.data.filter(function(r){return r.Investor && r.Latitude;});
+      window.__ukInvData = ukData;
       console.log('UK investors loaded:', ukData.length); }
   });
   Papa.parse('data/nonuk_investors_by_sector.csv', {
@@ -3165,6 +3166,7 @@ const FinalAreaSearchControl = L.Control.extend({
         if(!r.Investor || !r.Sector) return;
         (nonukData[r.Sector] = nonukData[r.Sector] || []).push(r);
       });
+      window.__nonukInvData = [].concat.apply([], Object.values(nonukData));
       console.log('Non-UK investors loaded');
     }
   });
@@ -3183,6 +3185,7 @@ const FinalAreaSearchControl = L.Control.extend({
     var seen = {};
     ukData.forEach(function(r){
       if (sectors.indexOf(r.Sector) === -1) return;
+      if (typeof passesInvestorFilters==='function' && !passesInvestorFilters(r)) return;
       var lat=parseFloat(r.Latitude), lng=parseFloat(r.Longitude);
       if (isNaN(lat)||isNaN(lng)) return;
       var key=r.Investor+'|'+lat.toFixed(4)+'|'+lng.toFixed(4);
@@ -3227,7 +3230,8 @@ const FinalAreaSearchControl = L.Control.extend({
       var rows=(nonukData[s]||[]).slice().sort(function(a,b){return (parseInt(b.CompaniesBackedInSector)||0)-(parseInt(a.CompaniesBackedInSector)||0);});
       html+='<div class="nonuk-sector-group">'+s+' ('+rows.length+')</div>';
       if(!rows.length){ html+='<div style="padding:8px 16px;color:#aaa;font-size:12px;">No overseas investors.</div>'; return; }
-      rows.forEach(function(r){
+      rows.filter(function(r){ return (typeof passesInvestorFilters!=='function')||passesInvestorFilters(r); })
+          .forEach(function(r){
         var iso=(r.ISO2||'').trim().toLowerCase();
         var flag=iso?'<span class="fi fi-'+iso+'"></span>':'<span style="width:22px"></span>';
         html+='<div class="nonuk-row">'+flag+
@@ -3239,4 +3243,64 @@ const FinalAreaSearchControl = L.Control.extend({
     body.innerHTML=html;
   }
   window.refreshNonUkPanel = function(){ if(document.getElementById('nonuk-investor-panel').classList.contains('show')) renderNonUk(); };
+})();
+
+(function () {
+  // shared filter state (read by the marker + panel render functions)
+  window.investorFilters = { type: '', bbb: false, pension: false };
+ 
+  // helper the render functions will call to test a row against filters
+  window.passesInvestorFilters = function (r) {
+    var f = window.investorFilters;
+    if (f.type && String(r.InvestorType||'').trim() !== f.type) return false;
+    if (f.bbb && String(r.BBBBacked||'').toLowerCase() !== 'true') return false;
+    if (f.pension) {
+      var p = String(r.PensionSWF||'').toLowerCase();
+      if (!(p === '1' || p === 'true')) return false;
+    }
+    return true;
+  };
+ 
+  function ready(fn){ if(document.readyState!=='loading') fn(); else document.addEventListener('DOMContentLoaded',fn); }
+ 
+  ready(function () {
+    // Populate the type dropdown from both datasets once they load.
+    function populateTypes() {
+      var sel = document.getElementById('inv-type-filter');
+      if (!sel) return;
+      var types = {};
+      // pull from global caches if the investor block exposed them; else scan DOM later
+      (window.__ukInvData || []).forEach(function(r){ if(r.InvestorType) types[r.InvestorType.trim()]=1; });
+      (window.__nonukInvData || []).forEach(function(r){ if(r.InvestorType) types[r.InvestorType.trim()]=1; });
+      var sorted = Object.keys(types).sort();
+      // keep the "All types" option, add the rest
+      sel.length = 1;
+      sorted.forEach(function(t){
+        var o=document.createElement('option'); o.value=t; o.textContent=t; sel.appendChild(o);
+      });
+    }
+    // try now and again shortly (data may still be loading)
+    populateTypes();
+    setTimeout(populateTypes, 1200);
+    setTimeout(populateTypes, 3000);
+ 
+    function apply() {
+      window.investorFilters.type    = (document.getElementById('inv-type-filter')||{}).value || '';
+      window.investorFilters.bbb     = !!(document.getElementById('inv-bbb-filter')||{}).checked;
+      window.investorFilters.pension = !!(document.getElementById('inv-pension-filter')||{}).checked;
+      if (typeof refreshInvestorMarkers === 'function') refreshInvestorMarkers();
+      if (typeof refreshNonUkPanel === 'function') refreshNonUkPanel();
+    }
+    ['inv-type-filter','inv-bbb-filter','inv-pension-filter'].forEach(function(id){
+      var el=document.getElementById(id); if(el) el.addEventListener('change', apply);
+    });
+ 
+    // show the filter block whenever the investor markers button is visible
+    window.refreshInvestorFiltersVisibility = function () {
+      var box=document.getElementById('investor-filters');
+      var has=(typeof currentSectors!=='undefined') && currentSectors.length>0;
+      if(box) box.style.display = has ? 'block' : 'none';
+    };
+    window.refreshInvestorFiltersVisibility();
+  });
 })();
