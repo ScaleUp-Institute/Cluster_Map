@@ -773,11 +773,12 @@ button:active { transform: scale(0.98); }
 #nonuk-investor-panel {
   position: absolute;
   top: 150px;                       /* clears zoom + layers + borders controls */
+  bottom: 210px;        /* reserve space for the legend below */
   left: 12px;
   right: auto;
   width: 300px;
   max-width: 40%;
-  max-height: 58vh;
+  max-height: none;
   height: auto;
   background: var(--canvas);
   border: 0.5px solid var(--line);
@@ -845,3 +846,6 @@ button:active { transform: scale(0.98); }
   margin: 8px 0; cursor: pointer;
 }
 .inv-toggle input { accent-color: var(--teal-dark); }
+
+#help-button { transition: transform 0.32s cubic-bezier(0.4,0,0.2,1); }
+#help-button.shift-right { transform: translateX(330px); }
