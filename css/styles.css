@@ -791,6 +791,17 @@ button:active { transform: scale(0.98); }
   z-index: 3200;
 }
 #nonuk-investor-panel.show { transform: translateX(0); }
+
+/* shift right when Sector Stats panel is open */
+#nonuk-investor-panel.shift-right.show { transform: translateX(330px); }
+
+/* body scrolls inside the clipped container (keeps rounded corners) */
+#nonuk-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  border-radius: 0 0 12px 12px;
+}
+
 .nonuk-head {
   flex: 0 0 auto;
   border-radius: 12px 12px 0 0;
@@ -817,6 +828,7 @@ button:active { transform: scale(0.98); }
 .nonuk-row .fi {
   width: 22px; height: 16px; flex: 0 0 auto;
   border-radius: 2px; box-shadow: 0 0 1px rgba(0,0,0,0.3);
+  position: relative; z-index: 1;
 }
 .nonuk-row .inv-name { font-weight: 500; color: var(--text); }
 .nonuk-row .inv-meta { color: var(--text-soft); font-size: 12px; }
@@ -825,29 +837,6 @@ button:active { transform: scale(0.98); }
   font-variant-numeric: tabular-nums; color: var(--text-soft);
 }
 
-/* --- Flag-over-header fix --- */
-.nonuk-head { position: sticky; top: 0; z-index: 10; background: var(--ink); }
-.nonuk-row .fi { position: relative; z-index: 1; }
- 
-/* --- Move non-UK panel to a floating box on the LEFT, below controls --- */
-#nonuk-investor-panel {
-  position: absolute;
-  top: 120px;              /* below the zoom + layers + borders controls */
-  left: 12px;
-  right: auto;
-  width: 300px;
-  max-width: 40%;
-  max-height: 62vh;
-  height: auto;
-  border-radius: 12px;
-  border: 0.5px solid var(--line);
-  box-shadow: var(--shadow);
-  transform: translateX(-120%);   /* hidden off to the left */
-  transition: transform 0.32s cubic-bezier(0.4,0,0.2,1);
-}
-#nonuk-investor-panel.show { transform: translateX(0); }
-.nonuk-head { border-radius: 12px 12px 0 0; }
- 
 /* --- Filter controls --- */
 #investor-filters { margin-top: 8px; }
 .inv-toggle {
