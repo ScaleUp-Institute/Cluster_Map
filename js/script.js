@@ -3172,8 +3172,12 @@ const FinalAreaSearchControl = L.Control.extend({
  
   // ---- UK marker layer, sector-filtered ----
   function ukPinIcon() {
-    return L.divIcon({ className:'', html:'<div class="investor-pin"><span>£</span></div>',
-      iconSize:[22,22], iconAnchor:[11,22], popupAnchor:[0,-20] });
+    return L.icon({
+      iconUrl: 'data/UK investor marker.png',
+      iconSize:   [30, 38],      // adjust to your PNG's proportions
+      iconAnchor: [15, 38],      // bottom-centre = the point on the map
+      popupAnchor:[0, -34]       // popup opens above the marker
+    });
   }
   window.refreshInvestorMarkers = function () {
     if (!markersOn) return;
