@@ -1832,6 +1832,14 @@ function handleSectorSelectionChange () {
 }
 
 function populateSectorCheckboxes(sectorsList) {
+
+  // Guard against being called with no/invalid list (avoids forEach on undefined)
+  if (!Array.isArray(sectorsList)) {
+    sectorsList = (typeof sectors === 'object' && sectors)
+      ? Object.keys(sectors).filter(function (s) { return s && s !== 'Unclassified'; })
+      : [];
+  }
+  
   const container = document.getElementById('sector-chips');
   if (!container) {
     // DOM not ready yet (happens when the CSV is cached and parses before
