@@ -1834,7 +1834,15 @@ function handleSectorSelectionChange () {
 function populateSectorCheckboxes(sectorsList) {
   const container = document.getElementById('sector-chips');
   if (!container) {
-    console.error('#sector-chips container not found');
+    // DOM not ready yet (happens when the CSV is cached and parses before
+    // DOMContentLoaded). Defer and retry so chips render without a refresh.
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () {
+        populateSectorCheckboxes(sectorsList);
+      }, { once: true });
+    } else {
+      setTimeout(function () { populateSectorCheckboxes(sectorsList); }, 100);
+    }
     return;
   }
 
