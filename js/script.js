@@ -1826,6 +1826,9 @@ function handleSectorSelectionChange () {
 
   // Investor panel: keep in sync with sector selection
   if (typeof refreshInvestorPanel === 'function') refreshInvestorPanel();
+
+  // Empty state: hide once a sector is selected
+  if (typeof refreshEmptyState === 'function') refreshEmptyState();
 }
 
 function populateSectorCheckboxes(sectorsList) {
@@ -3204,4 +3207,50 @@ const FinalAreaSearchControl = L.Control.extend({
       panel.style.display = 'none';
     });
   }
+})();
+
+(function () {
+  function ready(fn){ if(document.readyState!=='loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }
+ 
+  ready(function () {
+    var overlay = document.getElementById('help-overlay');
+    var btn     = document.getElementById('help-button');
+    var closeX  = document.getElementById('help-close');
+    var gotIt   = document.getElementById('help-got-it');
+ 
+    function open(){ if(overlay){ overlay.classList.add('show'); overlay.setAttribute('aria-hidden','false'); } }
+    function close(){ if(overlay){ overlay.classList.remove('show'); overlay.setAttribute('aria-hidden','true'); } }
+ 
+    if (btn)   btn.addEventListener('click', open);
+    if (closeX) closeX.addEventListener('click', close);
+    if (gotIt)  gotIt.addEventListener('click', close);
+    if (overlay) overlay.addEventListener('click', function(e){ if(e.target===overlay) close(); });
+    document.addEventListener('keydown', function(e){ if(e.key==='Escape') close(); });
+ 
+    // ---- Empty state: hide when any sector is selected ----
+    window.refreshEmptyState = function () {
+      var es = document.getElementById('map-empty-state');
+      if (!es) return;
+      var has = (typeof currentSectors !== 'undefined') && currentSectors.length > 0;
+      es.classList.toggle('hidden', has);
+    };
+    window.refreshEmptyState();
+ 
+    // ---- Add hint icons to control headings ----
+    var hints = {
+      'Sectors': 'Click a sector to show where its companies cluster on the map.',
+      'Clusters': 'Each cluster is a group of companies concentrated in one area. Toggle them on or off.',
+      'Ecosystem Layers': 'Overlay universities, infrastructure, or support programmes for the selected sectors.'
+    };
+    document.querySelectorAll('.right-frame h3').forEach(function (h) {
+      var label = h.textContent.trim();
+      if (hints[label]) {
+        var i = document.createElement('span');
+        i.className = 'hint-icon';
+        i.textContent = 'i';
+        i.title = hints[label];
+        h.appendChild(i);
+      }
+    });
+  });
 })();
