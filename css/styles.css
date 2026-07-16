@@ -817,3 +817,35 @@ button:active { transform: scale(0.98); }
   margin-left: auto; font-family: var(--font-head);
   font-variant-numeric: tabular-nums; color: var(--text-soft);
 }
+
+/* --- Flag-over-header fix --- */
+.nonuk-head { position: sticky; top: 0; z-index: 10; background: var(--ink); }
+.nonuk-row .fi { position: relative; z-index: 1; }
+ 
+/* --- Move non-UK panel to a floating box on the LEFT, below controls --- */
+#nonuk-investor-panel {
+  position: absolute;
+  top: 120px;              /* below the zoom + layers + borders controls */
+  left: 12px;
+  right: auto;
+  width: 300px;
+  max-width: 40%;
+  max-height: 62vh;
+  height: auto;
+  border-radius: 12px;
+  border: 0.5px solid var(--line);
+  box-shadow: var(--shadow);
+  transform: translateX(-120%);   /* hidden off to the left */
+  transition: transform 0.32s cubic-bezier(0.4,0,0.2,1);
+}
+#nonuk-investor-panel.show { transform: translateX(0); }
+.nonuk-head { border-radius: 12px 12px 0 0; }
+ 
+/* --- Filter controls --- */
+#investor-filters { margin-top: 8px; }
+.inv-toggle {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--text-soft);
+  margin: 8px 0; cursor: pointer;
+}
+.inv-toggle input { accent-color: var(--teal-dark); }
