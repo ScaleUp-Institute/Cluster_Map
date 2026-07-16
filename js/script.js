@@ -1826,7 +1826,6 @@ function handleSectorSelectionChange () {
 
   // Empty state: hide once a sector is selected
   if (typeof refreshEmptyState === 'function') refreshEmptyState();
-  if (typeof refreshInvestorFiltersVisibility === 'function') refreshInvestorFiltersVisibility();
   if (typeof refreshInvestorMarkers === 'function') refreshInvestorMarkers();
   if (typeof refreshNonUkPanel === 'function') refreshNonUkPanel();
   if (typeof document.getElementById('investor-markers-btn') !== 'undefined') {
@@ -3210,6 +3209,8 @@ const FinalAreaSearchControl = L.Control.extend({
     if(btn) btn.addEventListener('click',function(){
       markersOn=!markersOn;
       btn.classList.toggle('active',markersOn);
+      window.investorMarkersOn = markersOn;
+      if (typeof refreshInvestorFiltersVisibility==='function') refreshInvestorFiltersVisibility();
       btn.textContent = markersOn ? 'Hide UK investors' : 'Show UK investors';
       if(markersOn){ window.refreshInvestorMarkers(); openNonUk(); }
       else { if(ukLayer){map.removeLayer(ukLayer);ukLayer=null;} closeNonUk(); }
@@ -3228,10 +3229,11 @@ const FinalAreaSearchControl = L.Control.extend({
     if(!sectors.length){ html='<div style="padding:14px;color:#888;">Select a sector to see its overseas investors.</div>'; }
     else sectors.forEach(function(s){
       var rows=(nonukData[s]||[]).slice().sort(function(a,b){return (parseInt(b.CompaniesBackedInSector)||0)-(parseInt(a.CompaniesBackedInSector)||0);});
-      html+='<div class="nonuk-sector-group">'+s+' ('+rows.length+')</div>';
-      if(!rows.length){ html+='<div style="padding:8px 16px;color:#aaa;font-size:12px;">No overseas investors.</div>'; return; }
-      rows.filter(function(r){ return (typeof passesInvestorFilters!=='function')||passesInvestorFilters(r); })
-          .forEach(function(r){
+    var filtered = rows.filter(function(r){ return (typeof passesInvestorFilters!=='function')||passesInvestorFilters(r); });
+    var distinctCount = Object.keys(filtered.reduce(function(acc,r){ acc[(r.Investor||'').toLowerCase()]=1; return acc; },{})).length;
+    html+='<div class="nonuk-sector-group">'+s+' ('+distinctCount+')</div>';
+      if(!filtered.length){ html+='<div style="padding:8px 16px;color:#aaa;font-size:12px;">No overseas investors match.</div>'; return; }
+      filtered.forEach(function(r){
         var iso=(r.ISO2||'').trim().toLowerCase();
         var flag=iso?'<span class="fi fi-'+iso+'"></span>':'<span style="width:22px"></span>';
         html+='<div class="nonuk-row">'+flag+
@@ -3298,9 +3300,21 @@ const FinalAreaSearchControl = L.Control.extend({
     // show the filter block whenever the investor markers button is visible
     window.refreshInvestorFiltersVisibility = function () {
       var box=document.getElementById('investor-filters');
-      var has=(typeof currentSectors!=='undefined') && currentSectors.length>0;
-      if(box) box.style.display = has ? 'block' : 'none';
+      if(box) box.style.display = window.investorMarkersOn ? 'block' : 'none';
     };
     window.refreshInvestorFiltersVisibility();
+  });
+})();
+
+(function () {
+  function ready(fn){ if(document.readyState!=='loading') fn(); else document.addEventListener('DOMContentLoaded',fn); }
+  ready(function () {
+    var stats = document.getElementById('sector-stats-panel');
+    var nonuk = document.getElementById('nonuk-investor-panel');
+    if (!stats || !nonuk) return;
+    var obs = new MutationObserver(function () {
+      nonuk.classList.toggle('shift-right', stats.classList.contains('show'));
+    });
+    obs.observe(stats, { attributes:true, attributeFilter:['class'] });
   });
 })();
