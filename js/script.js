@@ -3312,8 +3312,11 @@ const FinalAreaSearchControl = L.Control.extend({
     var stats = document.getElementById('sector-stats-panel');
     var nonuk = document.getElementById('nonuk-investor-panel');
     if (!stats || !nonuk) return;
+    var helpBtn = document.getElementById('help-button');
     var obs = new MutationObserver(function () {
-      nonuk.classList.toggle('shift-right', stats.classList.contains('show'));
+      var open = stats.classList.contains('show');
+      nonuk.classList.toggle('shift-right', open);
+      if (helpBtn) helpBtn.classList.toggle('shift-right', open);
     });
     obs.observe(stats, { attributes:true, attributeFilter:['class'] });
   });
