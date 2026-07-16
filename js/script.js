@@ -2030,9 +2030,7 @@ function updateClusterLayers() {
 
     const sectorName  = firstCompany.sector;
     const clusterName = 'Cluster ' + clusterNumber;
-    const region =
-      (clusterRegions[sectorName] && clusterRegions[sectorName][clusterNumber]) ||
-      'Unknown';
+    const region = firstCompany.Region || 'Unknown';
 
     clusters[clusterId].forEach(company => {
       const lat = parseFloat(company.Latitude);
