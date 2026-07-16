@@ -565,6 +565,7 @@ button:active { transform: scale(0.98); }
   width: 92px;
   opacity: 0.75;
   pointer-events: none;
+  z-index: 5500;
 }
 
 /* ---------- Left frame (hidden, kept for JS) ---------- */
