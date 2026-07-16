@@ -771,30 +771,37 @@ button:active { transform: scale(0.98); }
  
 /* Non-UK investor panel (slides in from the right) */
 #nonuk-investor-panel {
-  position: fixed;
-  top: 0; right: 0;
-  width: 320px; max-width: 90%;
-  height: 100vh;
+  position: absolute;
+  top: 150px;                       /* clears zoom + layers + borders controls */
+  left: 12px;
+  right: auto;
+  width: 300px;
+  max-width: 40%;
+  max-height: 58vh;
+  height: auto;
   background: var(--canvas);
-  box-shadow: -4px 0 18px rgba(14,27,44,0.12);
-  transform: translateX(105%);
+  border: 0.5px solid var(--line);
+  border-radius: 12px;              /* all four corners */
+  box-shadow: var(--shadow);
+  overflow: hidden;                 /* clip so rounded corners hold; inner body scrolls */
+  display: flex;
+  flex-direction: column;
+  transform: translateX(-120%);
   transition: transform 0.32s cubic-bezier(0.4,0,0.2,1);
   z-index: 3200;
-  overflow-y: auto;
 }
 #nonuk-investor-panel.show { transform: translateX(0); }
 .nonuk-head {
-  position: sticky; top: 0;
-  background: var(--ink); color: #fff;
+  flex: 0 0 auto;
+  border-radius: 12px 12px 0 0;
+  background: var(--ink);
+  color: #fff;
   display: flex; justify-content: space-between; align-items: center;
   padding: 15px 18px;
   font-family: var(--font-head); font-size: 15px; font-weight: 500;
 }
-.nonuk-head button {
-  background: none; border: none; color: var(--on-ink-dim);
-  font-size: 1.3rem; cursor: pointer; line-height: 1; padding: 0;
-}
-.nonuk-head button:hover { color: #fff; background: none; }
+.nonuk-head button { background:none;border:none;color:var(--on-ink-dim);font-size:1.3rem;cursor:pointer;line-height:1;padding:0; }
+.nonuk-head button:hover { color:#fff; }
 .nonuk-sector-group {
   padding: 10px 16px 4px;
   font-weight: 600; font-size: 12.5px; color: var(--ink);
