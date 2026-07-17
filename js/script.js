@@ -3241,9 +3241,9 @@ const FinalAreaSearchControl = L.Control.extend({
 })();
 
 (function () {
-  // shared filter state (read by the marker + panel render functions)
-  window.investorFilters = { type: '', bbb: false, pension: false };
- 
+  // shared filter state (added iuk)
+  window.investorFilters = { type: '', bbb: false, pension: false, iuk: false };
+  
   // helper the render functions will call to test a row against filters
   window.passesInvestorFilters = function (r) {
     var f = window.investorFilters;
@@ -3253,44 +3253,49 @@ const FinalAreaSearchControl = L.Control.extend({
       var p = String(r.PensionSWF||'').toLowerCase();
       if (!(p === '1' || p === 'true')) return false;
     }
+    // Logic for Innovate UK backed (ready for when your CSV supports it)
+    if (f.iuk) {
+      var iuk = String(r.InnovateUKBacked||'').toLowerCase();
+      if (!(iuk === '1' || iuk === 'true')) return false;
+    }
     return true;
   };
- 
+  
   function ready(fn){ if(document.readyState!=='loading') fn(); else document.addEventListener('DOMContentLoaded',fn); }
- 
+  
   ready(function () {
-    // Populate the type dropdown from both datasets once they load.
     function populateTypes() {
+      // ... (keep existing populateTypes code exactly as it is) ...
       var sel = document.getElementById('inv-type-filter');
       if (!sel) return;
       var types = {};
-      // pull from global caches if the investor block exposed them; else scan DOM later
       (window.__ukInvData || []).forEach(function(r){ if(r.InvestorType) types[r.InvestorType.trim()]=1; });
       (window.__nonukInvData || []).forEach(function(r){ if(r.InvestorType) types[r.InvestorType.trim()]=1; });
       var sorted = Object.keys(types).sort();
-      // keep the "All types" option, add the rest
       sel.length = 1;
       sorted.forEach(function(t){
         var o=document.createElement('option'); o.value=t; o.textContent=t; sel.appendChild(o);
       });
     }
-    // try now and again shortly (data may still be loading)
+    
     populateTypes();
     setTimeout(populateTypes, 1200);
     setTimeout(populateTypes, 3000);
- 
+  
     function apply() {
       window.investorFilters.type    = (document.getElementById('inv-type-filter')||{}).value || '';
       window.investorFilters.bbb     = !!(document.getElementById('inv-bbb-filter')||{}).checked;
       window.investorFilters.pension = !!(document.getElementById('inv-pension-filter')||{}).checked;
+      window.investorFilters.iuk     = !!(document.getElementById('inv-iuk-filter')||{}).checked; // Added IUK
       if (typeof refreshInvestorMarkers === 'function') refreshInvestorMarkers();
       if (typeof refreshNonUkPanel === 'function') refreshNonUkPanel();
     }
-    ['inv-type-filter','inv-bbb-filter','inv-pension-filter'].forEach(function(id){
+    
+    // Added 'inv-iuk-filter' to the event listeners array
+    ['inv-type-filter','inv-bbb-filter','inv-pension-filter', 'inv-iuk-filter'].forEach(function(id){
       var el=document.getElementById(id); if(el) el.addEventListener('change', apply);
     });
- 
-    // show the filter block whenever the investor markers button is visible
+  
     window.refreshInvestorFiltersVisibility = function () {
       var box=document.getElementById('investor-filters');
       if(box) box.style.display = window.investorMarkersOn ? 'block' : 'none';
