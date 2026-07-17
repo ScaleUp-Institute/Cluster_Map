@@ -976,13 +976,19 @@ button:active { transform: scale(0.98); }
   font-size: 11.5px;
   line-height: 1.5;
   color: var(--text-soft);
-  font-style: italic; /* <--- Added this line */
+  font-style: italic;
 }
 
-#methodology-content p {
-  margin: 0 0 8px 0;
+/* New styling for the bullet points */
+.methodology-list {
+  margin: 0;
+  padding-left: 18px; /* Just enough space for the bullets */
 }
 
-#methodology-content p:last-child {
-  margin-bottom: 0;
+.methodology-list li {
+  margin-bottom: 8px; /* Space between bullet points */
+}
+
+.methodology-list li:last-child {
+  margin-bottom: 0; /* Removes extra space at the very bottom */
 }
