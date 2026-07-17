@@ -3171,14 +3171,14 @@ const FinalAreaSearchControl = L.Control.extend({
   });
  
   // ---- UK marker layer, sector-filtered ----
-  function ukPinIcon() {
-    return L.icon({
-      iconUrl: 'data/UK investor marker.png',
-      iconSize:   [30, 38],      // adjust to your PNG's proportions
-      iconAnchor: [15, 38],      // bottom-centre = the point on the map
-      popupAnchor:[0, -34]       // popup opens above the marker
-    });
-  }
+  var ukInvestorIcon = L.icon({
+    iconUrl:     'data/UK investor marker.png',
+    iconSize:    [35, 35],     // square, matches the 200x200 source ratio
+    iconAnchor:  [17, 35],     // bottom-centre
+    popupAnchor: [0, -32]
+  });
+  
+  function ukPinIcon() { return ukInvestorIcon; }
   window.refreshInvestorMarkers = function () {
     if (!markersOn) return;
     if (ukLayer) { map.removeLayer(ukLayer); ukLayer = null; }
