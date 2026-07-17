@@ -3319,3 +3319,35 @@ const FinalAreaSearchControl = L.Control.extend({
     obs.observe(stats, { attributes:true, attributeFilter:['class'] });
   });
 })();
+
+// Methodology Toggle Logic
+(function () {
+  function ready(fn){ 
+    if(document.readyState !== 'loading') fn(); 
+    else document.addEventListener('DOMContentLoaded', fn); 
+  }
+  
+  ready(function () {
+    var methBtn = document.getElementById('methodology-btn');
+    var methContent = document.getElementById('methodology-content');
+    
+    if (methBtn && methContent) {
+      methBtn.addEventListener('click', function () {
+        var isHidden = methContent.style.display === 'none';
+        
+        // Toggle visibility
+        methContent.style.display = isHidden ? 'block' : 'none';
+        
+        // Toggle active button state
+        methBtn.classList.toggle('active', isHidden);
+        
+        // Optional: Scroll to bottom so the user immediately sees the text
+        if (isHidden) {
+          setTimeout(function() {
+            methContent.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }, 50);
+        }
+      });
+    }
+  });
+})();
