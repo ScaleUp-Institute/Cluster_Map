@@ -1805,21 +1805,30 @@ var companyClusterLayer = L.geoJSON(null, {
 
 // Handle sector-chip clicks or Select-All / Deselect-All
 function handleSectorSelectionChange () {
-
   // 1) Figure out which sectors are now selected
   currentSectors = getSelectedSectors();
+
+  // Grab the elements we want to hide/show
+  const ecosystemControl = document.getElementById('ecosystem-control');
+  const investorBtn = document.getElementById('investor-markers-btn');
 
   if (currentSectors.length > 0) {
     // 2) (Re)load company + cluster data for those sectors
     loadSectorsData(currentSectors);
 
-    // 3) UI niceties
+    // 3) Show the UI buttons
     document.getElementById('overall-stats-button').style.display = 'block';
+    if (ecosystemControl) ecosystemControl.style.display = 'block';
+    if (investorBtn) investorBtn.style.display = 'block';
   } else {
     // 2*) No sectors selected – wipe clusters & stats
     currentClusters = [];
     removeClusterLayers();
+    
+    // Hide the UI buttons
     document.getElementById('overall-stats-button').style.display = 'none';
+    if (ecosystemControl) ecosystemControl.style.display = 'none';
+    if (investorBtn) investorBtn.style.display = 'none';
     updateLegend('');
   }
 
@@ -1830,10 +1839,6 @@ function handleSectorSelectionChange () {
   if (typeof refreshEmptyState === 'function') refreshEmptyState();
   if (typeof refreshInvestorMarkers === 'function') refreshInvestorMarkers();
   if (typeof refreshNonUkPanel === 'function') refreshNonUkPanel();
-  if (typeof document.getElementById('investor-markers-btn') !== 'undefined') {
-     var _b=document.getElementById('investor-markers-btn');
-     if(_b) _b.style.display = (currentSectors.length>0)?'block':'none';
-   }
 }
 
 function populateSectorCheckboxes(sectorsList) {
