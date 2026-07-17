@@ -1,5 +1,4 @@
 Sector,Investor,Country,ISO2,InvestorType,PensionSWF,BBBBacked,CompaniesBackedInSector
-Advanced Manufacturing,Business Angel(s),,,Business Angel(s),,FALSE,30
 Advanced Manufacturing,Santander,Spain,es,Bank,,TRUE,8
 Advanced Manufacturing,Deutsche Bank,Germany,de,Private Equity and Venture Capital,,FALSE,4
 Advanced Manufacturing,Hostplus,Australia,au,Asset Management,,FALSE,4
@@ -243,7 +242,6 @@ Advanced Manufacturing,Zhejiang Silk Road Fund,China,cn,Asset Management,,FALSE,
 Advanced Manufacturing,b-to-v Partners (Brain-to-Ventures),Switzerland,ch,Private Equity and Venture Capital,,FALSE,1
 Advanced Manufacturing,b2venture,Germany,de,Private Equity and Venture Capital,,FALSE,1
 Advanced Manufacturing,iDreamSky,China,cn,Corporate,,FALSE,1
-Clean Energy Industries,Business Angel(s),,,Business Angel(s),,FALSE,15
 Clean Energy Industries,CIBC (Canadian Imperial Bank of Commerce),Canada,ca,Bank,,FALSE,3
 Clean Energy Industries,ABC Impact,Singapore,sg,Private Equity and Venture Capital,,FALSE,2
 Clean Energy Industries,Bits x Bites,China,cn,Private Equity and Venture Capital,,FALSE,2
@@ -371,7 +369,6 @@ Clean Energy Industries,Various,,,Business Angel(s),,FALSE,1
 Clean Energy Industries,WACKER Chemie AG,Germany,de,Corporate,,FALSE,1
 Clean Energy Industries,Whitehelm Capital,Australia,au,Asset Management,,FALSE,1
 Clean Energy Industries,nVent,United States,us,Corporate,,FALSE,1
-Construction,Business Angel(s),,,Business Angel(s),,FALSE,23
 Construction,Santander,Spain,es,Bank,,TRUE,8
 Construction,Republic,United States,us,Crowd funding,,FALSE,5
 Construction,Tata Steel,India,in,Corporate,,FALSE,3
@@ -449,7 +446,6 @@ Construction,Tribe Capital,United States,us,Private Equity and Venture Capital,,
 Construction,Updata Partners,United States,us,Private Equity and Venture Capital,,FALSE,1
 Construction,VentureFriends,Greece,gr,Private Equity and Venture Capital,,FALSE,1
 Construction,nVent,United States,us,Corporate,,FALSE,1
-Creative Industries,Business Angel(s),,,Business Angel(s),,FALSE,54
 Creative Industries,Republic,United States,us,Crowd funding,,FALSE,9
 Creative Industries,Beringea,United States,us,Private Equity and Venture Capital,,FALSE,6
 Creative Industries,Santander,Spain,es,Bank,,TRUE,6
@@ -656,7 +652,6 @@ Creative Industries,Zebra Technologies,United States,us,Corporate,,FALSE,1
 Creative Industries,b2venture,Germany,de,Private Equity and Venture Capital,,FALSE,1
 Creative Industries,eWTP Innovation Fund,China,cn,Private Equity and Venture Capital,,FALSE,1
 Creative Industries,iDreamSky,China,cn,Corporate,,FALSE,1
-Defence,Business Angel(s),,,Business Angel(s),,FALSE,11
 Defence,Insight Partners,United States,us,Private Equity and Venture Capital,,FALSE,4
 Defence,Evolution Equity Partners,United States,us,Private Equity and Venture Capital,,TRUE,3
 Defence,Goldman Sachs,United States,us,Merchant Bank,,FALSE,3
@@ -756,7 +751,6 @@ Defence,Wells Fargo,United States,us,Private Equity and Venture Capital,,FALSE,1
 Defence,White Cloud,Luxembourg,lu,Private Equity and Venture Capital,,FALSE,1
 Defence,WndrCo,United States,us,Private Equity and Venture Capital,,FALSE,1
 Defence,Yuga Labs,United States,us,Corporate,,FALSE,1
-Digital and Technologies,Business Angel(s),,,Business Angel(s),,FALSE,164
 Digital and Technologies,Republic,United States,us,Crowd funding,,FALSE,18
 Digital and Technologies,Silicon Valley Bank,United States,us,Bank,,FALSE,13
 Digital and Technologies,Insight Partners,United States,us,Private Equity and Venture Capital,,FALSE,12
@@ -1530,7 +1524,6 @@ Digital and Technologies,eVentures,United States,us,Private Equity and Venture C
 Digital and Technologies,eWTP Innovation Fund,China,cn,Private Equity and Venture Capital,,FALSE,1
 Digital and Technologies,iDreamSky,China,cn,Corporate,,FALSE,1
 Digital and Technologies,nVent,United States,us,Corporate,,FALSE,1
-Education,Business Angel(s),,,Business Angel(s),,FALSE,9
 Education,Insight Partners,United States,us,Private Equity and Venture Capital,,FALSE,2
 Education,Republic,United States,us,Crowd funding,,FALSE,2
 Education,Summit Partners,United States,us,Private Equity and Venture Capital,,FALSE,2
@@ -1584,7 +1577,6 @@ Education,TechNexus,United States,us,Private Equity and Venture Capital,,FALSE,1
 Education,The New York Times Company,United States,us,Corporate,,FALSE,1
 Education,View Different,United States,us,Private Equity and Venture Capital,,FALSE,1
 Education,Warburg Pincus,United States,us,Private Equity and Venture Capital,,FALSE,1
-Financial Services,Business Angel(s),,,Business Angel(s),,FALSE,67
 Financial Services,Republic,United States,us,Crowd funding,,FALSE,9
 Financial Services,Silicon Valley Bank,United States,us,Bank,,FALSE,7
 Financial Services,Citigroup,United States,us,Bank,,FALSE,6
@@ -1934,7 +1926,6 @@ Financial Services,b-to-v Partners (Brain-to-Ventures),Switzerland,ch,Private Eq
 Financial Services,b2venture,Germany,de,Private Equity and Venture Capital,,FALSE,1
 Financial Services,eBay Ventures,United States,us,Corporate,,FALSE,1
 Financial Services,eVentures,United States,us,Private Equity and Venture Capital,,FALSE,1
-Life Sciences,Business Angel(s),,,Business Angel(s),,FALSE,18
 Life Sciences,Tencent,China,cn,Corporate,,FALSE,5
 Life Sciences,Invesco,United States,us,Asset Management,,FALSE,4
 Life Sciences,Puhua Capital,China,cn,Private Equity and Venture Capital,,FALSE,4
@@ -2155,7 +2146,6 @@ Life Sciences,Xeraya Capital,Malaysia,my,Private Equity and Venture Capital,,FAL
 Life Sciences,XtalPi Inc,United States,us,Corporate,,FALSE,1
 Life Sciences,Zhejiang Silk Road Fund,China,cn,Asset Management,,FALSE,1
 Life Sciences,aMoon Fund,Israel,il,Private Equity and Venture Capital,,FALSE,1
-Professional and Business Service,Business Angel(s),,,Business Angel(s),,FALSE,127
 Professional and Business Service,Santander,Spain,es,Bank,,TRUE,15
 Professional and Business Service,Tencent,China,cn,Corporate,,FALSE,12
 Professional and Business Service,Insight Partners,United States,us,Private Equity and Venture Capital,,FALSE,10
@@ -2804,7 +2794,6 @@ Professional and Business Service,b2venture,Germany,de,Private Equity and Ventur
 Professional and Business Service,eVentures,United States,us,Private Equity and Venture Capital,,FALSE,1
 Professional and Business Service,nVent,United States,us,Corporate,,FALSE,1
 Transportation and storage,Santander,Spain,es,Bank,,TRUE,10
-Transportation and storage,Business Angel(s),,,Business Angel(s),,FALSE,9
 Transportation and storage,CIBC (Canadian Imperial Bank of Commerce),Canada,ca,Bank,,FALSE,3
 Transportation and storage,KfW IPEX,Germany,de,European,,FALSE,2
 Transportation and storage,AIB,Ireland,ie,Bank,,FALSE,1
@@ -2882,7 +2871,6 @@ Transportation and storage,Verve Ventures,Switzerland,ch,Private Equity and Vent
 Transportation and storage,WACKER Chemie AG,Germany,de,Corporate,,FALSE,1
 Transportation and storage,Wallenius Wilhelmsen,Norway,no,Private Equity and Venture Capital,,FALSE,1
 Transportation and storage,ZF,Germany,de,Private Equity and Venture Capital,,FALSE,1
-Wholesale and retail,Business Angel(s),,,Business Angel(s),,FALSE,47
 Wholesale and retail,Santander,Spain,es,Bank,,TRUE,21
 Wholesale and retail,Republic,United States,us,Crowd funding,,FALSE,13
 Wholesale and retail,Beringea,United States,us,Private Equity and Venture Capital,,FALSE,6
