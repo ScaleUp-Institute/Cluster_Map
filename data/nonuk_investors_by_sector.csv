@@ -1,7 +1,7 @@
 Sector,Investor,Country,ISO2,InvestorType,PensionSWF,BBBBacked,CompaniesBackedInSector
 Advanced Manufacturing,Business Angel(s),,,Business Angel(s),,FALSE,30
 Advanced Manufacturing,Santander,Spain,es,Bank,,TRUE,8
-Advanced Manufacturing,Deutsche Bank,China,cn,Private Equity and Venture Capital,,FALSE,4
+Advanced Manufacturing,Deutsche Bank,Germany,cn,Private Equity and Venture Capital,,FALSE,4
 Advanced Manufacturing,Hostplus,Australia,au,Asset Management,,FALSE,4
 Advanced Manufacturing,Tencent,China,cn,Corporate,,FALSE,4
 Advanced Manufacturing,Goldman Sachs,United States,us,Merchant Bank,,FALSE,3
