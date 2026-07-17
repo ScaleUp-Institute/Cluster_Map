@@ -1,7 +1,7 @@
 Sector,Investor,Country,ISO2,InvestorType,PensionSWF,BBBBacked,CompaniesBackedInSector
 Advanced Manufacturing,Business Angel(s),,,Business Angel(s),,FALSE,30
 Advanced Manufacturing,Santander,Spain,es,Bank,,TRUE,8
-Advanced Manufacturing,Deutsche Bank,Germany,cn,Private Equity and Venture Capital,,FALSE,4
+Advanced Manufacturing,Deutsche Bank,Germany,de,Private Equity and Venture Capital,,FALSE,4
 Advanced Manufacturing,Hostplus,Australia,au,Asset Management,,FALSE,4
 Advanced Manufacturing,Tencent,China,cn,Corporate,,FALSE,4
 Advanced Manufacturing,Goldman Sachs,United States,us,Merchant Bank,,FALSE,3
@@ -283,7 +283,7 @@ Clean Energy Industries,Communitas Capital Partners,United States,us,Private Equ
 Clean Energy Industries,Credit Agricole,France,fr,Bank,,FALSE,1
 Clean Energy Industries,Curious Capital,United States,us,Private Equity and Venture Capital,,FALSE,1
 Clean Energy Industries,Daishin Private Equity,"Korea, Republic Of (South Korea)",kr,Private Equity and Venture Capital,,FALSE,1
-Clean Energy Industries,Deutsche Bank,China,cn,Private Equity and Venture Capital,,FALSE,1
+Clean Energy Industries,Deutsche Bank,Germany,de,Private Equity and Venture Capital,,FALSE,1
 Clean Energy Industries,Digital Alpha Capital,United States,us,Private Equity and Venture Capital,,FALSE,1
 Clean Energy Industries,ElectriFI initiative,Belgium,be,European,,FALSE,1
 Clean Energy Industries,Emerald Technology Ventures,Switzerland,ch,Private Equity and Venture Capital,,FALSE,1
@@ -464,7 +464,7 @@ Creative Industries,Accel-KKR,United States,us,Private Equity and Venture Capita
 Creative Industries,Bertelsmann,United States,us,Corporate,,FALSE,2
 Creative Industries,C4 Ventures,France,fr,Private Equity and Venture Capital,,FALSE,2
 Creative Industries,Canaccord Genuity Group,Canada,ca,Merchant Bank,,FALSE,2
-Creative Industries,Deutsche Bank,China,cn,Private Equity and Venture Capital,,FALSE,2
+Creative Industries,Deutsche Bank,Germany,de,Private Equity and Venture Capital,,FALSE,2
 Creative Industries,Eight Roads Ventures,Bermuda,bm,Private Equity and Venture Capital,,FALSE,2
 Creative Industries,FJ Labs,United States,us,Private Equity and Venture Capital,,FALSE,2
 Creative Industries,Frontline Ventures,Ireland,ie,Private Equity and Venture Capital,,FALSE,2
@@ -766,7 +766,7 @@ Digital and Technologies,CIBC (Canadian Imperial Bank of Commerce),Canada,ca,Ban
 Digital and Technologies,Citigroup,United States,us,Bank,,FALSE,9
 Digital and Technologies,Google,United States,us,Corporate,,FALSE,9
 Digital and Technologies,SoftBank Group,Japan,jp,Corporate,,FALSE,9
-Digital and Technologies,Deutsche Bank,China,cn,Private Equity and Venture Capital,,FALSE,8
+Digital and Technologies,Deutsche Bank,Germany,de,Private Equity and Venture Capital,,FALSE,8
 Digital and Technologies,Goldman Sachs,United States,us,Merchant Bank,,FALSE,8
 Digital and Technologies,Accel Partners,United States,us,Private Equity and Venture Capital,,FALSE,6
 Digital and Technologies,EQT Group,Sweden,se,Private Equity and Venture Capital,,FALSE,6
@@ -1551,7 +1551,7 @@ Education,Credit Suisse,Switzerland,ch,Merchant Bank,,FALSE,1
 Education,D1 Capital Partners,United States,us,Private Equity and Venture Capital,,FALSE,1
 Education,Danske Bank,Denmark,dk,Bank,,FALSE,1
 Education,Department of Education,Dependent,,Government,,FALSE,1
-Education,Deutsche Bank,China,cn,Private Equity and Venture Capital,,FALSE,1
+Education,Deutsche Bank,Germany,de,Private Equity and Venture Capital,,FALSE,1
 Education,EduCapital,France,fr,Private Equity and Venture Capital,,FALSE,1
 Education,FTV Capital,United States,us,Private Equity and Venture Capital,,FALSE,1
 Education,Founders Circle Capital,United States,us,Private Equity and Venture Capital,,FALSE,1
@@ -1592,7 +1592,7 @@ Financial Services,JPMorgan Chase & Co,United States,us,Asset Management,,FALSE,
 Financial Services,Tiger Global Management,United States,us,Asset Management,,FALSE,6
 Financial Services,Accel Partners,United States,us,Private Equity and Venture Capital,,FALSE,5
 Financial Services,CommerzVentures,Germany,de,Private Equity and Venture Capital,,FALSE,5
-Financial Services,Deutsche Bank,China,cn,Private Equity and Venture Capital,,FALSE,5
+Financial Services,Deutsche Bank,Germany,de,Private Equity and Venture Capital,,FALSE,5
 Financial Services,FTV Capital,United States,us,Private Equity and Venture Capital,,FALSE,5
 Financial Services,Goldman Sachs,United States,us,Merchant Bank,,FALSE,5
 Financial Services,Insight Partners,United States,us,Private Equity and Venture Capital,,FALSE,5
@@ -2167,7 +2167,7 @@ Professional and Business Service,Citigroup,United States,us,Bank,,FALSE,7
 Professional and Business Service,SoftBank Group,Japan,jp,Corporate,,FALSE,6
 Professional and Business Service,Techstars,United States,us,Accelerator,,FALSE,6
 Professional and Business Service,Beringea,United States,us,Private Equity and Venture Capital,,FALSE,5
-Professional and Business Service,Deutsche Bank,China,cn,Private Equity and Venture Capital,,FALSE,5
+Professional and Business Service,Deutsche Bank,Germany,de,Private Equity and Venture Capital,,FALSE,5
 Professional and Business Service,Frontline Ventures,Ireland,ie,Private Equity and Venture Capital,,FALSE,5
 Professional and Business Service,Hostplus,Australia,au,Asset Management,,FALSE,5
 Professional and Business Service,Invesco,United States,us,Asset Management,,FALSE,5
@@ -2934,7 +2934,7 @@ Wholesale and retail,CommerzVentures,Germany,de,Private Equity and Venture Capit
 Wholesale and retail,DFJ,United States,us,Private Equity and Venture Capital,,FALSE,1
 Wholesale and retail,DST Global,United States,us,Private Equity and Venture Capital,,FALSE,1
 Wholesale and retail,Danske Bank,Denmark,dk,Bank,,FALSE,1
-Wholesale and retail,Deutsche Bank,China,cn,Private Equity and Venture Capital,,FALSE,1
+Wholesale and retail,Deutsche Bank,Germany,de,Private Equity and Venture Capital,,FALSE,1
 Wholesale and retail,EDP Ventures,Portugal,pt,Corporate,,FALSE,1
 Wholesale and retail,Eight Roads Ventures,Bermuda,bm,Private Equity and Venture Capital,,FALSE,1
 Wholesale and retail,Estée Lauder Companies,,,,,,1
