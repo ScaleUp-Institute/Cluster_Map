@@ -849,3 +849,35 @@ button:active { transform: scale(0.98); }
 
 #help-button { transition: transform 0.32s cubic-bezier(0.4,0,0.2,1); }
 #help-button.shift-right { transform: translateX(330px); }
+
+#ecosystem-control { margin: 8px 0 16px; }
+#ecosystem-btn {
+  width: 100%;
+  text-align: left;
+  background: var(--ink);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 11px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+#ecosystem-btn:hover { background: var(--ink-soft); }
+#ecosystem-btn.open { background: var(--teal); color: var(--ink); }
+#ecosystem-menu {
+  border: 0.5px solid var(--line);
+  border-top: none;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  padding: 10px 14px;
+  background: var(--paper);
+}
+.eco-toggle {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--text-soft);
+  margin: 7px 0; cursor: pointer;
+}
+.eco-toggle input { accent-color: var(--teal-dark); }
