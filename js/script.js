@@ -3199,7 +3199,7 @@ const FinalAreaSearchControl = L.Control.extend({
       window.investorMarkersOn = markersOn;
       if (typeof refreshInvestorFiltersVisibility==='function') refreshInvestorFiltersVisibility();
       var lbl = document.getElementById('investor-btn-label');
-      if (lbl) lbl.textContent = markersOn ? 'Hide UK investors' : 'Show investors';
+      if (lbl) lbl.textContent = markersOn ? 'Hide investors' : 'Show investors';
       if(markersOn){ window.refreshInvestorMarkers(); openNonUk(); }
       else { if(ukLayer){map.removeLayer(ukLayer);ukLayer=null;} closeNonUk(); }
     });
