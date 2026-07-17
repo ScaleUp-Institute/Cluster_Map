@@ -1686,7 +1686,7 @@ function showSectorStatistics(selectedSectors) {
   // Clear old content and add header
   statsPanel.innerHTML = `
     <div class="stats-header">
-      <h2>Sector Stats</h2>
+      <h2>National Sector Stats</h2>
       <button class="close-panel-btn" onclick="hideSectorStats()">&times;</button>
     </div>
   `;
