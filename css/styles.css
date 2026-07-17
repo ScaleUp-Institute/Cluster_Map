@@ -907,3 +907,11 @@ button:active { transform: scale(0.98); }
   color: var(--ink); 
   border-color: var(--teal);
 }
+
+/* Styling for 'under development' tags on checkboxes */
+.dev-tag {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-style: italic;
+  margin-left: 4px;
+}
