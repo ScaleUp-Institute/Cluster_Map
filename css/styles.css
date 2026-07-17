@@ -850,7 +850,10 @@ button:active { transform: scale(0.98); }
 #help-button { transition: transform 0.32s cubic-bezier(0.4,0,0.2,1); }
 #help-button.shift-right { transform: translateX(330px); }
 
-#ecosystem-control { margin: 8px 0 16px; }
+#ecosystem-control { 
+  display: none; 
+  margin: 8px 0 16px; 
+}
 #ecosystem-btn {
   width: 100%;
   text-align: left;
@@ -881,3 +884,26 @@ button:active { transform: scale(0.98); }
   margin: 7px 0; cursor: pointer;
 }
 .eco-toggle input { accent-color: var(--teal-dark); }
+
+/* Lighter shade for both buttons */
+#investor-markers-btn,
+#ecosystem-btn {
+  background: var(--panel-bg);
+  color: var(--text);
+  border: 0.5px solid var(--line-strong);
+}
+
+/* Add a subtle hover effect */
+#investor-markers-btn:hover,
+#ecosystem-btn:hover { 
+  background: #EFEDE5; 
+  color: var(--text);
+}
+
+/* Keep the active/open states teal so users know they are toggled on */
+#investor-markers-btn.active, 
+#ecosystem-btn.open { 
+  background: var(--teal); 
+  color: var(--ink); 
+  border-color: var(--teal);
+}
