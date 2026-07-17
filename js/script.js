@@ -907,7 +907,7 @@ function getColor(area) {
 function getClusterColor(clusterId) {
   var clusterNumber = clusterId.split('_')[1];
   if (clusterNumber === '0') {
-    return '#D3D3D3'; // Light grey for Cluster 0
+    return '#B8AFA0'; // Light grey for Cluster 0
   }
   return clusterColors[clusterId];
 }
@@ -1911,7 +1911,8 @@ function updateClusterLayers() {
       progress = easeOut(progress);
 
       markers.forEach(marker => {
-        const currentRadius  = finalRadius * progress;
+        const targetRadius   = (marker._targetRadius != null) ? marker._targetRadius : finalRadius;
+        const currentRadius  = targetRadius * progress;
         const currentOpacity = finalFillOpacity * progress;
         marker.setStyle({
           radius: currentRadius,
@@ -2035,6 +2036,8 @@ function updateClusterLayers() {
           weight: 0.2,
           fillOpacity: 0
         });
+
+        marker._targetRadius = isNoiseCluster ? 2 : 3;
 
         marker.bindPopup(`
           <div class="popup-content">
@@ -2182,7 +2185,7 @@ function generateClusterColors() {
     var clusterNumber = company.cluster;
 
     if (clusterNumber === '0') {
-      clusterColors[clusterId] = '#D3D3D3'; // Light grey for Cluster 0
+      clusterColors[clusterId] = '#B8AFA0'; // Light grey for Cluster 0
     } else if (!uniqueClusters[clusterId]) {
       uniqueClusters[clusterId] = true;
     }
