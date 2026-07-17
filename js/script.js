@@ -2072,7 +2072,7 @@ function updateClusterLayers() {
           <div class="popup-content">
             <p><strong>Company Name:</strong> ${company.Companyname}</p>
             <p><strong>Company Number:</strong> ${company.Companynumber}</p>
-            <p><strong>Cluster:</strong> ${region} (Cluster ${clusterNumber})</p>
+            <p><strong>Cluster:</strong> ${isNoiseCluster ? 'Cluster 0' : region + ' (Cluster ' + clusterNumber + ')'}</p>
             <p><strong>Sector:</strong> ${company.sector}</p>
           </div>
         `);
