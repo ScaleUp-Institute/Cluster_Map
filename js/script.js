@@ -907,7 +907,7 @@ function getColor(area) {
 function getClusterColor(clusterId) {
   var clusterNumber = clusterId.split('_')[1];
   if (clusterNumber === '0') {
-    return '#D3D3D3'; // Light grey for Cluster 0 (noise)
+    return '#B8AFA0'; // Light grey for Cluster 0 (noise)
   }
   // One consistent colour per sector: a darker shade of the sector's
   // polygon colour, so all real-cluster points in a sector match.
@@ -2215,7 +2215,7 @@ function generateClusterColors() {
     var clusterNumber = company.cluster;
 
     if (clusterNumber === '0') {
-      clusterColors[clusterId] = '#D3D3D3'; // Light grey for Cluster 0
+      clusterColors[clusterId] = '#B8AFA0'; // Light grey for Cluster 0
     } else if (!uniqueClusters[clusterId]) {
       uniqueClusters[clusterId] = true;
     }
