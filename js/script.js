@@ -3241,10 +3241,9 @@ const FinalAreaSearchControl = L.Control.extend({
 })();
 
 (function () {
-  // shared filter state (added iuk)
-  window.investorFilters = { type: '', bbb: false, pension: false, iuk: false };
+  // 1. Added 'procurement' to shared filter state
+  window.investorFilters = { type: '', bbb: false, pension: false, iuk: false, procurement: false };
   
-  // helper the render functions will call to test a row against filters
   window.passesInvestorFilters = function (r) {
     var f = window.investorFilters;
     if (f.type && String(r.InvestorType||'').trim() !== f.type) return false;
@@ -3253,10 +3252,14 @@ const FinalAreaSearchControl = L.Control.extend({
       var p = String(r.PensionSWF||'').toLowerCase();
       if (!(p === '1' || p === 'true')) return false;
     }
-    // Logic for Innovate UK backed (ready for when your CSV supports it)
     if (f.iuk) {
       var iuk = String(r.InnovateUKBacked||'').toLowerCase();
       if (!(iuk === '1' || iuk === 'true')) return false;
+    }
+    // 2. Added Logic for Procurement (ready for when your CSV supports it)
+    if (f.procurement) {
+      var proc = String(r.Procurement||'').toLowerCase(); // Update 'Procurement' to match your future CSV column name
+      if (!(proc === '1' || proc === 'true')) return false;
     }
     return true;
   };
@@ -3265,7 +3268,6 @@ const FinalAreaSearchControl = L.Control.extend({
   
   ready(function () {
     function populateTypes() {
-      // ... (keep existing populateTypes code exactly as it is) ...
       var sel = document.getElementById('inv-type-filter');
       if (!sel) return;
       var types = {};
@@ -3283,16 +3285,19 @@ const FinalAreaSearchControl = L.Control.extend({
     setTimeout(populateTypes, 3000);
   
     function apply() {
-      window.investorFilters.type    = (document.getElementById('inv-type-filter')||{}).value || '';
-      window.investorFilters.bbb     = !!(document.getElementById('inv-bbb-filter')||{}).checked;
-      window.investorFilters.pension = !!(document.getElementById('inv-pension-filter')||{}).checked;
-      window.investorFilters.iuk     = !!(document.getElementById('inv-iuk-filter')||{}).checked; // Added IUK
+      window.investorFilters.type        = (document.getElementById('inv-type-filter')||{}).value || '';
+      window.investorFilters.bbb         = !!(document.getElementById('inv-bbb-filter')||{}).checked;
+      window.investorFilters.pension     = !!(document.getElementById('inv-pension-filter')||{}).checked;
+      window.investorFilters.iuk         = !!(document.getElementById('inv-iuk-filter')||{}).checked;
+      // 3. Added state capture for Procurement
+      window.investorFilters.procurement = !!(document.getElementById('inv-procurement-filter')||{}).checked; 
+      
       if (typeof refreshInvestorMarkers === 'function') refreshInvestorMarkers();
       if (typeof refreshNonUkPanel === 'function') refreshNonUkPanel();
     }
     
-    // Added 'inv-iuk-filter' to the event listeners array
-    ['inv-type-filter','inv-bbb-filter','inv-pension-filter', 'inv-iuk-filter'].forEach(function(id){
+    // 4. Added 'inv-procurement-filter' to the event listeners array
+    ['inv-type-filter','inv-bbb-filter','inv-pension-filter', 'inv-iuk-filter', 'inv-procurement-filter'].forEach(function(id){
       var el=document.getElementById(id); if(el) el.addEventListener('change', apply);
     });
   
