@@ -866,10 +866,10 @@ document.querySelectorAll('#layer-selection input[type=checkbox]').forEach(funct
       }
 
       // Set the overlay dropdown to 'none'
-      var overlaySelect = document.getElementById('overlay-select');
-      if (overlaySelect) {
-        overlaySelect.value = 'none';
-      }
+      ['eco-universities','eco-infrastructure','eco-support'].forEach(function(id){
+        var el = document.getElementById(id);
+        if (el) el.checked = false;
+      });
 
       hideSectorStats();
 
@@ -2769,55 +2769,38 @@ function onWindowResize() {
 window.addEventListener('resize', onWindowResize);
 
 // Add event listener for the overlay dropdown
-var overlaySelect = document.getElementById('overlay-select');
-overlaySelect.addEventListener('change', updateOverlays);
+(function(){
+  var btn = document.getElementById('ecosystem-btn');
+  var menu = document.getElementById('ecosystem-menu');
+  if (btn) btn.addEventListener('click', function(){
+    var open = menu.style.display === 'none';
+    menu.style.display = open ? 'block' : 'none';
+    btn.classList.toggle('open', open);
+  });
+  ['eco-universities','eco-infrastructure','eco-support'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('change', updateOverlays);
+  });
+})();
 
 function updateOverlays() {
-  var value = overlaySelect.value;
+  var uni     = !!(document.getElementById('eco-universities')||{}).checked;
+  var infra   = !!(document.getElementById('eco-infrastructure')||{}).checked;
+  var support = !!(document.getElementById('eco-support')||{}).checked;
 
-  // 1) Always remove all three overlays first
-  if (map.hasLayer(universityLayer))       map.removeLayer(universityLayer);
-  if (map.hasLayer(infrastructureLayer))   map.removeLayer(infrastructureLayer);
-  if (map.hasLayer(supportProgramLayer))   map.removeLayer(supportProgramLayer);
+  if (map.hasLayer(universityLayer))     map.removeLayer(universityLayer);
+  if (map.hasLayer(infrastructureLayer)) map.removeLayer(infrastructureLayer);
+  if (map.hasLayer(supportProgramLayer)) map.removeLayer(supportProgramLayer);
 
-  // 2) Universities?
-  if (value === 'universities' || value === 'both') {
-    addUniversitiesToMap();                      // repopulate universityLayer
-    if (universityLayer.getLayers().length) {
-      universityLayer.addTo(map);
-    }
-  }
+  if (uni)     { addUniversitiesToMap();    if (universityLayer.getLayers().length)     universityLayer.addTo(map); }
+  if (infra)   { addInfrastructureToMap();  if (infrastructureLayer.getLayers().length) infrastructureLayer.addTo(map); }
+  if (support) { addSupportProgramsToMap(); if (supportProgramLayer.getLayers().length) supportProgramLayer.addTo(map); }
 
-  // 3) Infrastructure?
-  if (value === 'infrastructure' || value === 'both') {
-    addInfrastructureToMap();                    // repopulate infrastructureLayer
-    if (infrastructureLayer.getLayers().length) {
-      infrastructureLayer.addTo(map);
-    }
-  }
-
-  // 4) Support Programs?
-  if (value === 'support-program' || value === 'both') {
-    addSupportProgramsToMap();                   // repopulate supportProgramLayer
-    if (supportProgramLayer.getLayers().length) {
-      supportProgramLayer.addTo(map);
-    }
-  }
-
-  /* ── Legend visibility ─────────────────────────── */
   const legend = document.getElementById('support-legend');
-  if (!legend) return;                       // safety
-
-  const showLegend =
-    value === 'universities'   ||
-    value === 'infrastructure' ||
-    value === 'support-program'||
-    value === 'both';
-
+  if (!legend) return;
+  const showLegend = uni || infra || support;
   legend.style.display = showLegend ? 'flex' : 'none';
-
-  if (showLegend) populateSupportLegend();   // ensure it’s filled
-  
+  if (showLegend) populateSupportLegend();
 }
 
 // --- UNIVERSITIES ---
