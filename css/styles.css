@@ -915,3 +915,74 @@ button:active { transform: scale(0.98); }
   font-style: italic;
   margin-left: 4px;
 }
+
+/* Methodology Button & Panel */
+#methodology-container {
+  border-top: 0.5px solid var(--line);
+  padding-top: 15px;
+}
+
+#methodology-btn {
+  width: 100%;
+  background: var(--panel-bg);
+  color: var(--text-soft);
+  border: 0.5px solid var(--line);
+  padding: 9px 12px;
+  font-size: 12.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+#methodology-btn:hover {
+  background: #EFEDE5;
+  color: var(--text);
+}
+
+#methodology-btn.active {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+
+.methodology-icon {
+  font-style: normal;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--line-strong);
+  color: var(--paper);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  transition: background 0.2s ease;
+}
+
+#methodology-btn.active .methodology-icon {
+  background: var(--teal);
+  color: var(--ink);
+}
+
+#methodology-content {
+  background: var(--canvas);
+  border: 0.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin-top: 10px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-soft);
+  font-style: italic; /* <--- Added this line */
+}
+
+#methodology-content p {
+  margin: 0 0 8px 0;
+}
+
+#methodology-content p:last-child {
+  margin-bottom: 0;
+}
