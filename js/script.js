@@ -3215,7 +3215,8 @@ const FinalAreaSearchControl = L.Control.extend({
       btn.classList.toggle('active',markersOn);
       window.investorMarkersOn = markersOn;
       if (typeof refreshInvestorFiltersVisibility==='function') refreshInvestorFiltersVisibility();
-      btn.textContent = markersOn ? 'Hide UK investors' : 'Show UK investors';
+      var lbl = document.getElementById('investor-btn-label');
+      if (lbl) lbl.textContent = markersOn ? 'Hide UK investors' : 'Show UK investors';
       if(markersOn){ window.refreshInvestorMarkers(); openNonUk(); }
       else { if(ukLayer){map.removeLayer(ukLayer);ukLayer=null;} closeNonUk(); }
     });
