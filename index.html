@@ -220,6 +220,7 @@
       <button id="deselect-all-sectors">Deselect All Sectors</button><br>
       <div id="sector-chips" class="chips-container"></div>
       <button id="overall-stats-button">National Sector Stats</button>
+      
       <div id="investor-filters" style="display:none;">
         <h3>Investor filters</h3>
         <label for="inv-type-filter" style="font-size:12px;color:var(--text-soft);display:block;margin-bottom:4px;">Type</label>
@@ -237,11 +238,13 @@
           <input type="checkbox" id="inv-iuk-filter"> Innovate UK backed <span class="dev-tag">(under development)</span>
         </label>
       </div>
+      
       <button id="investor-markers-btn" style="display:none;">
         <img src="data/UK investor icon.png" alt="" style="width:16px;height:16px;vertical-align:middle;margin-right:7px;">
         <span id="investor-btn-label">Show investors</span>
       </button>
-      <div id="ecosystem-control">
+      
+      <div id="ecosystem-control" style="display:none;">
         <button id="ecosystem-btn" type="button">Universities, Infrastructure &amp; Programmes ▾</button>
         <div id="ecosystem-menu" style="display:none;">
           <label class="eco-toggle"><input type="checkbox" id="eco-universities"> Universities</label>
@@ -250,8 +253,7 @@
         </div>
       </div>
       
-
-      <!--  Support‑programme legend  -->
+      <!-- Support-programme legend -->
       <div id="support-legend" class="support-legend"></div>
 
       <!-- Cluster Section -->
@@ -262,8 +264,21 @@
         <div id="cluster-checkboxes" class="checkboxes-container"></div>
         <div id="polygon-info" class="polygon-info hidden"></div>
       </div>
-    </div>
-  </div>
+
+      <!-- Methodology Info Button & Content (MOVED INSIDE RIGHT-FRAME) -->
+      <div id="methodology-container" style="margin-top: 30px;">
+        <button id="methodology-btn" title="View methodology and data definitions">
+          <i class="methodology-icon">i</i> Data & Methodology
+        </button>
+        <div id="methodology-content" style="display: none;">
+          <p>Clusters of projected scaling businesses have been identified using HDBSCAN methodology by the ScaleUp Institute, working with data platforms to analyse the locations of existing scaleups, scaling firms and businesses projected to scale.</p>
+          <p>Scaleups follow the OECD definition: businesses with at least 10 employees at the start of the period and average annual growth of more than 20% in employment or turnover over three years.</p>
+          <p>Scaling pipeline businesses follow the Eurostat definition: businesses with at least 10 employees and average annual employment or turnover growth of more than 10% over three years.</p>
+        </div>
+      </div>
+
+    </div> <!-- THIS is the closing tag for the right-frame -->
+  </div> <!-- This closes the map-container -->
 
   <!-- Watermark -->
   <img src="data/company_ logo.png" id="watermark" alt="Company Logo" />
