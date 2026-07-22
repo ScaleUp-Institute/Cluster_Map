@@ -3230,6 +3230,7 @@ const FinalAreaSearchControl = L.Control.extend({
       markersOn=!markersOn;
       btn.classList.toggle('active',markersOn);
       window.investorMarkersOn = markersOn;
+      if (typeof refreshInvestorFiltersVisibility === 'function') refreshInvestorFiltersVisibility();
       if (typeof refreshInvestorHighlightVisibility === 'function') refreshInvestorHighlightVisibility();
         // when hiding investors, also clear any active highlight:
         if (!markersOn && typeof window.applyInvestorHighlight === 'function') {
