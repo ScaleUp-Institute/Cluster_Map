@@ -3743,3 +3743,41 @@ const FinalAreaSearchControl = L.Control.extend({
     regionLayer.addTo(map);
   };
 })();
+
+// ---- Map Onboarding Tour ----
+(function () {
+  function ready(fn) { 
+    if (document.readyState !== 'loading') fn(); 
+    else document.addEventListener('DOMContentLoaded', fn); 
+  }
+
+  ready(function () {
+    var backdrop = document.getElementById('tour-backdrop');
+    var tooltip = document.getElementById('onboarding-tooltip');
+    var closeBtn = document.getElementById('close-tour');
+    var targetPanel = document.getElementById('sector-chips');
+
+    // Only show if they haven't seen it before
+    if (!localStorage.getItem('mapTourSeen')) {
+      // Delay slightly so the map finishes rendering first
+      setTimeout(function() {
+        if (backdrop && tooltip && targetPanel) {
+          backdrop.style.display = 'block';
+          tooltip.style.display = 'block';
+          targetPanel.classList.add('tour-highlight');
+        }
+      }, 1500);
+    }
+
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function() {
+        backdrop.style.display = 'none';
+        tooltip.style.display = 'none';
+        if (targetPanel) targetPanel.classList.remove('tour-highlight');
+        
+        // Remember that they've seen it so it doesn't show on refresh
+        localStorage.setItem('mapTourSeen', 'true');
+      });
+    }
+  });
+})();
