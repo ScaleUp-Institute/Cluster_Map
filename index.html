@@ -37,9 +37,12 @@
 <!-- Guided Tour Overlay -->
 <div id="tour-backdrop"></div>
 <div id="onboarding-tooltip" class="tour-tooltip" style="display: none;">
-  <div class="tour-arrow"></div>
-  <p><strong>Start here!</strong><br>Select a sector to reveal where scaleup companies cluster across the UK.</p>
-  <button id="close-tour">Got it</button>
+  <div id="tour-arrow" class="tour-arrow right"></div>
+  <p id="tour-text"></p>
+  <div style="display: flex; gap: 10px; margin-top: 12px;">
+    <button id="tour-next-btn" style="flex: 1;">Next</button>
+    <button id="close-tour" style="flex: 1; background: transparent; border: 1px solid var(--teal); color: var(--paper);">Skip</button>
+  </div>
 </div>
 
 <div id="nonuk-investor-panel">
