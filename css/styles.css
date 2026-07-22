@@ -1087,3 +1087,7 @@ button:active { transform: scale(0.98); }
   padding:3px 9px; font-size:11.5px; font-weight:500;
 }
 .ukinv-chip .x { cursor:pointer; font-weight:700; }
+
+.region-popup p { display:flex; justify-content:space-between; gap:12px; }
+.region-popup p strong { font-weight:400; color: var(--text-soft, #5F6B77); }
+.region-popup ul li { color: var(--text-soft, #5F6B77); }
