@@ -142,6 +142,16 @@
       <button id="deselect-all-sectors">Deselect All Sectors</button><br>
       <div id="sector-chips" class="chips-container"></div>
       <button id="overall-stats-button">National Sector Stats</button>
+
+      <!-- Region Boundaries Control -->
+      <div id="region-control" style="margin: 8px 0 16px;">
+        <button id="region-btn" type="button" style="width: 100%; text-align: left; background: var(--panel-bg); color: var(--text); border: 0.5px solid var(--line-strong); border-radius: var(--radius-sm); padding: 11px 14px; font-size: 13px; font-weight: 500; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s ease;">
+          UK Regions ▾
+        </button>
+        <div id="region-menu" style="display:none; border: 0.5px solid var(--line); border-top: none; border-radius: 0 0 var(--radius-sm) var(--radius-sm); padding: 10px 14px; background: var(--paper); max-height: 200px; overflow-y: auto;">
+          <!-- Checkboxes will be injected here by JavaScript -->
+        </div>
+      </div>
       
       <div id="investor-filters" style="display:none;">
         <h3>Investor filters</h3>
@@ -170,8 +180,6 @@
         <span id="investor-btn-label">Show investors</span>
       </button>
 
-
-      
       <div id="ecosystem-control" style="display:none;">
         <button id="ecosystem-btn" type="button">Universities, Infrastructure &amp; Programmes ▾</button>
         <div id="ecosystem-menu" style="display:none;">
