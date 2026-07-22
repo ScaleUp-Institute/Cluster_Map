@@ -992,3 +992,42 @@ button:active { transform: scale(0.98); }
 .methodology-list li:last-child {
   margin-bottom: 0; /* Removes extra space at the very bottom */
 }
+
+#investor-highlight { margin: 8px 0 16px; }
+#inv-search-wrap { position: relative; }
+#inv-search {
+  width: 100%; padding: 9px 11px;
+  border: 0.5px solid var(--line-strong); border-radius: var(--radius-sm);
+  font-family: var(--font-body); font-size: 13px;
+}
+#inv-suggest {
+  position: absolute; top: 100%; left: 0; right: 0;
+  background: var(--paper); border: 0.5px solid var(--line);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  max-height: 220px; overflow-y: auto; z-index: 1000; display: none;
+  box-shadow: var(--shadow);
+}
+#inv-suggest div {
+  padding: 8px 11px; font-size: 13px; cursor: pointer;
+  border-bottom: 0.5px solid #f1efe8;
+}
+#inv-suggest div:hover { background: var(--ink); color: #fff; }
+#inv-suggest .inv-count { color: var(--text-soft); font-size: 11px; margin-left: 6px; }
+#inv-suggest div:hover .inv-count { color: var(--on-ink-dim); }
+ 
+#inv-selected { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.inv-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--teal); color: var(--ink);
+  border-radius: 16px; padding: 4px 10px; font-size: 12px; font-weight: 500;
+}
+.inv-chip .x { cursor: pointer; font-weight: 700; }
+#inv-clear {
+  width: 100%; background: var(--panel-bg); color: var(--text-soft);
+  border: 0.5px solid var(--line); padding: 8px; font-size: 12px;
+  border-radius: var(--radius-sm);
+}
+#inv-clear:hover { background: #EFEDE5; color: var(--text); }
+ 
+/* dimmed markers when a highlight is active */
+.company-dimmed { opacity: 0.15 !important; }
