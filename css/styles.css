@@ -1121,9 +1121,20 @@ button:active { transform: scale(0.98); }
 .tour-tooltip button { background: var(--teal); color: var(--ink); padding: 8px; font-weight: 600; cursor: pointer; border-radius: 4px; border: none; }
 
 /* Dynamic Arrow Directions */
+/* Dynamic Arrow Directions */
 .tour-arrow { position: absolute; width: 0; height: 0; }
+
+/* Tooltip is on the left, arrow points right */
 .tour-arrow.right { top: 24px; right: -9px; left: auto; border-top: 9px solid transparent; border-bottom: 9px solid transparent; border-left: 10px solid var(--ink); }
+
+/* Tooltip is on the top, arrow points down */
 .tour-arrow.bottom { bottom: -9px; left: 24px; top: auto; border-left: 9px solid transparent; border-right: 9px solid transparent; border-top: 10px solid var(--ink); }
+
+/* Tooltip is on the right, arrow points left */
+.tour-arrow.left { top: 24px; left: -9px; right: auto; border-top: 9px solid transparent; border-bottom: 9px solid transparent; border-right: 10px solid var(--ink); }
+
+/* Tooltip is on the bottom, arrow points up */
+.tour-arrow.top { top: -9px; left: 24px; bottom: auto; border-left: 9px solid transparent; border-right: 9px solid transparent; border-bottom: 10px solid var(--ink); }
 
 @keyframes float-point {
   0% { transform: translateY(0) translateX(0); }
