@@ -1091,3 +1091,76 @@ button:active { transform: scale(0.98); }
 .region-popup p { display:flex; justify-content:space-between; gap:12px; }
 .region-popup p strong { font-weight:400; color: var(--text-soft, #5F6B77); }
 .region-popup ul li { color: var(--text-soft, #5F6B77); }
+
+/* ---------- Onboarding Tour ---------- */
+#tour-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(14, 27, 44, 0.5); /* Dims the page behind the spotlight */
+  z-index: 8999;
+  display: none;
+}
+
+.tour-tooltip {
+  position: absolute;
+  top: 90px; /* Aligns with the Sector chips */
+  right: calc(25% + 15px); /* Positions it just outside the right panel */
+  background: var(--ink);
+  color: var(--paper);
+  padding: 14px 18px;
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(14, 27, 44, 0.35);
+  z-index: 9000;
+  width: 220px;
+  animation: float-point 2s ease-in-out infinite;
+  font-size: 13px;
+}
+
+.tour-tooltip p {
+  margin: 0 0 12px 0;
+  line-height: 1.5;
+  color: #E4E1D8;
+}
+
+.tour-tooltip p strong {
+  color: #fff;
+  font-family: var(--font-head);
+  font-size: 14px;
+}
+
+.tour-tooltip button {
+  background: var(--teal);
+  color: var(--ink);
+  width: 100%;
+  padding: 8px;
+  font-weight: 600;
+}
+
+/* The arrow pointing right */
+.tour-arrow {
+  position: absolute;
+  top: 24px;
+  right: -9px;
+  width: 0;
+  height: 0;
+  border-top: 9px solid transparent;
+  border-bottom: 9px solid transparent;
+  border-left: 10px solid var(--ink);
+}
+
+@keyframes float-point {
+  0% { transform: translateX(0); }
+  50% { transform: translateX(-8px); }
+  100% { transform: translateX(0); }
+}
+
+/* The glow effect applied to the target element */
+.tour-highlight {
+  position: relative;
+  z-index: 9001 !important; /* Puts it above the dark backdrop */
+  background: #ffffff;
+  border-radius: var(--radius);
+  box-shadow: 0 0 0 4px var(--teal-tint), 0 0 20px rgba(0, 194, 168, 0.4) !important;
+  transition: all 0.3s ease;
+  padding: 8px; /* Slight padding so the glow breathes */
+}
