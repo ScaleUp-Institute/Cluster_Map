@@ -34,6 +34,14 @@
   </div>
 </div>
 
+<!-- Guided Tour Overlay -->
+<div id="tour-backdrop"></div>
+<div id="onboarding-tooltip" class="tour-tooltip" style="display: none;">
+  <div class="tour-arrow"></div>
+  <p><strong>Start here!</strong><br>Select a sector to reveal where scaleup companies cluster across the UK.</p>
+  <button id="close-tour">Got it</button>
+</div>
+
 <div id="nonuk-investor-panel">
   <div class="nonuk-head">
     <span>Investors outside the UK</span>
@@ -145,8 +153,8 @@
 
       <!-- Region Boundaries Control -->
       <div id="region-control" style="margin: 8px 0 16px;">
-        <button id="region-btn" type="button" style="width: 100%; text-align: left; background: var(--panel-bg); color: var(--text); border: 0.5px solid var(--line-strong); border-radius: var(--radius-sm); padding: 11px 14px; font-size: 13px; font-weight: 500; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s ease;">
-          UK Regions ▾
+        <button id="region-btn" type="button" style="width: 100%; text-align: center; background: var(--panel-bg); color: var(--text); border: 0.5px solid var(--line-strong); border-radius: var(--radius-sm); padding: 11px 14px; font-size: 13px; font-weight: 500; cursor: pointer; display: flex; justify-content: center; align-items: center; transition: all 0.2s ease;">
+          Regions ▾
         </button>
         <div id="region-menu" style="display:none; border: 0.5px solid var(--line); border-top: none; border-radius: 0 0 var(--radius-sm) var(--radius-sm); padding: 10px 14px; background: var(--paper); max-height: 200px; overflow-y: auto;">
           <!-- Checkboxes will be injected here by JavaScript -->
