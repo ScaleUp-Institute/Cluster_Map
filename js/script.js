@@ -597,18 +597,18 @@ function initSectorsFromMaster() {
 
   // 3) Assign strict fixed colours for ALL these sectors
   const strictPalette = {
-    "Advanced Manufacturing": "#00E5FF",          
-    "Clean Energy Industries": "#39FF14",         
-    "Construction": "#FF7E00",                    
-    "Creative Industries": "#FF00FF",             
-    "Defence": "#FF1414",                         
-    "Digital and Technologies": "#00BFFF",        
-    "Education": "#FFD700",                       
-    "Financial Services": "#00FA9A",              
-    "Life Sciences": "#9D00FF",                   
-    "Professional and Business Service": "#FF1493", 
-    "Transportation and storage": "#FF7F50",      
-    "Wholesale and retail": "#4169E1"             
+    "Advanced Manufacturing": "#00BCD4",          // Bright Cyan
+    "Clean Energy Industries": "#4CAF50",         // Solid Green
+    "Construction": "#FF9800",                    // Bright Orange
+    "Creative Industries": "#E91E63",             // Deep Pink/Magenta
+    "Defence": "#D32F2F",                         // Dark Red
+    "Digital and Technologies": "#2196F3",        // Clear Blue (distinct from Cyan)
+    "Education": "#FFEB3B",                       // Yellow
+    "Financial Services": "#009688",              // Dark Teal/Mint
+    "Life Sciences": "#9C27B0",                   // Deep Purple
+    "Professional and Business Service": "#795548", // Brown (distinct from reds/oranges)
+    "Transportation and storage": "#CDDC39",      // Lime/Olive Green
+    "Wholesale and retail": "#3F51B5"             // Indigo/Dark Purple-Blue
   };
 
   sectorColors = {}; // Clear it out as your original code did
