@@ -1031,3 +1031,59 @@ button:active { transform: scale(0.98); }
  
 /* dimmed markers when a highlight is active */
 .company-dimmed { opacity: 0.15 !important; }
+
+#uk-investor-panel {
+  position: absolute;
+  top: 150px; left: 12px;
+  width: 300px; max-width: 40%;
+  max-height: 62vh;
+  background: var(--canvas);
+  border: 0.5px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  display: none;                     /* shown when investors toggled on */
+  flex-direction: column;
+  z-index: 3200;
+}
+#uk-investor-panel.show { display: flex; }
+/* if the international panel is also open, offset this one down */
+#uk-investor-panel.stacked { top: auto; bottom: 12px; max-height: 40vh; }
+ 
+.ukinv-head {
+  flex: 0 0 auto;
+  background: var(--ink); color: #fff;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 13px 16px;
+  font-family: var(--font-head); font-size: 15px; font-weight: 500;
+  border-radius: 12px 12px 0 0;
+}
+.ukinv-head button { background:none;border:none;color:var(--on-ink-dim);font-size:1.3rem;cursor:pointer;line-height:1;padding:0; }
+.ukinv-head button:hover { color:#fff; }
+.ukinv-controls { flex:0 0 auto; padding: 10px 14px; border-bottom:0.5px solid var(--line); }
+.ukinv-controls .overlay-dropdown { width:100%; margin:4px 0 8px; }
+#ukinv-selected { display:flex; flex-wrap:wrap; gap:6px; }
+#ukinv-clear { width:100%; background:var(--panel-bg); color:var(--text-soft);
+  border:0.5px solid var(--line); padding:7px; font-size:12px; border-radius:var(--radius-sm); }
+#ukinv-body { flex:1 1 auto; overflow-y:auto; }
+ 
+.ukinv-sector-group {
+  padding: 9px 14px 4px; font-weight:600; font-size:12.5px; color:var(--ink);
+  background: var(--panel-bg); border-bottom:0.5px solid var(--line);
+}
+.ukinv-row {
+  display:flex; align-items:center; gap:10px;
+  padding:8px 14px; border-bottom:0.5px solid #f1efe8;
+  font-size:13px; cursor:pointer;
+}
+.ukinv-row:hover { background:#EFEDE5; }
+.ukinv-row.selected { background: var(--teal-tint); }
+.ukinv-row .inv-name { font-weight:500; color:var(--text); }
+.ukinv-row .inv-count { margin-left:auto; font-family:var(--font-head);
+  font-variant-numeric:tabular-nums; color:var(--text-soft); }
+.ukinv-chip {
+  display:inline-flex; align-items:center; gap:6px;
+  background:var(--teal); color:var(--ink); border-radius:16px;
+  padding:3px 9px; font-size:11.5px; font-weight:500;
+}
+.ukinv-chip .x { cursor:pointer; font-weight:700; }
