@@ -3759,21 +3759,35 @@ const FinalAreaSearchControl = L.Control.extend({
     var tourText = document.getElementById('tour-text');
     var tourArrow = document.getElementById('tour-arrow');
 
-    // Define the steps of the tour
+    // Define the steps of the tour using placement logic
     var steps = [
       {
         targetId: 'sector-chips',
         text: '<strong>Step 1: Sectors</strong><br>Select a sector to reveal where scaleup companies cluster across the UK.',
         buttonText: 'Next',
         arrowClass: 'right',
-        style: { top: '90px', right: 'calc(25% + 15px)', left: 'auto' }
+        placement: 'left' // Tooltip sits to the left of the target
       },
       {
         targetId: 'region-btn',
         text: '<strong>Step 2: Regions</strong><br>Use this menu to filter the map down to specific UK regions and view local stats.',
+        buttonText: 'Next',
+        arrowClass: 'left',
+        placement: 'right' // Tooltip sits to the right of the target
+      },
+      {
+        targetId: 'cluster-control', // Make sure this matches your HTML ID
+        text: '<strong>Step 3: Clusters</strong><br>Toggle these options to view high-density business clusters on the map.',
+        buttonText: 'Next',
+        arrowClass: 'right',
+        placement: 'left'
+      },
+      {
+        targetId: 'investor-search', // Make sure this matches your HTML ID
+        text: '<strong>Step 4: Investors</strong><br>Search for specific investors to see exactly where they are deploying capital.',
         buttonText: 'Got it',
-        arrowClass: 'bottom',
-        style: { top: 'auto', bottom: '150px', left: '20px', right: 'auto' }
+        arrowClass: 'right',
+        placement: 'left'
       }
     ];
 
@@ -3783,32 +3797,53 @@ const FinalAreaSearchControl = L.Control.extend({
     function renderStep(index) {
       var step = steps[index];
       
-      // Remove highlight from previous target
       if (currentTarget) currentTarget.classList.remove('tour-highlight');
       
-      // Get new target
       currentTarget = document.getElementById(step.targetId);
-      if (currentTarget) currentTarget.classList.add('tour-highlight');
+      
+      if (!currentTarget) {
+        console.warn('Tour target not found: ' + step.targetId);
+        // Auto-skip to the next step if an HTML element is missing
+        if (index < steps.length - 1) { currentStep++; renderStep(currentStep); }
+        else { endTour(); }
+        return;
+      }
 
-      // Update text and button
+      currentTarget.classList.add('tour-highlight');
       tourText.innerHTML = step.text;
       nextBtn.innerText = step.buttonText;
-
-      // Update arrow direction
       tourArrow.className = 'tour-arrow ' + step.arrowClass;
 
-      // Update tooltip position
-      Object.assign(tooltip.style, step.style);
+      // Calculate perfect positioning dynamically
+      var rect = currentTarget.getBoundingClientRect();
+      
+      // Reset all positioning styles first
+      tooltip.style.top = 'auto'; tooltip.style.bottom = 'auto';
+      tooltip.style.left = 'auto'; tooltip.style.right = 'auto';
+
+      if (step.placement === 'left') {
+        tooltip.style.top = (rect.top - 10) + 'px'; // Align roughly to top of element
+        tooltip.style.left = (rect.left - 260) + 'px'; // 240px width + 20px gap
+      } else if (step.placement === 'right') {
+        tooltip.style.top = (rect.top - 10) + 'px';
+        tooltip.style.left = (rect.right + 20) + 'px';
+      } else if (step.placement === 'bottom') {
+        tooltip.style.top = (rect.bottom + 20) + 'px';
+        tooltip.style.left = rect.left + 'px';
+      } else if (step.placement === 'top') {
+        tooltip.style.top = (rect.top - tooltip.offsetHeight - 20) + 'px';
+        tooltip.style.left = rect.left + 'px';
+      }
     }
 
     function endTour() {
-      backdrop.style.display = 'none';
-      tooltip.style.display = 'none';
+      if (backdrop) backdrop.style.display = 'none';
+      if (tooltip) tooltip.style.display = 'none';
       if (currentTarget) currentTarget.classList.remove('tour-highlight');
-      // localStorage.setItem('mapTourSeen', 'true'); // Uncomment when done testing
+      // localStorage.setItem('mapTourSeen', 'true'); // Uncomment when fully tested
     }
 
-    // Initialize Tour (TEMPORARILY DISABLED LOCALSTORAGE CHECK FOR TESTING)
+    // Initialize Tour
     // if (!localStorage.getItem('mapTourSeen')) {
       setTimeout(function() {
         if (backdrop && tooltip && steps.length > 0) {
@@ -3819,7 +3854,6 @@ const FinalAreaSearchControl = L.Control.extend({
       }, 1500);
     // }
 
-    // Event Listeners
     if (nextBtn) {
       nextBtn.addEventListener('click', function() {
         currentStep++;
