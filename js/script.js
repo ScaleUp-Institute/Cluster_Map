@@ -3583,6 +3583,7 @@ const FinalAreaSearchControl = L.Control.extend({
   var regionGeo = null;          // raw geojson
   var regionLayer = null;        // Leaflet layer
   var regionFeatures = [];       // turf features for point-in-polygon
+  var selectedRegions = [];      // NEW: Tracks checked region names
  
   // ---- Load the ITL1 geojson ----
   fetch('data/itl1_regions.geojson')
@@ -3591,7 +3592,7 @@ const FinalAreaSearchControl = L.Control.extend({
       regionGeo = gj;
       regionFeatures = gj.features || [];
       console.log('ITL1 regions loaded:', regionFeatures.length);
-      window.refreshRegionLayer();   // in case sectors already selected
+      populateRegionUI();        // NEW: Build the UI checkboxes once loaded
     })
     .catch(function(e){ console.error('ITL1 load failed', e); });
  
@@ -3606,7 +3607,7 @@ const FinalAreaSearchControl = L.Control.extend({
  
   // ---- Compute stats for one region feature, for currently-selected sectors ----
   function statsForRegion(feature){
-    var poly = feature;   // turf accepts a Feature<Polygon/MultiPolygon>
+    var poly = feature;   
     var sectors = (typeof currentSectors !== 'undefined') ? currentSectors : [];
     var s = {
       total:0, clustered:0, noise:0,
@@ -3614,7 +3615,6 @@ const FinalAreaSearchControl = L.Control.extend({
       bySector:{}
     };
     (window.companyData || []).forEach(function(c){
-      // only selected sectors (companyData is already sector-filtered, but be safe)
       if (sectors.length && sectors.indexOf(c.sector) === -1) return;
       var lat = parseFloat(c.Latitude), lng = parseFloat(c.Longitude);
       if (isNaN(lat) || isNaN(lng)) return;
@@ -3661,22 +3661,77 @@ const FinalAreaSearchControl = L.Control.extend({
       '<ul style="margin:0;padding:4px 14px;list-style:none;font-size:12px;">'+sectorRows+'</ul>'+
       '</div>';
   }
+
+  // ---- NEW: Populate UI Dropdown & Bind Events ----
+  function populateRegionUI() {
+    var menu = document.getElementById('region-menu');
+    if (!menu) return;
+    
+    // Extract unique region names and sort them alphabetically
+    var names = regionFeatures.map(function(f) { 
+      return f.properties[REGION_NAME_KEY]; 
+    }).filter(Boolean).sort();
+    
+    names.forEach(function(name) {
+      var lbl = document.createElement('label');
+      lbl.className = 'eco-toggle'; // Reuse your existing checkbox styling
+      lbl.innerHTML = '<input type="checkbox" value="' + name + '"> ' + name;
+      menu.appendChild(lbl);
+    });
+
+    // Update map layer when checkboxes change
+    menu.addEventListener('change', function(e) {
+      if (e.target.tagName === 'INPUT') {
+        var checkboxes = menu.querySelectorAll('input:checked');
+        selectedRegions = Array.from(checkboxes).map(function(cb) { return cb.value; });
+        window.refreshRegionLayer();
+      }
+    });
+  }
+
+  // ---- NEW: Dropdown Toggle Animation ----
+  document.addEventListener('DOMContentLoaded', function() {
+    var btn = document.getElementById('region-btn');
+    var menu = document.getElementById('region-menu');
+    if (btn && menu) {
+      btn.addEventListener('click', function() {
+        var isOpen = menu.style.display === 'block';
+        menu.style.display = isOpen ? 'none' : 'block';
+        
+        // Match the 'active' teal styling you use on other buttons
+        btn.style.background = isOpen ? 'var(--panel-bg)' : 'var(--teal)';
+        btn.style.color = isOpen ? 'var(--text)' : 'var(--ink)';
+        btn.style.borderColor = isOpen ? 'var(--line-strong)' : 'var(--teal)';
+      });
+    }
+  });
  
   // ---- Draw / refresh the region layer ----
   window.refreshRegionLayer = function () {
-    var sectors = (typeof currentSectors !== 'undefined') ? currentSectors : [];
-    // remove existing
+    // Remove existing layer
     if (regionLayer) { map.removeLayer(regionLayer); regionLayer = null; }
-    if (!regionGeo || !sectors.length) return;   // only show when a sector is selected
+    
+    // NEW: Only draw if the user has checked at least one region
+    if (!regionGeo || selectedRegions.length === 0) return;   
  
-    regionLayer = L.geoJSON(regionGeo, {
+    // NEW: Filter the geojson to only include the user's checked regions
+    var filteredFeatures = regionGeo.features.filter(function(f) {
+      return selectedRegions.indexOf(f.properties[REGION_NAME_KEY]) !== -1;
+    });
+
+    var filteredGeo = {
+      type: "FeatureCollection",
+      features: filteredFeatures
+    };
+
+    regionLayer = L.geoJSON(filteredGeo, {
       style: function () {
         return { color: '#0E1B2C', weight: 1.2, opacity: 0.7, fill: true, fillOpacity: 0 };
-        // transparent fill so it's clickable but outline-only
       },
       onEachFeature: function (feature, layer) {
         var name = feature.properties[REGION_NAME_KEY] || 'Region';
         layer.on('click', function () {
+          // Stats still calculate based on whatever sectors are active
           var s = statsForRegion(feature);
           layer.bindPopup(popupHtml(name, s), { maxWidth: 260 }).openPopup();
         });
@@ -3684,6 +3739,7 @@ const FinalAreaSearchControl = L.Control.extend({
         layer.on('mouseout',  function(){ layer.setStyle({ weight: 1.2, fillOpacity: 0 }); });
       }
     });
+    
     regionLayer.addTo(map);
   };
 })();
