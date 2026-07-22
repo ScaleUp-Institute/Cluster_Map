@@ -3744,7 +3744,7 @@ const FinalAreaSearchControl = L.Control.extend({
   };
 })();
 
-// ---- Map Onboarding Tour ----
+// ---- Multi-Step Map Onboarding Tour ----
 (function () {
   function ready(fn) { 
     if (document.readyState !== 'loading') fn(); 
@@ -3755,27 +3755,82 @@ const FinalAreaSearchControl = L.Control.extend({
     var backdrop = document.getElementById('tour-backdrop');
     var tooltip = document.getElementById('onboarding-tooltip');
     var closeBtn = document.getElementById('close-tour');
-    var targetPanel = document.getElementById('sector-chips');
+    var nextBtn = document.getElementById('tour-next-btn');
+    var tourText = document.getElementById('tour-text');
+    var tourArrow = document.getElementById('tour-arrow');
 
-    // TEMPORARILY DISABLED LOCALSTORAGE CHECK FOR TESTING
+    // Define the steps of the tour
+    var steps = [
+      {
+        targetId: 'sector-chips',
+        text: '<strong>Step 1: Sectors</strong><br>Select a sector to reveal where scaleup companies cluster across the UK.',
+        buttonText: 'Next',
+        arrowClass: 'right',
+        style: { top: '90px', right: 'calc(25% + 15px)', left: 'auto' }
+      },
+      {
+        targetId: 'region-btn',
+        text: '<strong>Step 2: Regions</strong><br>Use this menu to filter the map down to specific UK regions and view local stats.',
+        buttonText: 'Got it',
+        arrowClass: 'bottom',
+        style: { top: 'auto', bottom: '150px', left: '20px', right: 'auto' }
+      }
+    ];
+
+    var currentStep = 0;
+    var currentTarget = null;
+
+    function renderStep(index) {
+      var step = steps[index];
+      
+      // Remove highlight from previous target
+      if (currentTarget) currentTarget.classList.remove('tour-highlight');
+      
+      // Get new target
+      currentTarget = document.getElementById(step.targetId);
+      if (currentTarget) currentTarget.classList.add('tour-highlight');
+
+      // Update text and button
+      tourText.innerHTML = step.text;
+      nextBtn.innerText = step.buttonText;
+
+      // Update arrow direction
+      tourArrow.className = 'tour-arrow ' + step.arrowClass;
+
+      // Update tooltip position
+      Object.assign(tooltip.style, step.style);
+    }
+
+    function endTour() {
+      backdrop.style.display = 'none';
+      tooltip.style.display = 'none';
+      if (currentTarget) currentTarget.classList.remove('tour-highlight');
+      // localStorage.setItem('mapTourSeen', 'true'); // Uncomment when done testing
+    }
+
+    // Initialize Tour (TEMPORARILY DISABLED LOCALSTORAGE CHECK FOR TESTING)
     // if (!localStorage.getItem('mapTourSeen')) {
       setTimeout(function() {
-        if (backdrop && tooltip && targetPanel) {
+        if (backdrop && tooltip && steps.length > 0) {
           backdrop.style.display = 'block';
           tooltip.style.display = 'block';
-          targetPanel.classList.add('tour-highlight');
+          renderStep(0);
         }
       }, 1500);
     // }
 
-    if (closeBtn) {
-      closeBtn.addEventListener('click', function() {
-        backdrop.style.display = 'none';
-        tooltip.style.display = 'none';
-        if (targetPanel) targetPanel.classList.remove('tour-highlight');
-        
-        // localStorage.setItem('mapTourSeen', 'true'); // DISABLED FOR TESTING
+    // Event Listeners
+    if (nextBtn) {
+      nextBtn.addEventListener('click', function() {
+        currentStep++;
+        if (currentStep < steps.length) {
+          renderStep(currentStep);
+        } else {
+          endTour();
+        }
       });
     }
+
+    if (closeBtn) closeBtn.addEventListener('click', endTour);
   });
 })();
