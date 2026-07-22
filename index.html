@@ -16,100 +16,6 @@
 
   <!-- Custom CSS -->
   <link rel="stylesheet" href="css/styles.css" />
-  
-  <!-- Inline CSS additions -->
-  <style>
-    /* Hide the left frame (layer selection) */
-    .left-frame {
-      position: relative;
-      min-width: 0 !important;
-      padding: 0 !important;
-      border-right: none !important;
-      background-color: transparent !important;
-      box-sizing: border-box;
-      overflow: visible;
-      pointer-events: none;
-    }
-
-    /* Stats panel that slides from the left */
-    #sector-stats-panel {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 320px;
-      height: 100%;
-      background-color: #fafafa;
-      box-shadow: 2px 0 6px rgba(0,0,0,0.2);
-      overflow-y: auto;
-      transform: translateX(-105%);
-      transition: transform 0.3s ease;
-      z-index: 3000;
-      pointer-events: auto;
-    }
-    #sector-stats-panel.show {
-      transform: translateX(0);
-    }
-
-    /* Shift left controls right when panel is open */
-    .leaflet-top.leaflet-left {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 5000;
-      transition: transform 0.3s ease;
-    }
-    .leaflet-control-container.controls-shift-right {
-      transform: translateX(320px);
-    }
-    
-    /* Ensure the map container is positioned relative */
-    .map-container {
-      position: relative;
-      display: flex;
-      flex-direction: row;
-      height: 100vh;
-      width: 100%;
-    }
-    
-    /* Floating Display Mode Toggle Bubble */
-    #display-mode-toggle {
-      position: absolute;
-      top: 20px; /* Moved up as requested */
-      right: calc(25% + 10px); /* Positioned just left of the right panel (assuming right-frame = 25% width) */
-      background-color: #007BFF;
-      color: #fff;
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      display: none; /* Hidden by default until a sector is selected */
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      z-index: 9999;
-      transition: width 0.3s ease, padding 0.3s ease;
-      overflow: hidden;
-      padding: 0 5px;
-    }
-    /* When expanded (on hover) */
-    #display-mode-toggle.expanded {
-      width: 200px;
-    }
-    /* Options inside the bubble */
-    #display-mode-options {
-      display: none;
-      margin-left: 10px;
-    }
-    #display-mode-toggle.expanded #display-mode-options {
-      display: block;
-    }
-    /* Style for the select element */
-    #display-mode-select {
-      width: 100%;
-      padding: 3px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
-  </style>
 
 </head>
 <body>
@@ -247,6 +153,16 @@
         <img src="data/UK investor icon.png" alt="" style="width:16px;height:16px;vertical-align:middle;margin-right:7px;">
         <span id="investor-btn-label">Show investors</span>
       </button>
+
+      <div id="investor-highlight" style="display:none;">
+        <h3>Highlight by investor</h3>
+        <div id="inv-search-wrap">
+          <input type="text" id="inv-search" placeholder="Search investor..." autocomplete="off">
+          <div id="inv-suggest"></div>
+        </div>
+        <div id="inv-selected"></div>
+        <button id="inv-clear" style="display:none;">Clear highlight</button>
+      </div>
       
       <div id="ecosystem-control" style="display:none;">
         <button id="ecosystem-btn" type="button">Universities, Infrastructure &amp; Programmes ▾</button>
