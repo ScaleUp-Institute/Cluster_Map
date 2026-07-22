@@ -3757,9 +3757,8 @@ const FinalAreaSearchControl = L.Control.extend({
     var closeBtn = document.getElementById('close-tour');
     var targetPanel = document.getElementById('sector-chips');
 
-    // Only show if they haven't seen it before
-    if (!localStorage.getItem('mapTourSeen')) {
-      // Delay slightly so the map finishes rendering first
+    // TEMPORARILY DISABLED LOCALSTORAGE CHECK FOR TESTING
+    // if (!localStorage.getItem('mapTourSeen')) {
       setTimeout(function() {
         if (backdrop && tooltip && targetPanel) {
           backdrop.style.display = 'block';
@@ -3767,7 +3766,7 @@ const FinalAreaSearchControl = L.Control.extend({
           targetPanel.classList.add('tour-highlight');
         }
       }, 1500);
-    }
+    // }
 
     if (closeBtn) {
       closeBtn.addEventListener('click', function() {
@@ -3775,8 +3774,7 @@ const FinalAreaSearchControl = L.Control.extend({
         tooltip.style.display = 'none';
         if (targetPanel) targetPanel.classList.remove('tour-highlight');
         
-        // Remember that they've seen it so it doesn't show on refresh
-        localStorage.setItem('mapTourSeen', 'true');
+        // localStorage.setItem('mapTourSeen', 'true'); // DISABLED FOR TESTING
       });
     }
   });
