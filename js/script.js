@@ -2016,6 +2016,7 @@ function updateClusterLayers() {
 
   const newMarkers  = [];
   const newPolygons = [];
+  window.allCompanyMarkers = [];   // collect all company markers for highlight restyling
 
   // 4) Build each cluster
   for (const clusterId in clusters) {
@@ -2072,6 +2073,7 @@ function updateClusterLayers() {
           weight: 0.2,
           fillOpacity: 0
         });
+        marker._companyNumber = company.Companynumber;
 
         marker.bindPopup(`
           <div class="popup-content">
@@ -2106,6 +2108,7 @@ function updateClusterLayers() {
 
         clusterGroup.addLayer(marker);
         newMarkers.push(marker);
+        window.allCompanyMarkers.push(marker);
       }
     });
 
@@ -2194,6 +2197,8 @@ function updateClusterLayers() {
   if (newPolygons.length > 0) {
     animatePolygonsBatch(newPolygons, 0.35, 800);
   }
+  // re-apply any active investor highlight to the freshly built markers
+  if (typeof refreshHighlightStyles === 'function') refreshHighlightStyles();
 
   // 6) Legend
   if (currentSectors.length > 0) {
@@ -2201,6 +2206,29 @@ function updateClusterLayers() {
   } else {
     updateLegend('');
   }
+}
+
+function refreshHighlightStyles() {
+  var hs = window.investorHighlightSet;
+  (window.allCompanyMarkers || []).forEach(function(m){
+    var num = normCompNum(m._companyNumber);
+    if (!hs) {
+      m.setStyle && m.setStyle({ fillOpacity: 0.8 });
+    } else if (hs.has(num)) {
+      m.setStyle && m.setStyle({ fillOpacity: 1 });
+    } else {
+      m.setStyle && m.setStyle({ fillOpacity: 0.12 });
+    }
+  });
+}
+window.refreshHighlightStyles = refreshHighlightStyles;
+
+// normalise a company number to match the JSON keys (zero-pad numeric to 8, keep prefixed as-is)
+function normCompNum(v) {
+  if (v == null) return '';
+  var x = String(v).trim().toUpperCase();
+  if (/^\d+$/.test(x)) return x.padStart(8, '0');
+  return x;
 }
 
 map.on('mousemove', handleMapMouseMove);
