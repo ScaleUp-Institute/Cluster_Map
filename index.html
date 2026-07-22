@@ -17,29 +17,6 @@
   <!-- Custom CSS -->
   <link rel="stylesheet" href="css/styles.css" />
 
-  <!-- Accordion panel structure (self-contained; can be moved to styles.css later) -->
-  <style>
-    .panel-section { border-top: 0.5px solid var(--line, #E4E1D8); }
-    .panel-section:first-of-type { border-top: none; }
-    .panel-section-head {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 13px 2px; cursor: pointer; user-select: none;
-    }
-    .panel-section-head .ps-name {
-      font-family: var(--font-head, 'Space Grotesk', sans-serif);
-      font-size: 13px; font-weight: 500; color: var(--ink, #0E1B2C);
-    }
-    .panel-section-head .ps-chev { color: var(--text-soft, #5F6B77); font-size: 11px; transition: transform .2s; }
-    .panel-section.open .ps-chev { transform: rotate(180deg); }
-    .panel-section-body { display: none; padding: 0 0 12px; }
-    .panel-section.open .panel-section-body { display: block; }
-    /* disabled until a sector is selected */
-    .panel-section.locked { opacity: 0.4; pointer-events: none; }
-    /* the always-open Sectors block has no collapse chrome */
-    #ps-sectors .panel-section-head { cursor: default; }
-    #ps-sectors .ps-chev { display: none; }
-  </style>
-
 </head>
 <body>
   <div class="map-container">
@@ -158,102 +135,66 @@
       </div>
     </div>
 
-    <!-- RIGHT FRAME (reorganised into grouped sections) -->
+    <!-- RIGHT FRAME (Sectors, Overlays, Clusters) -->
     <div class="right-frame">
+      <h3>Sectors</h3>
+      <button id="select-all-sectors">Select All Sectors</button>
+      <button id="deselect-all-sectors">Deselect All Sectors</button><br>
+      <div id="sector-chips" class="chips-container"></div>
+      <button id="overall-stats-button">National Sector Stats</button>
+      
+      <div id="investor-filters" style="display:none;">
+        <h3>Investor filters</h3>
+        <label for="inv-type-filter" style="font-size:12px;color:var(--text-soft);display:block;margin-bottom:4px;">Type</label>
+        <select id="inv-type-filter" class="overlay-dropdown">
+          <option value="">All types</option>
+        </select>
+        
+        <label class="inv-toggle">
+          <input type="checkbox" id="inv-bbb-filter"> BBB Backed Investors
+        </label>
+        <label class="inv-toggle">
+          <input type="checkbox" id="inv-pension-filter"> Pension / Sovereign Wealth Funds <span class="dev-tag">(under development)</span>
+        </label>
+        <label class="inv-toggle">
+          <input type="checkbox" id="inv-iuk-filter"> Innovate UK backed <span class="dev-tag">(under development)</span>
+        </label>
+        <!-- NEW: Procurement checkbox -->
+        <label class="inv-toggle">
+          <input type="checkbox" id="inv-procurement-filter"> Procurement <span class="dev-tag">(under development)</span>
+        </label>
+      </div>
+      
+      <button id="investor-markers-btn" style="display:none;">
+        <img src="data/UK investor icon.png" alt="" style="width:16px;height:16px;vertical-align:middle;margin-right:7px;">
+        <span id="investor-btn-label">Show investors</span>
+      </button>
 
-      <!-- ===== SECTORS (always open, primary) ===== -->
-      <div class="panel-section open" id="ps-sectors">
-        <div class="panel-section-head">
-          <span class="ps-name">Sectors</span>
-          <span class="ps-chev">▾</span>
-        </div>
-        <div class="panel-section-body">
-          <button id="select-all-sectors">Select All Sectors</button>
-          <button id="deselect-all-sectors">Deselect All Sectors</button><br>
-          <div id="sector-chips" class="chips-container"></div>
+
+      
+      <div id="ecosystem-control" style="display:none;">
+        <button id="ecosystem-btn" type="button">Universities, Infrastructure &amp; Programmes ▾</button>
+        <div id="ecosystem-menu" style="display:none;">
+          <label class="eco-toggle"><input type="checkbox" id="eco-universities"> Universities</label>
+          <label class="eco-toggle"><input type="checkbox" id="eco-infrastructure"> Infrastructure</label>
+          <label class="eco-toggle"><input type="checkbox" id="eco-support"> Support programmes</label>
         </div>
       </div>
 
-      <!-- ===== EXPLORE DATA (open by default) ===== -->
-      <div class="panel-section open locked" id="ps-explore">
-        <div class="panel-section-head">
-          <span class="ps-name">Explore data</span>
-          <span class="ps-chev">▾</span>
-        </div>
-        <div class="panel-section-body">
-          <button id="overall-stats-button">National Sector Stats</button>
+      <!-- Support-programme legend -->
+      <div id="support-legend" class="support-legend"></div>
 
-          <button id="investor-markers-btn" style="display:none;">
-            <img src="data/UK investor icon.png" alt="" style="width:16px;height:16px;vertical-align:middle;margin-right:7px;">
-            <span id="investor-btn-label">Show investors</span>
-          </button>
-
-          <!-- Investor filters (revealed inline when investors are shown) -->
-          <div id="investor-filters" style="display:none;">
-            <label for="inv-type-filter" style="font-size:12px;color:var(--text-soft);display:block;margin:8px 0 4px;">Investor type</label>
-            <select id="inv-type-filter" class="overlay-dropdown">
-              <option value="">All types</option>
-            </select>
-            <label class="inv-toggle">
-              <input type="checkbox" id="inv-bbb-filter"> BBB Backed Investors
-            </label>
-            <label class="inv-toggle">
-              <input type="checkbox" id="inv-pension-filter"> Pension / Sovereign Wealth Funds <span class="dev-tag">(under development)</span>
-            </label>
-            <label class="inv-toggle">
-              <input type="checkbox" id="inv-iuk-filter"> Innovate UK backed <span class="dev-tag">(under development)</span>
-            </label>
-            <label class="inv-toggle">
-              <input type="checkbox" id="inv-procurement-filter"> Procurement <span class="dev-tag">(under development)</span>
-            </label>
-          </div>
-        </div>
+      <!-- Cluster Section -->
+      <div id="cluster-section">
+        <h3>Clusters</h3>
+        <button id="select-all-clusters">Select All Clusters</button>
+        <button id="deselect-all-clusters">Deselect All Clusters</button><br>
+        <div id="cluster-checkboxes" class="checkboxes-container"></div>
+        <div id="polygon-info" class="polygon-info hidden"></div>
       </div>
 
-      <!-- ===== MAP LAYERS (collapsed) ===== -->
-      <div class="panel-section locked" id="ps-layers">
-        <div class="panel-section-head">
-          <span class="ps-name">Map layers</span>
-          <span class="ps-chev">▾</span>
-        </div>
-        <div class="panel-section-body">
-          <label class="eco-toggle"><input type="checkbox" id="layer-regions"> Regions (ITL1)
-            <span class="info-hint" title="12 standard UK statistical regions. Click a region for live stats.">i</span></label>
-          <label class="eco-toggle"><input type="checkbox" id="layer-borders"> Borders — Final Areas
-            <span class="info-hint" title="The geographies used to assign clusters. Outline only.">i</span></label>
-
-          <!-- Ecosystem layers (existing control kept intact) -->
-          <div id="ecosystem-control" style="display:block;margin-top:8px;">
-            <div id="ecosystem-menu" style="display:block;">
-              <label class="eco-toggle"><input type="checkbox" id="eco-universities"> Universities</label>
-              <label class="eco-toggle"><input type="checkbox" id="eco-infrastructure"> Infrastructure</label>
-              <label class="eco-toggle"><input type="checkbox" id="eco-support"> Support programmes</label>
-            </div>
-          </div>
-
-          <!-- Support-programme legend -->
-          <div id="support-legend" class="support-legend"></div>
-        </div>
-      </div>
-
-      <!-- ===== CLUSTERS (collapsed, expert) ===== -->
-      <div class="panel-section locked" id="ps-clusters">
-        <div class="panel-section-head">
-          <span class="ps-name">Clusters</span>
-          <span class="ps-chev">▾</span>
-        </div>
-        <div class="panel-section-body">
-          <div id="cluster-section">
-            <button id="select-all-clusters">Select All Clusters</button>
-            <button id="deselect-all-clusters">Deselect All Clusters</button><br>
-            <div id="cluster-checkboxes" class="checkboxes-container"></div>
-            <div id="polygon-info" class="polygon-info hidden"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ===== FOOTER: methodology ===== -->
-      <div id="methodology-container" style="margin-top: 20px;border-top:0.5px solid var(--line,#E4E1D8);padding-top:14px;">
+      <!-- Methodology Info Button & Content (MOVED INSIDE RIGHT-FRAME) -->
+      <div id="methodology-container" style="margin-top: 30px;">
         <button id="methodology-btn" title="View methodology and data definitions">
           <i class="methodology-icon">i</i> Data & Methodology
         </button>
@@ -297,30 +238,7 @@
 
   <!-- Custom JS -->
   <script src="js/script.js"></script>
-
-  <!-- Accordion behaviour + lock/unlock sections by sector selection -->
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      // Accordion expand/collapse (Sectors stays fixed-open)
-      document.querySelectorAll('.panel-section .panel-section-head').forEach(head => {
-        const section = head.parentElement;
-        if (section.id === 'ps-sectors') return;   // primary section never collapses
-        head.addEventListener('click', () => section.classList.toggle('open'));
-      });
-
-      // Lock/unlock the non-primary sections based on sector selection.
-      // Exposed globally so script.js can call it from handleSectorSelectionChange.
-      window.updatePanelLockState = function () {
-        const hasSectors = (typeof currentSectors !== 'undefined') && currentSectors.length > 0;
-        ['ps-explore', 'ps-layers', 'ps-clusters'].forEach(id => {
-          const el = document.getElementById(id);
-          if (el) el.classList.toggle('locked', !hasSectors);
-        });
-      };
-      window.updatePanelLockState();
-    });
-  </script>
-
+  
   <!-- Inline JavaScript to wrap your handleSectorSelectionChange -->
   <script>
     document.addEventListener('DOMContentLoaded', () => {
@@ -344,7 +262,6 @@
           document.querySelector('.leaflet-top.leaflet-left')
                   ?.classList.remove('controls-shift-right');
         }
-        if (typeof window.updatePanelLockState === 'function') window.updatePanelLockState();
       }
 
       window.updateDisplayModeToggleVisibility = updateDisplayModeToggleVisibility;
