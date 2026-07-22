@@ -1840,6 +1840,7 @@ function handleSectorSelectionChange () {
   if (typeof refreshInvestorMarkers === 'function') refreshInvestorMarkers();
   if (typeof refreshNonUkPanel === 'function') refreshNonUkPanel();
   if (typeof refreshUkPanel === 'function') refreshUkPanel();
+  if (typeof refreshRegionLayer === 'function') refreshRegionLayer();
 }
 
 function populateSectorCheckboxes(sectorsList) {
@@ -3575,4 +3576,114 @@ const FinalAreaSearchControl = L.Control.extend({
     };
     window.refreshInvestorHighlightVisibility();
   });
+})();
+
+(function () {
+  var REGION_NAME_KEY = 'ITL121NM';
+  var regionGeo = null;          // raw geojson
+  var regionLayer = null;        // Leaflet layer
+  var regionFeatures = [];       // turf features for point-in-polygon
+ 
+  // ---- Load the ITL1 geojson ----
+  fetch('data/itl1_regions.geojson')
+    .then(function(r){ return r.json(); })
+    .then(function(gj){
+      regionGeo = gj;
+      regionFeatures = gj.features || [];
+      console.log('ITL1 regions loaded:', regionFeatures.length);
+      window.refreshRegionLayer();   // in case sectors already selected
+    })
+    .catch(function(e){ console.error('ITL1 load failed', e); });
+ 
+  function parseNum(v){ var n = parseFloat(v); return isNaN(n) ? 0 : n; }
+ 
+  function isFemale(c){
+    var v = (c.WomenFounded != null) ? c.WomenFounded : c.WomenLed;
+    if (v == null) return false;
+    var s = String(v).trim().toLowerCase();
+    return s==='1' || s==='true' || s==='yes' || s==='women-led' || s==='women led';
+  }
+ 
+  // ---- Compute stats for one region feature, for currently-selected sectors ----
+  function statsForRegion(feature){
+    var poly = feature;   // turf accepts a Feature<Polygon/MultiPolygon>
+    var sectors = (typeof currentSectors !== 'undefined') ? currentSectors : [];
+    var s = {
+      total:0, clustered:0, noise:0,
+      employees:0, turnover:0, investment:0, iuk:0, female:0,
+      bySector:{}
+    };
+    (window.companyData || []).forEach(function(c){
+      // only selected sectors (companyData is already sector-filtered, but be safe)
+      if (sectors.length && sectors.indexOf(c.sector) === -1) return;
+      var lat = parseFloat(c.Latitude), lng = parseFloat(c.Longitude);
+      if (isNaN(lat) || isNaN(lng)) return;
+      var pt = turf.point([lng, lat]);
+      var inside = false;
+      try { inside = turf.booleanPointInPolygon(pt, poly); } catch(e){ inside = false; }
+      if (!inside) return;
+      s.total++;
+      if (String(c.cluster) === '0') s.noise++; else s.clustered++;
+      s.employees  += parseNum(c.total_employees);
+      s.turnover   += parseNum(c.total_turnover);
+      s.investment += parseNum(c.total_Investment);
+      s.iuk        += parseNum(c.TotalInnovateUKFunding);
+      if (isFemale(c)) s.female++;
+      s.bySector[c.sector] = (s.bySector[c.sector]||0) + 1;
+    });
+    return s;
+  }
+ 
+  function fmtMoney(n){
+    if (n >= 1e9) return '£' + (n/1e9).toFixed(1) + 'B';
+    if (n >= 1e6) return '£' + (n/1e6).toFixed(1) + 'M';
+    if (n >= 1e3) return '£' + (n/1e3).toFixed(0) + 'K';
+    return '£' + Math.round(n);
+  }
+ 
+  function popupHtml(name, s){
+    if (!s.total) {
+      return '<div class="popup-content"><p><strong>'+name+'</strong></p>'+
+             '<p>No companies here for the selected sectors.</p></div>';
+    }
+    var femalePct = s.total ? (s.female / s.total * 100).toFixed(1) : '0.0';
+    var sectorRows = Object.keys(s.bySector).sort(function(a,b){return s.bySector[b]-s.bySector[a];})
+      .map(function(k){ return '<li>'+k+': '+s.bySector[k]+'</li>'; }).join('');
+    return '<div class="popup-content region-popup">'+
+      '<p><strong>'+name+'</strong></p>'+
+      '<p><strong>Companies</strong> '+s.total+' <span style="color:#8a94a0">('+s.clustered+' clustered · '+s.noise+' ungrouped)</span></p>'+
+      '<p><strong>Employees</strong> '+Math.round(s.employees).toLocaleString()+'</p>'+
+      '<p><strong>Turnover</strong> '+fmtMoney(s.turnover)+'</p>'+
+      '<p><strong>Investment</strong> '+fmtMoney(s.investment)+'</p>'+
+      '<p><strong>Innovate UK funding</strong> '+fmtMoney(s.iuk)+'</p>'+
+      '<p><strong>Female-founded</strong> '+femalePct+'%</p>'+
+      '<p style="margin-top:6px;"><strong>By sector</strong></p>'+
+      '<ul style="margin:0;padding:4px 14px;list-style:none;font-size:12px;">'+sectorRows+'</ul>'+
+      '</div>';
+  }
+ 
+  // ---- Draw / refresh the region layer ----
+  window.refreshRegionLayer = function () {
+    var sectors = (typeof currentSectors !== 'undefined') ? currentSectors : [];
+    // remove existing
+    if (regionLayer) { map.removeLayer(regionLayer); regionLayer = null; }
+    if (!regionGeo || !sectors.length) return;   // only show when a sector is selected
+ 
+    regionLayer = L.geoJSON(regionGeo, {
+      style: function () {
+        return { color: '#0E1B2C', weight: 1.2, opacity: 0.7, fill: true, fillOpacity: 0 };
+        // transparent fill so it's clickable but outline-only
+      },
+      onEachFeature: function (feature, layer) {
+        var name = feature.properties[REGION_NAME_KEY] || 'Region';
+        layer.on('click', function () {
+          var s = statsForRegion(feature);
+          layer.bindPopup(popupHtml(name, s), { maxWidth: 260 }).openPopup();
+        });
+        layer.on('mouseover', function(){ layer.setStyle({ weight: 2, fillOpacity: 0.05 }); });
+        layer.on('mouseout',  function(){ layer.setStyle({ weight: 1.2, fillOpacity: 0 }); });
+      }
+    });
+    regionLayer.addTo(map);
+  };
 })();
