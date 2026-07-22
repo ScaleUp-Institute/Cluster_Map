@@ -41,6 +41,22 @@
   </div>
   <div id="nonuk-body"></div>
 </div>
+
+<div id="uk-investor-panel">
+  <div class="ukinv-head">
+    <span>Top UK investors</span>
+    <button id="ukinv-close" aria-label="Close">&times;</button>
+  </div>
+  <div class="ukinv-controls">
+    <label for="ukinv-more" style="font-size:12px;color:var(--text-soft);">More investors</label>
+    <select id="ukinv-more" class="overlay-dropdown">
+      <option value="">Select an investor…</option>
+    </select>
+    <div id="ukinv-selected"></div>
+    <button id="ukinv-clear" style="display:none;">Clear selection</button>
+  </div>
+  <div id="ukinv-body"></div>
+</div>
  
 <!-- Help overlay panel -->
 <div id="help-overlay" aria-hidden="true">
@@ -154,22 +170,17 @@
         <span id="investor-btn-label">Show investors</span>
       </button>
 
-      <div id="uk-investor-panel">
-        <div class="ukinv-head">
-          <span>Top UK investors</span>
-          <button id="ukinv-close" aria-label="Close">&times;</button>
-        </div>
-        <div class="ukinv-controls">
-          <label for="ukinv-more" style="font-size:12px;color:var(--text-soft);">More investors</label>
-          <select id="ukinv-more" class="overlay-dropdown">
-            <option value="">Select an investor…</option>
-          </select>
-          <div id="ukinv-selected"></div>
-          <button id="ukinv-clear" style="display:none;">Clear selection</button>
-        </div>
-        <div id="ukinv-body"></div>
-      </div>
+
       
+      <div id="ecosystem-control" style="display:none;">
+        <button id="ecosystem-btn" type="button">Universities, Infrastructure &amp; Programmes ▾</button>
+        <div id="ecosystem-menu" style="display:none;">
+          <label class="eco-toggle"><input type="checkbox" id="eco-universities"> Universities</label>
+          <label class="eco-toggle"><input type="checkbox" id="eco-infrastructure"> Infrastructure</label>
+          <label class="eco-toggle"><input type="checkbox" id="eco-support"> Support programmes</label>
+        </div>
+      </div>
+
       <!-- Support-programme legend -->
       <div id="support-legend" class="support-legend"></div>
 
