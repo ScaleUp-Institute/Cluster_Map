@@ -3772,8 +3772,8 @@ const FinalAreaSearchControl = L.Control.extend({
         targetId: 'region-btn',
         text: '<strong>Step 2: Regions</strong><br>Use this menu to filter the map down to specific UK regions and view local stats.',
         buttonText: 'Next',
-        arrowClass: 'left',
-        placement: 'right' // Tooltip sits to the right of the target
+        arrowClass: 'right', // Changed to match Step 1
+        placement: 'left'    // Changed to keep it on the inside of the panel
       },
       {
         targetId: 'cluster-control', // Make sure this matches your HTML ID
