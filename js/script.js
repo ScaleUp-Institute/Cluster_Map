@@ -2087,24 +2087,17 @@ function updateClusterLayers() {
 
         marker.on({
           mouseover: e => {
-            e.target.setStyle({
-              radius: 5,
-              weight: 1,
-              color: '#fff',
-              fillOpacity: 1
-            });
+            if (e.target._dimmed) return;               // keep dimmed dots dim
+            e.target.setStyle({ radius:5, weight:1, color:'#fff', fillOpacity:1 });
           },
           mouseout: e => {
-            e.target.setStyle({
-              radius: 3,
-              weight: 0.2,
-              color: '#000',
-              fillOpacity: 0.8
-            });
+            if (e.target._dimmed) {
+              e.target.setStyle({ radius:3, weight:0.2, color:'#000', fillOpacity:0.12, opacity:0.1 });
+            } else {
+              e.target.setStyle({ radius:3, weight:0.2, color:'#000', fillOpacity:0.8, opacity:1 });
+            }
           },
-          click: e => {
-            e.target.openPopup();
-          }
+          click: e => { e.target.openPopup(); }
         });
 
         clusterGroup.addLayer(marker);
@@ -2224,25 +2217,6 @@ function refreshHighlightStyles() {
     }
   });
 }
-window.refreshHighlightStyles = refreshHighlightStyles;
- 
-NOTE — in updateClusterLayers, the marker mouseover/mouseout handlers must
-respect _dimmed. Find the marker.on({ mouseover..., mouseout... }) and change to:
- 
-        marker.on({
-          mouseover: e => {
-            if (e.target._dimmed) return;               // keep dimmed dots dim
-            e.target.setStyle({ radius:5, weight:1, color:'#fff', fillOpacity:1 });
-          },
-          mouseout: e => {
-            if (e.target._dimmed) {
-              e.target.setStyle({ radius:3, weight:0.2, color:'#000', fillOpacity:0.12, opacity:0.1 });
-            } else {
-              e.target.setStyle({ radius:3, weight:0.2, color:'#000', fillOpacity:0.8, opacity:1 });
-            }
-          },
-          click: e => { e.target.openPopup(); }
-        });
 window.refreshHighlightStyles = refreshHighlightStyles;
 
 // normalise a company number to match the JSON keys (zero-pad numeric to 8, keep prefixed as-is)
