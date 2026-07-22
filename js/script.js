@@ -595,12 +595,28 @@ function initSectorsFromMaster() {
     sectors[name] = true;
   });
 
-  // 3) Generate fresh colours for ALL these sectors
-  sectorColors = {};
-  const palette = chroma.scale('Set2').colors(uniqueSectors.length || 1);
+  // 3) Assign strict fixed colours for ALL these sectors
+  const strictPalette = {
+    "Advanced Manufacturing": "#00E5FF",          
+    "Clean Energy Industries": "#39FF14",         
+    "Construction": "#FF7E00",                    
+    "Creative Industries": "#FF00FF",             
+    "Defence": "#FF1414",                         
+    "Digital and Technologies": "#00BFFF",        
+    "Education": "#FFD700",                       
+    "Financial Services": "#00FA9A",              
+    "Life Sciences": "#9D00FF",                   
+    "Professional and Business Service": "#FF1493", 
+    "Transportation and storage": "#FF7F50",      
+    "Wholesale and retail": "#4169E1"             
+  };
 
-  uniqueSectors.forEach((name, idx) => {
-    sectorColors[name] = palette[idx % palette.length];
+  sectorColors = {}; // Clear it out as your original code did
+
+  // Loop through the actual sectors found in your CSV data
+  uniqueSectors.forEach(name => {
+    // Apply the strict color, or default to a highly visible grey if there's a typo in the CSV
+    sectorColors[name] = strictPalette[name] || "#808080"; 
   });
 
   console.log('Sectors initialised from master file:', uniqueSectors);
