@@ -1,312 +1,173 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>UK Interactive Map</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control panel — detailed spec</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0E1B2C; --ink-soft:#1B2E44; --teal:#00C2A8; --teal-dark:#00998A;
+    --teal-tint:rgba(0,194,168,0.12); --canvas:#F4F2EC; --paper:#FFFFFF;
+    --panel-bg:#F7F5EF; --line:#E4E1D8; --line-strong:#CFCABB;
+    --text:#16202B; --text-soft:#5F6B77; --text-dim:#93A0AC; --on-ink:#fff; --on-ink-dim:#8CA4BC;
+    --font-head:'Space Grotesk',sans-serif; --font-body:'Inter',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:var(--font-body);background:var(--canvas);color:var(--text);padding:28px;line-height:1.5;display:flex;gap:30px;align-items:flex-start;flex-wrap:wrap;}
+  .intro{max-width:340px;}
+  h1{font-family:var(--font-head);font-size:21px;font-weight:600;color:var(--ink);margin-bottom:8px;letter-spacing:-0.01em;}
+  .intro p{color:var(--text-soft);font-size:13.5px;margin-bottom:12px;}
+  .intro li{color:var(--text-soft);font-size:13px;margin:6px 0 6px 4px;list-style:none;padding-left:16px;position:relative;}
+  .intro li::before{content:'';position:absolute;left:0;top:7px;width:6px;height:6px;border-radius:50%;background:var(--teal);}
+  .try{background:var(--paper);border:0.5px solid var(--line);border-radius:10px;padding:12px 14px;font-size:12.5px;color:var(--text-soft);margin-top:6px;}
+  .try strong{color:var(--ink);}
 
-  <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <!-- Leaflet Search CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-search@3.0.0/dist/leaflet-search.min.css" />
-  <!-- Leaflet MarkerCluster CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  .panel{background:var(--paper);border:0.5px solid var(--line);border-radius:14px;overflow:hidden;width:308px;box-shadow:0 4px 18px rgba(14,27,44,0.10);}
+  .panel-top{background:var(--ink);color:#fff;padding:15px 16px;display:flex;align-items:center;gap:10px;}
+  .panel-top .logo{width:28px;height:28px;border-radius:7px;background:var(--teal);display:flex;align-items:center;justify-content:center;color:var(--ink);font-weight:700;font-family:var(--font-head);}
+  .panel-top .t{font-family:var(--font-head);font-size:15px;font-weight:500;}
+  .panel-top .t small{display:block;color:var(--on-ink-dim);font-size:10px;font-weight:400;}
 
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/css/flag-icons.min.css">
+  /* primary sectors block */
+  .sectors{padding:15px 16px;}
+  .primary-label{font-family:var(--font-head);font-size:12px;font-weight:600;color:var(--ink);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;}
+  .primary-label a{font-size:11px;color:var(--teal-dark);text-decoration:none;cursor:pointer;font-family:var(--font-body);font-weight:400;text-transform:none;letter-spacing:0;}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;}
+  .chip{font-size:11.5px;padding:5px 11px;border-radius:18px;border:0.5px solid var(--line-strong);background:var(--paper);color:var(--text-soft);display:inline-flex;align-items:center;gap:6px;cursor:pointer;transition:all .12s;}
+  .chip::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--line-strong);}
+  .chip.on{background:var(--ink);border-color:var(--ink);color:#fff;}
+  .chip.on::before{background:var(--teal);}
 
-  <!-- Custom CSS -->
-  <link rel="stylesheet" href="css/styles.css" />
+  /* sections */
+  .section{border-top:0.5px solid var(--line);}
+  .section.disabled{opacity:0.4;pointer-events:none;}
+  .section-head{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;cursor:pointer;user-select:none;}
+  .section-head .name{font-family:var(--font-head);font-size:13px;font-weight:500;color:var(--ink);display:flex;align-items:center;gap:9px;}
+  .section-head .name .ico{width:17px;height:17px;display:inline-flex;align-items:center;justify-content:center;color:var(--teal-dark);font-size:13px;}
+  .section-head .chev{color:var(--text-soft);font-size:11px;transition:transform .2s;}
+  .section.open .chev{transform:rotate(180deg);}
+  .section-body{display:none;padding:0 16px 14px;}
+  .section.open .section-body{display:block;}
 
+  .row-btn{width:100%;text-align:left;background:var(--ink);color:#fff;border:none;border-radius:8px;padding:10px 12px;font-family:var(--font-body);font-size:13px;font-weight:500;margin:6px 0;cursor:pointer;display:flex;justify-content:space-between;align-items:center;}
+  .row-btn:hover{background:var(--ink-soft);}
+  .row-btn.active{background:var(--teal);color:var(--ink);}
+
+  .toggle-row{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--text-soft);margin:10px 0;cursor:pointer;}
+  .toggle-row .lbl{flex:1;display:flex;align-items:center;gap:6px;}
+  .switch{width:34px;height:19px;border-radius:12px;background:var(--line-strong);position:relative;flex:0 0 auto;transition:background .15s;}
+  .switch::after{content:'';position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#fff;transition:transform .15s;}
+  .toggle-row.on .switch{background:var(--teal);}
+  .toggle-row.on .switch::after{transform:translateX(15px);}
+  .info{width:14px;height:14px;border-radius:50%;background:var(--line);color:var(--text-soft);font-size:9px;display:inline-flex;align-items:center;justify-content:center;cursor:help;font-weight:600;}
+
+  /* inline investor filters (revealed when Investors active) */
+  .inv-filters{margin:4px 0 8px;padding:10px;background:var(--panel-bg);border-radius:8px;display:none;}
+  .inv-filters.show{display:block;}
+  .inv-filters .fl{font-size:11px;color:var(--text-soft);margin-bottom:3px;}
+  .inv-filters select{width:100%;padding:7px 9px;border:0.5px solid var(--line-strong);border-radius:6px;font-size:12.5px;font-family:var(--font-body);margin-bottom:8px;}
+  .mini-tog{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text-soft);margin:6px 0;cursor:pointer;}
+
+  .hint{font-size:11.5px;color:var(--text-dim);margin:4px 0 2px;}
+  .foot{border-top:0.5px solid var(--line);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;}
+  .foot a{font-size:12px;color:var(--teal-dark);text-decoration:none;cursor:pointer;display:flex;align-items:center;gap:5px;}
+
+  .callout{background:var(--teal-tint);border:0.5px solid var(--teal);border-radius:8px;padding:8px 11px;font-size:11.5px;color:var(--ink);margin:2px 0 4px;}
+</style>
 </head>
 <body>
-  <div class="map-container">
- 
-<!-- How-to-read button (top-left of map area) -->
-<button id="help-button" title="How to read this map">
-  <i>?</i><span>How to read this map</span>
-</button>
- 
-<!-- Empty-state prompt (shows on the map when no sectors selected) -->
-<div id="map-empty-state">
-  <div class="empty-inner">
-    <div class="empty-title">Explore the UK's scaleup clusters</div>
-    <div class="empty-sub">Select a sector from the right to see where the UK's high-growth companies concentrate.</div>
+  <div class="intro">
+    <h1>The reorganised panel</h1>
+    <p>One primary action, everything else grouped and calm. Fully clickable — expand sections, toggle layers, click Investors to see its filters appear inline.</p>
+    <ul>
+      <li><strong>Sectors</strong> always open — the gate. Nothing else activates until you pick one.</li>
+      <li><strong>Explore data</strong> holds the two deep dives: Sector Stats and Investors.</li>
+      <li><strong>Map layers</strong> gathers every overlay as a clean toggle, with ⓘ hints to tell Regions from Borders.</li>
+      <li><strong>Clusters</strong> tucked away — an expert control.</li>
+      <li>Display mode <strong>stays on the map</strong> as its floating bubble (unchanged).</li>
+    </ul>
+    <div class="try"><strong>Try:</strong> click "Investors" under Explore — its filters slide in beneath it, and (in the real map) the UK + international panels open. Toggle Regions vs Borders and read the ⓘ.</div>
   </div>
-</div>
 
-<div id="nonuk-investor-panel">
-  <div class="nonuk-head">
-    <span>Investors outside the UK</span>
-    <button id="nonuk-close" aria-label="Close">&times;</button>
-  </div>
-  <div id="nonuk-body"></div>
-</div>
+  <div class="panel">
+    <div class="panel-top">
+      <div class="logo">S</div>
+      <div class="t">UK Scaleup Cluster Map<small>ScaleUp Institute · 2026</small></div>
+    </div>
 
-<div id="uk-investor-panel">
-  <div class="ukinv-head">
-    <span>Top UK investors</span>
-    <button id="ukinv-close" aria-label="Close">&times;</button>
-  </div>
-  <div class="ukinv-controls">
-    <label for="ukinv-more" style="font-size:12px;color:var(--text-soft);">More investors</label>
-    <select id="ukinv-more" class="overlay-dropdown">
-      <option value="">Select an investor…</option>
-    </select>
-    <div id="ukinv-selected"></div>
-    <button id="ukinv-clear" style="display:none;">Clear selection</button>
-  </div>
-  <div id="ukinv-body"></div>
-</div>
- 
-<!-- Help overlay panel -->
-<div id="help-overlay" aria-hidden="true">
-  <div id="help-card" role="dialog" aria-label="How to read this map">
-    <div class="help-head">
-      <span>How to read this map</span>
-      <button id="help-close" aria-label="Close">&times;</button>
+    <!-- SECTORS (always open, primary) -->
+    <div class="sectors">
+      <div class="primary-label">Sectors <a id="clear">Clear all</a></div>
+      <div class="chips" id="chips">
+        <span class="chip on">Life Sciences</span>
+        <span class="chip on">Adv. Manufacturing</span>
+        <span class="chip">Fintech</span>
+        <span class="chip">Creative</span>
+        <span class="chip">Defence</span>
+        <span class="chip">Clean Energy</span>
+      </div>
     </div>
-    <div class="help-body">
-      <h4>About this map</h4>
-      <p>This map shows where the UK's high-growth companies — scaleups — cluster
-      geographically, grouped by sector. Use it to explore which sectors concentrate
-      where across the country.</p>
- 
-      <h4>What you're looking at</h4>
-      <ul>
-        <li><span class="dot" style="background:#00C2A8"></span><strong>Dots</strong> are individual companies, coloured by sector.</li>
-        <li><span class="poly"></span><strong>Shaded areas</strong> outline a cluster — companies concentrated in one place.</li>
-        <li><span class="dot" style="background:#B0B0B0"></span><strong>Grey dots</strong> are companies not in a defined cluster.</li>
-      </ul>
- 
-      <h4>How to use it</h4>
-      <ol>
-        <li><strong>Pick sectors</strong> from the chips on the right to show where they cluster.</li>
-        <li><strong>Click a cluster or company</strong> to see details — counts, employment, and more.</li>
-        <li>Open <strong>National Sector Stats</strong> for headline figures, or <strong>Investors</strong> to see who backs each sector.</li>
-      </ol>
-    </div>
-    <div class="help-foot">
-      <button id="help-got-it">Got it</button>
-    </div>
-  </div>
-</div>
-    <!-- LEFT FRAME (hidden) -->
-    <div class="left-frame">
-      <!-- Hidden Layers accordion (if needed in the future) -->
-      <h3 style="display: none;">Layers</h3>
-      <div class="accordion" style="display: none;">
-        <button class="accordion-toggle" type="button">Toggle Layers</button>
-        <div class="accordion-content" id="layer-selection">
-          <input type="checkbox" id="local-authorities">
-          <label for="local-authorities">Local Authorities</label><br>
-          <input type="checkbox" id="final-areas">
-          <label for="final-areas">Final Areas</label><br>
-          <input type="checkbox" id="scaleup-density">
-          <label for="scaleup-density">Scaleup Density</label><br>
-          <!-- New for 2023 -->
-          <input type="checkbox" id="scaleup-density-2023">
-          <label for="scaleup-density-2023">Scaleup Density (2023)</label><br>
-          <input type="checkbox" id="avg-growth">
-          <label for="avg-growth">Avg Growth</label><br>
+
+    <!-- EXPLORE DATA -->
+    <div class="section open" data-sec>
+      <div class="section-head"><span class="name"><span class="ico">▣</span>Explore data</span><span class="chev">▾</span></div>
+      <div class="section-body">
+        <button class="row-btn">National Sector Stats <span>›</span></button>
+        <button class="row-btn" id="invBtn">Investors <span>›</span></button>
+        <div class="inv-filters" id="invFilters">
+          <div class="callout">UK investors &amp; international list now open on the map →</div>
+          <div class="fl">Investor type</div>
+          <select><option>All types</option><option>VC &amp; PE</option><option>Corporate</option><option>Angel</option></select>
+          <div class="mini-tog" data-tog><span class="switch"></span>BBB-backed only</div>
+          <div class="mini-tog" data-tog><span class="switch"></span>Pension / SWF only</div>
         </div>
       </div>
+    </div>
 
-      <!-- Info Box for hover/click details -->
-      <div id="info-box" class="info-box hidden"></div>
-
-      <!-- Sector Stats Panel (slides in from the left) -->
-      <div id="sector-stats-panel" class="hidden">
-        <!-- JS will populate sector stats here -->
+    <!-- MAP LAYERS -->
+    <div class="section" data-sec>
+      <div class="section-head"><span class="name"><span class="ico">◫</span>Map layers</span><span class="chev">▾</span></div>
+      <div class="section-body">
+        <div class="toggle-row on" data-tog><span class="lbl">Regions (ITL1) <span class="info" title="12 standard UK statistical regions. Click a region for live stats.">i</span></span><span class="switch"></span></div>
+        <div class="toggle-row" data-tog><span class="lbl">Borders — Final Areas <span class="info" title="The geographies used to assign clusters. Outline only.">i</span></span><span class="switch"></span></div>
+        <div class="toggle-row" data-tog><span class="lbl">Universities</span><span class="switch"></span></div>
+        <div class="toggle-row" data-tog><span class="lbl">Infrastructure</span><span class="switch"></span></div>
+        <div class="toggle-row" data-tog><span class="lbl">Support programmes</span><span class="switch"></span></div>
       </div>
     </div>
 
-    <!-- MAP -->
-    <div id="map"></div>
-
-    <!-- Floating Display Mode Toggle Bubble (over the map) -->
-    <div id="display-mode-toggle" title="Display Mode Options">
-      &#9776;
-      <div id="display-mode-options">
-        <select id="display-mode-select">
-          <option value="points">See Cluster Points</option>
-          <option value="polygons">See Cluster Polygons</option>
-          <option value="both">See Both Clusters &amp; Polygons</option>
-        </select>
+    <!-- CLUSTERS -->
+    <div class="section" data-sec>
+      <div class="section-head"><span class="name"><span class="ico">◇</span>Clusters</span><span class="chev">▾</span></div>
+      <div class="section-body">
+        <div class="hint">Fine-grained control — toggle individual clusters on or off.</div>
+        <div class="mini-tog" data-tog><span class="switch"></span>Life Sciences · Cambridge</div>
+        <div class="mini-tog" data-tog><span class="switch"></span>Life Sciences · Oxford</div>
+        <div class="mini-tog" data-tog><span class="switch"></span>Adv. Manuf. · Sheffield</div>
       </div>
     </div>
 
-    <!-- RIGHT FRAME (Sectors, Overlays, Clusters) -->
-    <div class="right-frame">
-      <h3>Sectors</h3>
-      <button id="select-all-sectors">Select All Sectors</button>
-      <button id="deselect-all-sectors">Deselect All Sectors</button><br>
-      <div id="sector-chips" class="chips-container"></div>
-      <button id="overall-stats-button">National Sector Stats</button>
-      
-      <div id="investor-filters" style="display:none;">
-        <h3>Investor filters</h3>
-        <label for="inv-type-filter" style="font-size:12px;color:var(--text-soft);display:block;margin-bottom:4px;">Type</label>
-        <select id="inv-type-filter" class="overlay-dropdown">
-          <option value="">All types</option>
-        </select>
-        
-        <label class="inv-toggle">
-          <input type="checkbox" id="inv-bbb-filter"> BBB Backed Investors
-        </label>
-        <label class="inv-toggle">
-          <input type="checkbox" id="inv-pension-filter"> Pension / Sovereign Wealth Funds <span class="dev-tag">(under development)</span>
-        </label>
-        <label class="inv-toggle">
-          <input type="checkbox" id="inv-iuk-filter"> Innovate UK backed <span class="dev-tag">(under development)</span>
-        </label>
-        <!-- NEW: Procurement checkbox -->
-        <label class="inv-toggle">
-          <input type="checkbox" id="inv-procurement-filter"> Procurement <span class="dev-tag">(under development)</span>
-        </label>
-      </div>
-      
-      <button id="investor-markers-btn" style="display:none;">
-        <img src="data/UK investor icon.png" alt="" style="width:16px;height:16px;vertical-align:middle;margin-right:7px;">
-        <span id="investor-btn-label">Show investors</span>
-      </button>
+    <div class="foot">
+      <a>ⓘ How to read this map</a>
+      <a>Methodology</a>
+    </div>
+  </div>
 
-
-      
-      <div id="ecosystem-control" style="display:none;">
-        <button id="ecosystem-btn" type="button">Universities, Infrastructure &amp; Programmes ▾</button>
-        <div id="ecosystem-menu" style="display:none;">
-          <label class="eco-toggle"><input type="checkbox" id="eco-universities"> Universities</label>
-          <label class="eco-toggle"><input type="checkbox" id="eco-infrastructure"> Infrastructure</label>
-          <label class="eco-toggle"><input type="checkbox" id="eco-support"> Support programmes</label>
-        </div>
-      </div>
-
-      <!-- Support-programme legend -->
-      <div id="support-legend" class="support-legend"></div>
-
-      <!-- Cluster Section -->
-      <div id="cluster-section">
-        <h3>Clusters</h3>
-        <button id="select-all-clusters">Select All Clusters</button>
-        <button id="deselect-all-clusters">Deselect All Clusters</button><br>
-        <div id="cluster-checkboxes" class="checkboxes-container"></div>
-        <div id="polygon-info" class="polygon-info hidden"></div>
-      </div>
-
-      <!-- Methodology Info Button & Content (MOVED INSIDE RIGHT-FRAME) -->
-      <div id="methodology-container" style="margin-top: 30px;">
-        <button id="methodology-btn" title="View methodology and data definitions">
-          <i class="methodology-icon">i</i> Data & Methodology
-        </button>
-        <div id="methodology-content" style="display: none;">
-          <ul class="methodology-list">
-            <li>Clusters of projected scaling businesses have been identified using HDBSCAN methodology by the ScaleUp Institute, working with data platforms to analyse the locations of existing scaleups, scaling firms and businesses projected to scale.</li>
-            <li>Scaleups follow the OECD definition: businesses with at least 10 employees at the start of the period and average annual growth of more than 20% in employment or turnover over three years.</li>
-            <li>Scaling pipeline businesses follow the Eurostat definition: businesses with at least 10 employees and average annual employment or turnover growth of more than 10% over three years.</li>
-          </ul>
-        </div>
-      </div>
-
-    </div> <!-- THIS is the closing tag for the right-frame -->
-  </div> <!-- This closes the map-container -->
-
-  <!-- Watermark -->
-  <img src="data/company_ logo.png" id="watermark" alt="Company Logo" />
-
-  <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <!-- Leaflet Search JS -->
-  <script src="https://unpkg.com/leaflet-search@3.0.0/dist/leaflet-search.min.js"></script>
-  <!-- PapaParse JS -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-  <!-- Chroma.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/chroma-js/2.1.0/chroma.min.js"></script>
-  <!-- html2canvas -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <!-- Leaflet Image Plugin -->
-  <script src="https://unpkg.com/leaflet-image@0.4.0/leaflet-image.js"></script>
-  <!-- Leaflet MarkerCluster JS -->
-  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-  <!-- OverlappingMarkerSpiderfier for Leaflet -->
-  <script src="https://unpkg.com/overlapping-marker-spiderfier-leaflet/dist/oms.min.js"></script>
-  <!-- Turf.js -->
-  <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
-  <!-- Concaveman & RBush & GeometryUtil -->
-  <script src="https://unpkg.com/concaveman@1.2.0/concaveman.min.js"></script>
-  <script src="https://unpkg.com/rbush@3.0.1/rbush.min.js"></script>
-  <script src="https://unpkg.com/leaflet-geometryutil"></script>
-
-  <!-- Custom JS -->
-  <script src="js/script.js"></script>
-  
-  <!-- Inline JavaScript to wrap your handleSectorSelectionChange -->
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const displayToggle   = document.getElementById('display-mode-toggle');
-      const displaySelect   = document.getElementById('display-mode-select');
-      const statsPanel      = document.getElementById('sector-stats-panel');
-      const sectorContainer = document.getElementById('sector-chips');
-
-      // Track the order in which the user selects sectors
-      window.selectionOrder = [];
-
-      // Show/hide bubble & auto-close panel
-      function updateDisplayModeToggleVisibility() {
-        const displayToggle = document.getElementById('display-mode-toggle');
-        if (currentSectors.length > 0) {
-          displayToggle.style.display = 'flex';
-        } else {
-          displayToggle.style.display = 'none';
-          displayToggle.classList.remove('expanded');
-          document.getElementById('sector-stats-panel').classList.remove('show');
-          document.querySelector('.leaflet-top.leaflet-left')
-                  ?.classList.remove('controls-shift-right');
-        }
-      }
-
-      window.updateDisplayModeToggleVisibility = updateDisplayModeToggleVisibility;
-
-      // If panel is open, re-show with fresh data
-      function refreshStatsPanelIfOpen() {
-        if (statsPanel.classList.contains('show')) {
-          window.showSectorStatistics?.(window.selectionOrder);
-        }
-      }
-
-      // Select All
-      document.getElementById('select-all-sectors').addEventListener('click', () => {
-      document.querySelectorAll('.sector-chip').forEach(chip => chip.classList.add('selected'));
-      // keep track of order
-      window.selectionOrder = Array.from(document.querySelectorAll('.sector-chip.selected'))
-                                  .map(c => c.dataset.value);
-      handleSectorSelectionChange();
-      updateDisplayModeToggleVisibility();
-    });
-
-    document.getElementById('deselect-all-sectors').addEventListener('click', () => {
-      document.querySelectorAll('.sector-chip').forEach(chip => chip.classList.remove('selected'));
-      window.selectionOrder = [];
-      handleSectorSelectionChange();
-      updateDisplayModeToggleVisibility();
-    });
-    
-      // Expand/collapse bubble on hover
-      displayToggle.addEventListener('mouseenter', () =>
-        displayToggle.classList.add('expanded')
-      );
-      displayToggle.addEventListener('mouseleave', () =>
-        displayToggle.classList.remove('expanded')
-      );
-
-      // Change display mode
-      displaySelect.addEventListener('change', () => {
-        window.displayMode = displaySelect.value;
-        window.updateClusterLayers?.();
-      });
-
-      // Initial state
-      updateDisplayModeToggleVisibility();
-    });
-  </script>      
+<script>
+  document.querySelectorAll('[data-sec] .section-head').forEach(h=>{
+    h.addEventListener('click',()=>h.parentElement.classList.toggle('open'));
+  });
+  document.querySelectorAll('[data-tog]').forEach(t=>{
+    t.addEventListener('click',e=>{e.stopPropagation();t.classList.toggle('on');});
+  });
+  document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>c.classList.toggle('on')));
+  const invBtn=document.getElementById('invBtn'), invFilters=document.getElementById('invFilters');
+  invBtn.addEventListener('click',()=>{
+    invBtn.classList.toggle('active');
+    invFilters.classList.toggle('show', invBtn.classList.contains('active'));
+  });
+  document.getElementById('clear').addEventListener('click',()=>document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on')));
+</script>
 </body>
 </html>
