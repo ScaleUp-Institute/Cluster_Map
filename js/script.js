@@ -1379,7 +1379,8 @@ const BoundaryToggle = L.Control.extend({
     return btn;
   }
 });
-new BoundaryToggle({position:'topleft'}).addTo(map);
+
+//new BoundaryToggle({position:'topleft'}).addTo(map);
 
 
 function addSearchControl() {
