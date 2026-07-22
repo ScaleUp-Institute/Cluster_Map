@@ -45,19 +45,11 @@
   </div>
 </div>
 
-<div id="nonuk-investor-panel">
-  <div class="nonuk-head">
-    <span>Investors outside the UK</span>
-    <button id="nonuk-close" aria-label="Close">&times;</button>
-  </div>
-  <div id="nonuk-body"></div>
+<div id="all-inv-list">
+  <div class="all-inv-head"><span>Investors</span><span id="all-inv-count"></span></div>
+  <div id="all-inv-body"></div>
 </div>
-
-<div id="uk-investor-panel">
-  <div class="ukinv-head">
-    <span>Top UK investors</span>
-    <button id="ukinv-close" aria-label="Close">&times;</button>
-  </div>
+  
   <div class="ukinv-controls">
     <label for="ukinv-more" style="font-size:12px;color:var(--text-soft);">More investors</label>
     <select id="ukinv-more" class="overlay-dropdown">
@@ -164,32 +156,18 @@
         </div>
       </div>
       
-      <div id="investor-filters" style="display:none;">
-        <h3>Investor filters</h3>
-        <label for="inv-type-filter" style="font-size:12px;color:var(--text-soft);display:block;margin-bottom:4px;">Type</label>
-        <select id="inv-type-filter" class="overlay-dropdown">
-          <option value="">All types</option>
-        </select>
-        
-        <label class="inv-toggle">
-          <input type="checkbox" id="inv-bbb-filter"> BBB Backed Investors
-        </label>
-        <label class="inv-toggle">
-          <input type="checkbox" id="inv-pension-filter"> Pension / Sovereign Wealth Funds <span class="dev-tag">(under development)</span>
-        </label>
-        <label class="inv-toggle">
-          <input type="checkbox" id="inv-iuk-filter"> Innovate UK backed <span class="dev-tag">(under development)</span>
-        </label>
-        <!-- NEW: Procurement checkbox -->
-        <label class="inv-toggle">
-          <input type="checkbox" id="inv-procurement-filter"> Procurement <span class="dev-tag">(under development)</span>
-        </label>
-      </div>
-      
       <button id="investor-markers-btn" style="display:none;">
         <img src="data/UK investor icon.png" alt="" style="width:16px;height:16px;vertical-align:middle;margin-right:7px;">
         <span id="investor-btn-label">Show investors</span>
       </button>
+
+      <div id="all-investors-box" style="display:none;">
+        <div id="all-inv-select">
+          <div class="ai-label">All Investors</div>
+          <div id="all-inv-field" class="ai-field"><span class="ph">Select categories…</span></div>
+          <div id="all-inv-menu" class="ai-menu"></div>
+        </div>
+      </div>
 
       <div id="ecosystem-control" style="display:none;">
         <button id="ecosystem-btn" type="button">Universities, Infrastructure &amp; Programmes ▾</button>
