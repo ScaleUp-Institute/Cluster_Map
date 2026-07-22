@@ -1101,66 +1101,42 @@ button:active { transform: scale(0.98); }
   display: none;
 }
 
+/* ---------- Onboarding Tour Updates ---------- */
 .tour-tooltip {
   position: absolute;
-  top: 90px; /* Aligns with the Sector chips */
-  right: calc(25% + 15px); /* Positions it just outside the right panel */
   background: var(--ink);
   color: var(--paper);
   padding: 14px 18px;
   border-radius: 10px;
   box-shadow: 0 12px 30px rgba(14, 27, 44, 0.35);
   z-index: 9000;
-  width: 220px;
+  width: 240px;
   animation: float-point 2s ease-in-out infinite;
   font-size: 13px;
+  transition: top 0.4s ease, left 0.4s ease, right 0.4s ease;
 }
 
-.tour-tooltip p {
-  margin: 0 0 12px 0;
-  line-height: 1.5;
-  color: #E4E1D8;
-}
+.tour-tooltip p { margin: 0; line-height: 1.5; color: #E4E1D8; }
+.tour-tooltip p strong { color: #fff; font-family: var(--font-head); font-size: 14px; }
+.tour-tooltip button { background: var(--teal); color: var(--ink); padding: 8px; font-weight: 600; cursor: pointer; border-radius: 4px; border: none; }
 
-.tour-tooltip p strong {
-  color: #fff;
-  font-family: var(--font-head);
-  font-size: 14px;
-}
-
-.tour-tooltip button {
-  background: var(--teal);
-  color: var(--ink);
-  width: 100%;
-  padding: 8px;
-  font-weight: 600;
-}
-
-/* The arrow pointing right */
-.tour-arrow {
-  position: absolute;
-  top: 24px;
-  right: -9px;
-  width: 0;
-  height: 0;
-  border-top: 9px solid transparent;
-  border-bottom: 9px solid transparent;
-  border-left: 10px solid var(--ink);
-}
+/* Dynamic Arrow Directions */
+.tour-arrow { position: absolute; width: 0; height: 0; }
+.tour-arrow.right { top: 24px; right: -9px; left: auto; border-top: 9px solid transparent; border-bottom: 9px solid transparent; border-left: 10px solid var(--ink); }
+.tour-arrow.bottom { bottom: -9px; left: 24px; top: auto; border-left: 9px solid transparent; border-right: 9px solid transparent; border-top: 10px solid var(--ink); }
 
 @keyframes float-point {
-  0% { transform: translateX(0); }
-  50% { transform: translateX(-8px); }
-  100% { transform: translateX(0); }
+  0% { transform: translateY(0) translateX(0); }
+  50% { transform: translateY(-4px) translateX(-4px); }
+  100% { transform: translateY(0) translateX(0); }
 }
 
-/* The glow effect applied to the target element */
 .tour-highlight {
   position: relative;
-  z-index: 9001 !important; /* Puts it above the dark backdrop */
+  z-index: 9001 !important;
   background: #ffffff;
   border-radius: var(--radius);
   box-shadow: 0 0 0 4px var(--teal-tint), 0 0 20px rgba(0, 194, 168, 0.4) !important;
   transition: all 0.3s ease;
-  padding: 8px; /* Slight padding so the glow breathes */
+  padding: 8px;
 }
