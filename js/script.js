@@ -1839,6 +1839,7 @@ function handleSectorSelectionChange () {
   if (typeof refreshEmptyState === 'function') refreshEmptyState();
   if (typeof refreshInvestorMarkers === 'function') refreshInvestorMarkers();
   if (typeof refreshNonUkPanel === 'function') refreshNonUkPanel();
+  if (typeof refreshUkPanel === 'function') refreshUkPanel();
 }
 
 function populateSectorCheckboxes(sectorsList) {
@@ -2212,15 +2213,36 @@ function refreshHighlightStyles() {
   var hs = window.investorHighlightSet;
   (window.allCompanyMarkers || []).forEach(function(m){
     var num = normCompNum(m._companyNumber);
+    var dimmed = hs && !hs.has(num);
+    m._dimmed = !!dimmed;                        // remember state for hover
     if (!hs) {
-      m.setStyle && m.setStyle({ fillOpacity: 0.8 });
+      m.setStyle && m.setStyle({ fillOpacity: 0.8, opacity: 1 });
     } else if (hs.has(num)) {
-      m.setStyle && m.setStyle({ fillOpacity: 1 });
+      m.setStyle && m.setStyle({ fillOpacity: 1, opacity: 1 });
     } else {
-      m.setStyle && m.setStyle({ fillOpacity: 0.12 });
+      m.setStyle && m.setStyle({ fillOpacity: 0.12, opacity: 0.1 });
     }
   });
 }
+window.refreshHighlightStyles = refreshHighlightStyles;
+ 
+NOTE — in updateClusterLayers, the marker mouseover/mouseout handlers must
+respect _dimmed. Find the marker.on({ mouseover..., mouseout... }) and change to:
+ 
+        marker.on({
+          mouseover: e => {
+            if (e.target._dimmed) return;               // keep dimmed dots dim
+            e.target.setStyle({ radius:5, weight:1, color:'#fff', fillOpacity:1 });
+          },
+          mouseout: e => {
+            if (e.target._dimmed) {
+              e.target.setStyle({ radius:3, weight:0.2, color:'#000', fillOpacity:0.12, opacity:0.1 });
+            } else {
+              e.target.setStyle({ radius:3, weight:0.2, color:'#000', fillOpacity:0.8, opacity:1 });
+            }
+          },
+          click: e => { e.target.openPopup(); }
+        });
 window.refreshHighlightStyles = refreshHighlightStyles;
 
 // normalise a company number to match the JSON keys (zero-pad numeric to 8, keep prefixed as-is)
@@ -3165,88 +3187,136 @@ const FinalAreaSearchControl = L.Control.extend({
 })();
 
 (function () {
-  var ukData = [], nonukData = {}, ukLayer = null, markersOn = false;
+  var ukData = [], nonukData = {}, markersOn = false;
+  var invCompanyMap = {};                 // investor -> [company numbers]
+  var selectedInvestors = [];             // currently selected investor names
+  var companyMarkerLayer = null;          // markers on invested companies
+  var TOP_N = 15;
  
-  // ---- Load both files ----
+  var ukInvestorIcon = L.icon({
+    iconUrl:'data/UK investor marker.png',
+    iconSize:[35,35], iconAnchor:[17,35], popupAnchor:[0,-32]
+  });
+ 
+  // ---- Load data ----
   Papa.parse('data/uk_investors_by_sector.csv', {
     download:true, header:true, skipEmptyLines:true,
-    complete:function(res){ ukData = res.data.filter(function(r){return r.Investor && r.Latitude;});
-      window.__ukInvData = ukData;
-      console.log('UK investors loaded:', ukData.length); }
+    complete:function(res){ ukData = res.data.filter(function(r){return r.Investor && r.Sector;});
+      window.__ukInvData = ukData; console.log('UK investors loaded:', ukData.length); }
   });
   Papa.parse('data/nonuk_investors_by_sector.csv', {
     download:true, header:true, skipEmptyLines:true,
     complete:function(res){
-      (res.data||[]).forEach(function(r){
-        if(!r.Investor || !r.Sector) return;
-        (nonukData[r.Sector] = nonukData[r.Sector] || []).push(r);
-      });
-      window.__nonukInvData = [].concat.apply([], Object.values(nonukData));
+      (res.data||[]).forEach(function(r){ if(r.Investor && r.Sector)
+        (nonukData[r.Sector]=nonukData[r.Sector]||[]).push(r); });
+      window.__nonukInvData=[].concat.apply([],Object.values(nonukData));
       console.log('Non-UK investors loaded');
     }
   });
+  fetch('data/investor_company_map.json').then(function(r){return r.json();})
+    .then(function(d){ invCompanyMap=d||{}; console.log('investor->company map:', Object.keys(invCompanyMap).length); })
+    .catch(function(e){ console.error('map load failed', e); });
  
-  // ---- UK marker layer, sector-filtered ----
-  var ukInvestorIcon = L.icon({
-    iconUrl:     'data/UK investor marker.png',
-    iconSize:    [35, 35],     // square, matches the 200x200 source ratio
-    iconAnchor:  [17, 35],     // bottom-centre
-    popupAnchor: [0, -32]
-  });
-  
-  function ukPinIcon() { return ukInvestorIcon; }
+  function ready(fn){ if(document.readyState!=='loading') fn(); else document.addEventListener('DOMContentLoaded',fn); }
+ 
+  // ---- Markers on invested companies (union of selected investors) ----
   window.refreshInvestorMarkers = function () {
-    if (!markersOn) return;
-    if (ukLayer) { map.removeLayer(ukLayer); ukLayer = null; }
-    var sectors = (typeof currentSectors!=='undefined') ? currentSectors : [];
-    if (!sectors.length) return;
-    ukLayer = L.layerGroup();
-    var seen = {};
-    ukData.forEach(function(r){
-      if (sectors.indexOf(r.Sector) === -1) return;
-      if (typeof passesInvestorFilters==='function' && !passesInvestorFilters(r)) return;
-      var lat=parseFloat(r.Latitude), lng=parseFloat(r.Longitude);
-      if (isNaN(lat)||isNaN(lng)) return;
-      var key=r.Investor+'|'+lat.toFixed(4)+'|'+lng.toFixed(4);
-      if (seen[key]) return; seen[key]=1;    // one marker per investor HQ
-      var flags=[];
-      if(String(r.PensionSWF)==='1'||String(r.PensionSWF).toLowerCase()==='true') flags.push('Pension/SWF');
-      if(String(r.BBBBacked).toLowerCase()==='true') flags.push('BBB');
-      L.marker([lat,lng],{icon:ukPinIcon()})
-        .bindPopup('<div class="popup-content"><p><strong>'+r.Investor+'</strong></p>'+
-          '<p><strong>Type</strong>'+(r.InvestorType||'-')+'</p>'+
-          '<p><strong>Backed here</strong>'+(r.CompaniesBackedInSector||0)+'</p>'+
-          (flags.length?'<p><strong>Flags</strong>'+flags.join(', ')+'</p>':'')+'</div>')
-        .addTo(ukLayer);
+    if (companyMarkerLayer) { map.removeLayer(companyMarkerLayer); companyMarkerLayer=null; }
+    if (!markersOn || !selectedInvestors.length) {
+      window.investorHighlightSet = null;
+      if (typeof refreshHighlightStyles==='function') refreshHighlightStyles();
+      return;
+    }
+    // build union of company numbers + highlight set for dimming
+    var hs = new Set(), coords = {};
+    selectedInvestors.forEach(function(inv){
+      (invCompanyMap[inv]||[]).forEach(function(id){ hs.add(id); });
     });
-    ukLayer.addTo(map);
+    window.investorHighlightSet = hs;
+    if (typeof refreshHighlightStyles==='function') refreshHighlightStyles();
+ 
+    // place a marker on each invested company that is on the map
+    companyMarkerLayer = L.layerGroup();
+    (window.allCompanyMarkers||[]).forEach(function(m){
+      var num = (typeof normCompNum==='function') ? normCompNum(m._companyNumber) : m._companyNumber;
+      if (hs.has(num)) {
+        var ll = m.getLatLng();
+        L.marker(ll, {icon:ukInvestorIcon}).addTo(companyMarkerLayer);
+      }
+    });
+    companyMarkerLayer.addTo(map);
   };
  
-  // ---- Button ----
-  function ready(fn){ if(document.readyState!=='loading') fn(); else document.addEventListener('DOMContentLoaded',fn); }
-  ready(function(){
-    var btn=document.getElementById('investor-markers-btn');
-    if(btn) btn.addEventListener('click',function(){
-      markersOn=!markersOn;
-      btn.classList.toggle('active',markersOn);
-      window.investorMarkersOn = markersOn;
-      if (typeof refreshInvestorFiltersVisibility === 'function') refreshInvestorFiltersVisibility();
-      if (typeof refreshInvestorHighlightVisibility === 'function') refreshInvestorHighlightVisibility();
-        // when hiding investors, also clear any active highlight:
-        if (!markersOn && typeof window.applyInvestorHighlight === 'function') {
-          // clear selection
-          var clr = document.getElementById('inv-clear'); if (clr) clr.click();
-        }
-      var lbl = document.getElementById('investor-btn-label');
-      if (lbl) lbl.textContent = markersOn ? 'Hide investors' : 'Show investors';
-      if(markersOn){ window.refreshInvestorMarkers(); openNonUk(); }
-      else { if(ukLayer){map.removeLayer(ukLayer);ukLayer=null;} closeNonUk(); }
+  // ---- Top UK investors per sector (ranked) + rendering ----
+  function topInvestorsForSectors(sectors){
+    // returns { sector: [ {Investor, CompaniesBackedInSector, ...}, ... ] }
+    var out = {};
+    sectors.forEach(function(s){
+      var rows = ukData.filter(function(r){ return r.Sector===s; });
+      if (typeof passesInvestorFilters==='function') rows = rows.filter(passesInvestorFilters);
+      // dedupe by investor (CSV may have one row per investor per sector already)
+      var seen={}, uniq=[];
+      rows.forEach(function(r){ if(!seen[r.Investor]){seen[r.Investor]=1; uniq.push(r);} });
+      uniq.sort(function(a,b){ return (parseInt(b.CompaniesBackedInSector)||0)-(parseInt(a.CompaniesBackedInSector)||0); });
+      out[s]=uniq;
     });
-    var close=document.getElementById('nonuk-close');
-    if(close) close.addEventListener('click',closeNonUk);
-  });
+    return out;
+  }
  
-  // ---- Non-UK panel ----
+  function renderUkPanel(){
+    var body=document.getElementById('ukinv-body'); if(!body) return;
+    var sectors=(typeof currentSectors!=='undefined')?currentSectors:[];
+    var grouped=topInvestorsForSectors(sectors);
+    var html='';
+    if(!sectors.length){ html='<div style="padding:14px;color:#888;">Select a sector to see its top investors.</div>'; }
+    else sectors.forEach(function(s){
+      var rows=(grouped[s]||[]).slice(0,TOP_N);
+      html+='<div class="ukinv-sector-group">'+s+' (top '+rows.length+')</div>';
+      if(!rows.length){ html+='<div style="padding:8px 14px;color:#aaa;font-size:12px;">No investors.</div>'; return; }
+      rows.forEach(function(r){
+        var sel=selectedInvestors.indexOf(r.Investor)!==-1?' selected':'';
+        html+='<div class="ukinv-row'+sel+'" data-inv="'+r.Investor.replace(/"/g,'&quot;')+'">'+
+          '<span class="inv-name">'+r.Investor+'</span>'+
+          '<span class="inv-count">'+(r.CompaniesBackedInSector||0)+'</span></div>';
+      });
+    });
+    body.innerHTML=html;
+    populateMoreDropdown(grouped);
+    renderSelectedChips();
+  }
+ 
+  // the "more" dropdown = all UK investors NOT already in the top lists
+  function populateMoreDropdown(grouped){
+    var sel=document.getElementById('ukinv-more'); if(!sel) return;
+    var inTop={};
+    Object.keys(grouped).forEach(function(s){ (grouped[s]||[]).slice(0,TOP_N).forEach(function(r){ inTop[r.Investor]=1; }); });
+    var all={};
+    var sectors=(typeof currentSectors!=='undefined')?currentSectors:[];
+    ukData.forEach(function(r){ if(sectors.indexOf(r.Sector)!==-1 && !inTop[r.Investor]) all[r.Investor]=1; });
+    var names=Object.keys(all).sort();
+    sel.length=1;
+    names.forEach(function(n){ var o=document.createElement('option'); o.value=n; o.textContent=n; sel.appendChild(o); });
+  }
+ 
+  function renderSelectedChips(){
+    var wrap=document.getElementById('ukinv-selected'); if(!wrap) return;
+    wrap.innerHTML=selectedInvestors.map(function(n){
+      return '<span class="ukinv-chip">'+n+'<span class="x" data-inv="'+n.replace(/"/g,'&quot;')+'">&times;</span></span>';
+    }).join('');
+    var clr=document.getElementById('ukinv-clear'); if(clr) clr.style.display=selectedInvestors.length?'block':'none';
+  }
+ 
+  function toggleInvestor(name){
+    var i=selectedInvestors.indexOf(name);
+    if(i===-1) selectedInvestors.push(name); else selectedInvestors.splice(i,1);
+    renderUkPanel();
+    window.refreshInvestorMarkers();
+  }
+ 
+  window.refreshNonUkPanel = function(){ if(document.getElementById('nonuk-investor-panel').classList.contains('show')) renderNonUk(); };
+  window.refreshUkPanel = renderUkPanel;
+ 
+  // ---- non-UK panel (unchanged behaviour) ----
   function openNonUk(){ var p=document.getElementById('nonuk-investor-panel'); if(p){p.classList.add('show'); renderNonUk();} }
   function closeNonUk(){ var p=document.getElementById('nonuk-investor-panel'); if(p) p.classList.remove('show'); }
   function renderNonUk(){
@@ -3256,22 +3326,71 @@ const FinalAreaSearchControl = L.Control.extend({
     if(!sectors.length){ html='<div style="padding:14px;color:#888;">Select a sector to see its overseas investors.</div>'; }
     else sectors.forEach(function(s){
       var rows=(nonukData[s]||[]).slice().sort(function(a,b){return (parseInt(b.CompaniesBackedInSector)||0)-(parseInt(a.CompaniesBackedInSector)||0);});
-    var filtered = rows.filter(function(r){ return (typeof passesInvestorFilters!=='function')||passesInvestorFilters(r); });
-    var distinctCount = Object.keys(filtered.reduce(function(acc,r){ acc[(r.Investor||'').toLowerCase()]=1; return acc; },{})).length;
-    html+='<div class="nonuk-sector-group">'+s+' ('+distinctCount+')</div>';
+      var filtered=rows.filter(function(r){ return (typeof passesInvestorFilters!=='function')||passesInvestorFilters(r); });
+      var distinct=Object.keys(filtered.reduce(function(a,r){a[(r.Investor||'').toLowerCase()]=1;return a;},{})).length;
+      html+='<div class="nonuk-sector-group">'+s+' ('+distinct+')</div>';
       if(!filtered.length){ html+='<div style="padding:8px 16px;color:#aaa;font-size:12px;">No overseas investors match.</div>'; return; }
       filtered.forEach(function(r){
         var iso=(r.ISO2||'').trim().toLowerCase();
         var flag=iso?'<span class="fi fi-'+iso+'"></span>':'<span style="width:22px"></span>';
-        html+='<div class="nonuk-row">'+flag+
-          '<div><div class="inv-name">'+r.Investor+'</div>'+
+        html+='<div class="nonuk-row">'+flag+'<div><div class="inv-name">'+r.Investor+'</div>'+
           '<div class="inv-meta">'+[r.InvestorType,r.Country].filter(Boolean).join(' · ')+'</div></div>'+
           '<span class="inv-count">'+(r.CompaniesBackedInSector||0)+'</span></div>';
       });
     });
     body.innerHTML=html;
   }
-  window.refreshNonUkPanel = function(){ if(document.getElementById('nonuk-investor-panel').classList.contains('show')) renderNonUk(); };
+ 
+  // ---- Button + wiring ----
+  ready(function(){
+    var btn=document.getElementById('investor-markers-btn');
+    var ukPanel=document.getElementById('uk-investor-panel');
+    if(btn) btn.addEventListener('click',function(){
+      markersOn=!markersOn;
+      btn.classList.toggle('active',markersOn);
+      window.investorMarkersOn=markersOn;
+      var lbl=document.getElementById('investor-btn-label');
+      if(lbl) lbl.textContent=markersOn?'Hide investors':'Show investors';
+      if (typeof refreshInvestorFiltersVisibility==='function') refreshInvestorFiltersVisibility();
+      if(markersOn){
+        if(ukPanel) ukPanel.classList.add('show');
+        renderUkPanel(); openNonUk();
+      } else {
+        if(ukPanel) ukPanel.classList.remove('show');
+        selectedInvestors=[]; window.refreshInvestorMarkers(); closeNonUk();
+      }
+    });
+ 
+    var ukClose=document.getElementById('ukinv-close');
+    if(ukClose) ukClose.addEventListener('click',function(){
+      if(ukPanel) ukPanel.classList.remove('show');
+    });
+    var nonukClose=document.getElementById('nonuk-close');
+    if(nonukClose) nonukClose.addEventListener('click',closeNonUk);
+ 
+    // clicking an investor row
+    var body=document.getElementById('ukinv-body');
+    if(body) body.addEventListener('click',function(e){
+      var row=e.target.closest('.ukinv-row'); if(!row) return;
+      toggleInvestor(row.getAttribute('data-inv'));
+    });
+    // dropdown select
+    var more=document.getElementById('ukinv-more');
+    if(more) more.addEventListener('change',function(){
+      if(more.value){ toggleInvestor(more.value); more.value=''; }
+    });
+    // remove chip
+    var selWrap=document.getElementById('ukinv-selected');
+    if(selWrap) selWrap.addEventListener('click',function(e){
+      if(!e.target.classList.contains('x')) return;
+      toggleInvestor(e.target.getAttribute('data-inv'));
+    });
+    // clear all
+    var clr=document.getElementById('ukinv-clear');
+    if(clr) clr.addEventListener('click',function(){
+      selectedInvestors=[]; renderUkPanel(); window.refreshInvestorMarkers();
+    });
+  });
 })();
 
 (function () {
