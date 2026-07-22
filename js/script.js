@@ -3230,7 +3230,12 @@ const FinalAreaSearchControl = L.Control.extend({
       markersOn=!markersOn;
       btn.classList.toggle('active',markersOn);
       window.investorMarkersOn = markersOn;
-      if (typeof refreshInvestorFiltersVisibility==='function') refreshInvestorFiltersVisibility();
+      if (typeof refreshInvestorHighlightVisibility === 'function') refreshInvestorHighlightVisibility();
+        // when hiding investors, also clear any active highlight:
+        if (!markersOn && typeof window.applyInvestorHighlight === 'function') {
+          // clear selection
+          var clr = document.getElementById('inv-clear'); if (clr) clr.click();
+        }
       var lbl = document.getElementById('investor-btn-label');
       if (lbl) lbl.textContent = markersOn ? 'Hide investors' : 'Show investors';
       if(markersOn){ window.refreshInvestorMarkers(); openNonUk(); }
@@ -3382,5 +3387,98 @@ const FinalAreaSearchControl = L.Control.extend({
         }
       });
     }
+  });
+})();
+
+(function () {
+  var invCompanyMap = {};      // investor -> [company numbers]
+  var invNames = [];           // sorted investor names for search
+  var selected = [];           // currently selected investors
+  var highlightSet = null;     // Set of company numbers to highlight (null = none)
+ 
+  // ---- Load the investor->company map ----
+  fetch('data/investor_company_map.json')
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      invCompanyMap = data || {};
+      invNames = Object.keys(invCompanyMap).sort();
+      console.log('Investor-company map loaded:', invNames.length, 'investors');
+    })
+    .catch(function(e){ console.error('Failed to load investor_company_map.json', e); });
+ 
+  function ready(fn){ if(document.readyState!=='loading') fn(); else document.addEventListener('DOMContentLoaded',fn); }
+ 
+  ready(function () {
+    var search  = document.getElementById('inv-search');
+    var suggest = document.getElementById('inv-suggest');
+    var chips   = document.getElementById('inv-selected');
+    var clearBtn= document.getElementById('inv-clear');
+    if (!search) return;
+ 
+    search.addEventListener('input', function(){
+      var q = search.value.trim().toLowerCase();
+      if (!q) { suggest.style.display='none'; return; }
+      var matches = invNames.filter(function(n){ return n.toLowerCase().indexOf(q) !== -1; })
+                            .filter(function(n){ return selected.indexOf(n)===-1; })
+                            .slice(0, 30);
+      if (!matches.length) { suggest.style.display='none'; return; }
+      suggest.innerHTML = matches.map(function(n){
+        return '<div data-inv="'+n.replace(/"/g,'&quot;')+'">'+n+
+               '<span class="inv-count">'+(invCompanyMap[n]||[]).length+'</span></div>';
+      }).join('');
+      suggest.style.display = 'block';
+    });
+ 
+    suggest.addEventListener('click', function(e){
+      var row = e.target.closest('div[data-inv]');
+      if (!row) return;
+      var name = row.getAttribute('data-inv');
+      if (selected.indexOf(name)===-1) selected.push(name);
+      search.value=''; suggest.style.display='none';
+      renderChips(); applyHighlight();
+    });
+ 
+    document.addEventListener('click', function(e){
+      if (!e.target.closest('#inv-search-wrap')) suggest.style.display='none';
+    });
+ 
+    clearBtn.addEventListener('click', function(){
+      selected = []; renderChips(); applyHighlight();
+    });
+ 
+    function renderChips(){
+      chips.innerHTML = selected.map(function(n){
+        return '<span class="inv-chip">'+n+'<span class="x" data-inv="'+n.replace(/"/g,'&quot;')+'">&times;</span></span>';
+      }).join('');
+      clearBtn.style.display = selected.length ? 'block' : 'none';
+    }
+    chips.addEventListener('click', function(e){
+      if (!e.target.classList.contains('x')) return;
+      var name = e.target.getAttribute('data-inv');
+      selected = selected.filter(function(n){ return n!==name; });
+      renderChips(); applyHighlight();
+    });
+ 
+    // ---- Build the highlight set and apply to markers ----
+    window.applyInvestorHighlight = function(){ applyHighlight(); };
+    function applyHighlight(){
+      if (!selected.length) {
+        highlightSet = null;
+      } else {
+        highlightSet = new Set();
+        selected.forEach(function(inv){
+          (invCompanyMap[inv]||[]).forEach(function(id){ highlightSet.add(id); });
+        });
+      }
+      window.investorHighlightSet = highlightSet;   // exposed for the marker renderer
+      if (typeof refreshHighlightStyles === 'function') refreshHighlightStyles();
+    }
+ 
+    // visibility: show the box when investor markers are on
+    window.refreshInvestorHighlightVisibility = function(){
+      var box = document.getElementById('investor-highlight');
+      if (box) box.style.display = window.investorMarkersOn ? 'block' : 'none';
+    };
+    window.refreshInvestorHighlightVisibility();
   });
 })();
