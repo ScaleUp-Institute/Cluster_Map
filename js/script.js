@@ -3283,7 +3283,7 @@ const FinalAreaSearchControl = L.Control.extend({
     var typeSel=document.getElementById('all-inv-type');
     if(typeSel && typeSel.options.length<=1){
       var types={};
-      Object.keys(enriched).forEach(function(nm){ var t=(enriched[nm].type||'').trim(); if(t) types[t]=1; });
+      Object.keys(enriched).forEach(function(nm){ var t=(enriched[nm].type||'').trim(); if(t && t!=='Government') types[t]=1; });
       Object.keys(types).sort().forEach(function(t){
         var o=document.createElement('option'); o.value=t; o.textContent=t; typeSel.appendChild(o);
       });
