@@ -3281,6 +3281,12 @@ const FinalAreaSearchControl = L.Control.extend({
       return set;
     }
     var tf=currentTypeFilter();
+    if(!selectedCats.size){
+      Object.keys(enriched).forEach(function(nm){
+        if(!tf || enriched[nm].type===tf) (enriched[nm].companies||[]).forEach(id=>set.add(id));
+      });
+      return set;
+    }
     selectedCats.forEach(function(key){
       var c=CATS[key]; if(!c||c.dev) return;
       if(c.comp){ (companyFlags[c.comp]||[]).forEach(id=>set.add(id)); }
@@ -3291,6 +3297,7 @@ const FinalAreaSearchControl = L.Control.extend({
     });
     return set;
   }
+  
   window.refreshInvestorMarkers = function(){
     if(companyMarkerLayer){ map.removeLayer(companyMarkerLayer); companyMarkerLayer=null; }
     if(!markersOn){ window.investorHighlightSet=null; if(typeof refreshHighlightStyles==='function') refreshHighlightStyles(); renderList(); return; }
@@ -3460,7 +3467,7 @@ const FinalAreaSearchControl = L.Control.extend({
           if(selectedCats.has(key)){selectedCats.delete(key);opt.classList.remove('sel');opt.querySelector('.tick').textContent='';}
           else{selectedCats.add(key);opt.classList.add('sel');opt.querySelector('.tick').textContent='✓';}
           selectedInvestors.clear();            // changing categories resets individual picks
-          renderField(); window.refreshInvestorMarkers();
+          backedStatsHidden=false; renderField(); window.refreshInvestorMarkers();
         });
       });
     }
@@ -3475,7 +3482,7 @@ const FinalAreaSearchControl = L.Control.extend({
       field.querySelectorAll('.x').forEach(function(x){ x.addEventListener('click',function(ev){ ev.stopPropagation();
         var k=x.getAttribute('data-key'); selectedCats.delete(k);
         if(menu){var o=menu.querySelector('.ai-opt[data-key="'+k+'"]'); if(o){o.classList.remove('sel');o.querySelector('.tick').textContent='';}}
-        selectedInvestors.clear(); renderField(); window.refreshInvestorMarkers(); }); });
+        selectedInvestors.clear(); backedStatsHidden=false; renderField(); window.refreshInvestorMarkers(); }); });
     }
  
     // #7: click an investor row -> toggle it; markers update to just selected investors
@@ -3493,6 +3500,12 @@ const FinalAreaSearchControl = L.Control.extend({
       if(box) box.style.display=markersOn?'block':'none';
       if(!markersOn){ selectedCats.clear(); selectedInvestors.clear(); renderField(); }
       window.refreshInvestorMarkers();
+    });
+
+    var bsClose=document.getElementById('backed-stats-close');
+    if(bsClose) bsClose.addEventListener('click',function(){
+      backedStatsHidden=true;
+      var p=document.getElementById('backed-stats-panel'); if(p) p.classList.remove('show');
     });
   });
 })();
@@ -3523,13 +3536,6 @@ const FinalAreaSearchControl = L.Control.extend({
   ready(function () {
     var methBtn = document.getElementById('methodology-btn');
     var methContent = document.getElementById('methodology-content');
-
-    var bsClose=document.getElementById('backed-stats-close');
-    if(bsClose) bsClose.addEventListener('click',function(){
-      backedStatsHidden=true;
-      var p=document.getElementById('backed-stats-panel'); if(p) p.classList.remove('show');
-    });
-    
     if (methBtn && methContent) {
       methBtn.addEventListener('click', function () {
         var isHidden = methContent.style.display === 'none';
