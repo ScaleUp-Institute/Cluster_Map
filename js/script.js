@@ -3342,6 +3342,57 @@ const FinalAreaSearchControl = L.Control.extend({
   };
   window.refreshUkPanel=function(){ renderList(); };
   window.refreshNonUkPanel=function(){};
+
+  // aggregate stats for the BBB/IUK backed companies within selected sectors
+  function backedStats(flagKey){
+    var ids = new Set(companyFlags[flagKey] || []);
+    var sectors = (typeof currentSectors!=='undefined') ? currentSectors : [];
+    var s = { n:0, employees:0, turnover:0, investment:0, iuk:0, female:0, bySector:{}, byRegion:{} };
+    (window.companyData || []).forEach(function(c){
+      var num = (typeof normCompNum==='function') ? normCompNum(c.Companynumber) : c.Companynumber;
+      if (!ids.has(num)) return;
+      if (sectors.length && sectors.indexOf(c.sector)===-1) return;    // respect sector selection
+      s.n++;
+      s.employees  += (+c.total_employees||0);
+      s.turnover   += (+c.total_turnover||0);
+      s.investment += (+c.total_Investment||0);
+      s.iuk        += (+c.TotalInnovateUKFunding||0);
+      var fem=c.WomenFounded; if(fem===true||String(fem).trim().toLowerCase() in {'1':1,'true':1,'yes':1,'women-led':1}) s.female++;
+      if(c.sector) s.bySector[c.sector]=(s.bySector[c.sector]||0)+1;
+      var reg=c.Region||'Unknown'; s.byRegion[reg]=(s.byRegion[reg]||0)+1;
+    });
+    return s;
+  }
+ 
+  function fmtMoney(n){
+    if(n>=1e9) return '£'+(n/1e9).toFixed(1)+'B';
+    if(n>=1e6) return '£'+(n/1e6).toFixed(1)+'M';
+    if(n>=1e3) return '£'+(n/1e3).toFixed(0)+'K';
+    return '£'+Math.round(n);
+  }
+ 
+  function backedStatsHtml(title, s){
+    if(!s.n) return '<div class="empty">No '+title+' companies in the selected sectors.</div>';
+    var femPct=(s.female/s.n*100).toFixed(1);
+    var secRows=Object.keys(s.bySector).sort((a,b)=>s.bySector[b]-s.bySector[a])
+      .map(k=>'<li>'+k+'<span>'+s.bySector[k]+'</span></li>').join('');
+    var regRows=Object.keys(s.byRegion).sort((a,b)=>s.byRegion[b]-s.byRegion[a])
+      .map(k=>'<li>'+k+'<span>'+s.byRegion[k]+'</span></li>').join('');
+    return ''+
+      '<div class="backed-block">'+
+        '<div class="backed-title">'+title+'</div>'+
+        '<div class="backed-metrics">'+
+          '<div class="bm"><span class="v">'+s.n.toLocaleString()+'</span><span class="l">Companies</span></div>'+
+          '<div class="bm"><span class="v">'+Math.round(s.employees).toLocaleString()+'</span><span class="l">Employees</span></div>'+
+          '<div class="bm"><span class="v">'+fmtMoney(s.turnover)+'</span><span class="l">Turnover</span></div>'+
+          '<div class="bm"><span class="v">'+fmtMoney(s.investment)+'</span><span class="l">Investment</span></div>'+
+          '<div class="bm"><span class="v">'+fmtMoney(s.iuk)+'</span><span class="l">IUK grants</span></div>'+
+          '<div class="bm"><span class="v">'+femPct+'%</span><span class="l">Female-founded</span></div>'+
+        '</div>'+
+        '<div class="backed-sub">By sector</div><ul class="backed-list">'+secRows+'</ul>'+
+        '<div class="backed-sub">By region</div><ul class="backed-list">'+regRows+'</ul>'+
+      '</div>';
+  }
  
   // #6: list slides out to the right of the box; #1 shows companies (enriched.n);
   // #2 flags; #7 rows clickable to filter markers
@@ -3349,7 +3400,20 @@ const FinalAreaSearchControl = L.Control.extend({
     var panel=document.getElementById('all-inv-list'), body=document.getElementById('all-inv-body'), count=document.getElementById('all-inv-count');
     if(!panel||!body) return;
     var anyList=false; selectedCats.forEach(k=>{ if(CATS[k]&&CATS[k].list&&!CATS[k].dev) anyList=true; });
-    if(!markersOn||!anyList){ panel.classList.remove('show'); return; }
+    if(!markersOn){ panel.classList.remove('show'); return; }
+
+    // BBB / IUK headline stats (marker-only cats) -> show stats instead of an investor list
+    var showBBB = selectedCats.has('bbb'), showIUK = selectedCats.has('iuk');
+    if(!anyList && (showBBB || showIUK)){
+      var bhtml='';
+      if(showBBB) bhtml += backedStatsHtml('BBB backed', backedStats('bbb'));
+      if(showIUK) bhtml += backedStatsHtml('IUK backed', backedStats('iuk'));
+      if(count) count.textContent='';
+      body.innerHTML=bhtml;
+      panel.classList.add('show');
+      return;
+    }
+    if(!anyList){ panel.classList.remove('show'); return; }
     var names=categoryInvestors().sort((a,b)=>enriched[b].n-enriched[a].n);
     if(count) count.textContent=names.length+' investor'+(names.length===1?'':'s');
     body.innerHTML = names.length ? names.map(function(nm){
