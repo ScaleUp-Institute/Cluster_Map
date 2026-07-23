@@ -1770,6 +1770,8 @@ function removeClusterLayers() {
   clusterLayers = {};
   clusterColors = {};
   currentClusters = [];
+  window.allCompanyMarkers = []; // <-- ADD THIS LINE to fix the ghost marker bug
+  
   if (clusterControl) {
     map.removeControl(clusterControl);
   }
@@ -3549,7 +3551,11 @@ const FinalAreaSearchControl = L.Control.extend({
  
     if(btn) btn.addEventListener('click',function(){
       markersOn=!markersOn; btn.classList.toggle('active',markersOn); window.investorMarkersOn=markersOn;
-      var lbl=document.getElementById('investor-btn-label'); if(lbl) lbl.textContent=markersOn?'Hide investors':'Show investors';
+      
+      // Update the label text
+      var lbl=document.getElementById('investor-btn-label'); 
+      if(lbl) lbl.textContent = markersOn ? 'Hide investor and funded businesses' : 'Investor and funded businesses';
+      
       if(box) box.style.display=markersOn?'block':'none';
       if(!markersOn){ selectedCats.clear(); selectedInvestors.clear(); renderField(); }
       window.refreshInvestorMarkers();
@@ -3958,7 +3964,7 @@ const FinalAreaSearchControl = L.Control.extend({
     var advancedSteps = [
       {
         targetId: 'investor-markers-btn',
-        text: '<strong>Step 3: Investors</strong><br>Toggle this on to overlay investor data and explore who is backing these scaleups.',
+        text: '<strong>Step 3: Investor & Funded Businesses</strong><br>Toggle this on to view funded companies and explore the investors backing them.',
         buttonText: 'Next',
         arrowClass: 'right',
         placement: 'left'
