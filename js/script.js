@@ -3836,8 +3836,6 @@ const FinalAreaSearchControl = L.Control.extend({
     return '<div class="popup-content region-popup">'+
       '<p><strong>'+name+'</strong></p>'+
       '<p><strong>Companies</strong> '+s.total+' <span style="color:#8a94a0">('+s.clustered+' clustered · '+s.noise+' ungrouped)</span></p>'+
-      '<p><strong>Invested Companies</strong> ' + s.investedCompanies + '</p>'+
-      '<p><strong>Total Unique Investors</strong> ' + s.uniqueInvestors.size + '</p>'+
       '<p><strong>Employees</strong> '+Math.round(s.employees).toLocaleString()+'</p>'+
       '<p><strong>Turnover</strong> '+fmtMoney(s.turnover)+'</p>'+
       '<p><strong>Investment</strong> '+fmtMoney(s.investment)+'</p>'+
@@ -3925,13 +3923,22 @@ const FinalAreaSearchControl = L.Control.extend({
         // Auto-open popup if only one region is selected
         if (selectedRegions.length === 1) {
             var s = statsForRegion(feature);
-            layer.bindPopup(popupHtml(name, s), { maxWidth: 260 });
-            setTimeout(function() { layer.openPopup(); }, 300);
+            setTimeout(function() { 
+                var center = layer.getBounds().getCenter();
+                L.popup({ maxWidth: 260 })
+                  .setLatLng(center)
+                  .setContent(popupHtml(name, s))
+                  .openOn(map);
+            }, 300);
         }
 
         layer.on('click', function () {
           var s = statsForRegion(feature);
-          layer.bindPopup(popupHtml(name, s), { maxWidth: 260 }).openPopup();
+          var center = layer.getBounds().getCenter();
+          L.popup({ maxWidth: 260 })
+            .setLatLng(center)
+            .setContent(popupHtml(name, s))
+            .openOn(map);
         });
         
         layer.on('mouseover', function(){ layer.setStyle({ weight: 2, fillOpacity: 0.05 }); });
