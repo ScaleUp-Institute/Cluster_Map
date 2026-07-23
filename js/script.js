@@ -3180,6 +3180,7 @@ const FinalAreaSearchControl = L.Control.extend({
 })();
 
 (function () {
+  function currentTypeFilter(){ var s=document.getElementById('all-inv-type'); return s?s.value:''; }
   var enriched = {}, companyFlags = {}, companyInvMap = {};
   var markersOn = false, companyMarkerLayer = null;
   var selectedCats = new Set();
@@ -3279,16 +3280,17 @@ const FinalAreaSearchControl = L.Control.extend({
       selectedInvestors.forEach(function(nm){ (enriched[nm]&&enriched[nm].companies||[]).forEach(id=>set.add(id)); });
       return set;
     }
-    if(!selectedCats.size) return set;
+    var tf=currentTypeFilter();
     selectedCats.forEach(function(key){
       var c=CATS[key]; if(!c||c.dev) return;
       if(c.comp){ (companyFlags[c.comp]||[]).forEach(id=>set.add(id)); }
       else if(c.top==='number'){ categoryInvestors().forEach(nm=>(enriched[nm].companies||[]).forEach(id=>set.add(id))); }
-      else if(c.inv){ Object.keys(enriched).forEach(function(nm){ if(c.inv(enriched[nm])) (enriched[nm].companies||[]).forEach(id=>set.add(id)); }); }
+      else if(c.inv){ Object.keys(enriched).forEach(function(nm){
+        if(c.inv(enriched[nm]) && (!tf||enriched[nm].type===tf)) (enriched[nm].companies||[]).forEach(id=>set.add(id));
+      }); }
     });
     return set;
   }
- 
   window.refreshInvestorMarkers = function(){
     if(companyMarkerLayer){ map.removeLayer(companyMarkerLayer); companyMarkerLayer=null; }
     if(!markersOn){ window.investorHighlightSet=null; if(typeof refreshHighlightStyles==='function') refreshHighlightStyles(); renderList(); return; }
