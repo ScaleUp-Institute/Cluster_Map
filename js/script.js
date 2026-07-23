@@ -3239,6 +3239,7 @@ const FinalAreaSearchControl = L.Control.extend({
         (companyInvMap[cid]=companyInvMap[cid]||[]).push(inv);
       });
     });
+    window.companyInvMap = companyInvMap;
   }).catch(e=>console.error(e));
  
   function ready(fn){ if(document.readyState!=='loading') fn(); else document.addEventListener('DOMContentLoaded',fn); }
@@ -3566,13 +3567,14 @@ const FinalAreaSearchControl = L.Control.extend({
   }
  
   // ---- Compute stats for one region feature, for currently-selected sectors ----
+  // ---- Compute stats for one region feature, for currently-selected sectors ----
   function statsForRegion(feature){
     var poly = feature;   
     var sectors = (typeof currentSectors !== 'undefined') ? currentSectors : [];
     var s = {
       total:0, clustered:0, noise:0,
       employees:0, turnover:0, investment:0, iuk:0, female:0,
-      bySector:{}
+      bySector:{}, investedCompanies:0, uniqueInvestors:new Set()
     };
     (window.companyData || []).forEach(function(c){
       if (sectors.length && sectors.indexOf(c.sector) === -1) return;
@@ -3582,6 +3584,7 @@ const FinalAreaSearchControl = L.Control.extend({
       var inside = false;
       try { inside = turf.booleanPointInPolygon(pt, poly); } catch(e){ inside = false; }
       if (!inside) return;
+      
       s.total++;
       if (String(c.cluster) === '0') s.noise++; else s.clustered++;
       s.employees  += parseNum(c.total_employees);
@@ -3590,6 +3593,13 @@ const FinalAreaSearchControl = L.Control.extend({
       s.iuk        += parseNum(c.TotalInnovateUKFunding);
       if (isFemale(c)) s.female++;
       s.bySector[c.sector] = (s.bySector[c.sector]||0) + 1;
+      
+      // Calculate investor counts
+      var invs = window.companyInvMap ? (window.companyInvMap[c.Companynumber] || []) : [];
+      if (invs.length > 0) {
+          s.investedCompanies++;
+          invs.forEach(function(inv){ s.uniqueInvestors.add(inv); });
+      }
     });
     return s;
   }
@@ -3609,16 +3619,19 @@ const FinalAreaSearchControl = L.Control.extend({
     var femalePct = s.total ? (s.female / s.total * 100).toFixed(1) : '0.0';
     var sectorRows = Object.keys(s.bySector).sort(function(a,b){return s.bySector[b]-s.bySector[a];})
       .map(function(k){ return '<li>'+k+': '+s.bySector[k]+'</li>'; }).join('');
+      
     return '<div class="popup-content region-popup">'+
       '<p><strong>'+name+'</strong></p>'+
       '<p><strong>Companies</strong> '+s.total+' <span style="color:#8a94a0">('+s.clustered+' clustered · '+s.noise+' ungrouped)</span></p>'+
+      '<p><strong>Invested Companies</strong> ' + s.investedCompanies + '</p>'+
+      '<p><strong>Total Unique Investors</strong> ' + s.uniqueInvestors.size + '</p>'+
       '<p><strong>Employees</strong> '+Math.round(s.employees).toLocaleString()+'</p>'+
       '<p><strong>Turnover</strong> '+fmtMoney(s.turnover)+'</p>'+
       '<p><strong>Investment</strong> '+fmtMoney(s.investment)+'</p>'+
       '<p><strong>Innovate UK funding</strong> '+fmtMoney(s.iuk)+'</p>'+
       '<p><strong>Female-founded</strong> '+femalePct+'%</p>'+
       '<p style="margin-top:6px;"><strong>By sector</strong></p>'+
-      '<ul style="margin:0;padding:4px 14px;list-style:none;font-size:12px;">'+sectorRows+'</ul>'+
+      '<ul style="margin:0;padding:4px 14px;list-style:none;font-size:12px;max-height:90px;overflow-y:auto;">'+sectorRows+'</ul>'+
       '</div>';
   }
 
@@ -3668,21 +3681,36 @@ const FinalAreaSearchControl = L.Control.extend({
  
   // ---- Draw / refresh the region layer ----
   window.refreshRegionLayer = function () {
-    // Remove existing layer
     if (regionLayer) { map.removeLayer(regionLayer); regionLayer = null; }
     
-    // NEW: Only draw if the user has checked at least one region
-    if (!regionGeo || selectedRegions.length === 0) return;   
+    // If no regions are selected, reset map view and marker styles
+    if (!regionGeo || selectedRegions.length === 0) {
+      (window.allCompanyMarkers || []).forEach(function(m) {
+        m.setStyle({ fillOpacity: 0.8, opacity: 1 });
+      });
+      map.closePopup();
+      return; 
+    }   
  
-    // NEW: Filter the geojson to only include the user's checked regions
     var filteredFeatures = regionGeo.features.filter(function(f) {
       return selectedRegions.indexOf(f.properties[REGION_NAME_KEY]) !== -1;
     });
 
-    var filteredGeo = {
-      type: "FeatureCollection",
-      features: filteredFeatures
-    };
+    var filteredGeo = { type: "FeatureCollection", features: filteredFeatures };
+
+    // Dim markers outside the selected regions
+    (window.allCompanyMarkers || []).forEach(function(m) {
+      var pt = turf.point([m.getLatLng().lng, m.getLatLng().lat]);
+      var inside = false;
+      for (var i = 0; i < filteredFeatures.length; i++) {
+        try { if (turf.booleanPointInPolygon(pt, filteredFeatures[i])) { inside = true; break; } } catch(e){}
+      }
+      if (inside) {
+        m.setStyle({ fillOpacity: 1, opacity: 1 });
+      } else {
+        m.setStyle({ fillOpacity: 0.12, opacity: 0.1 });
+      }
+    });
 
     regionLayer = L.geoJSON(filteredGeo, {
       style: function () {
@@ -3690,19 +3718,31 @@ const FinalAreaSearchControl = L.Control.extend({
       },
       onEachFeature: function (feature, layer) {
         var name = feature.properties[REGION_NAME_KEY] || 'Region';
+        
+        // Auto-open popup if only one region is selected
+        if (selectedRegions.length === 1) {
+            var s = statsForRegion(feature);
+            layer.bindPopup(popupHtml(name, s), { maxWidth: 260 });
+            setTimeout(function() { layer.openPopup(); }, 300);
+        }
+
         layer.on('click', function () {
-          // Stats still calculate based on whatever sectors are active
           var s = statsForRegion(feature);
           layer.bindPopup(popupHtml(name, s), { maxWidth: 260 }).openPopup();
         });
+        
         layer.on('mouseover', function(){ layer.setStyle({ weight: 2, fillOpacity: 0.05 }); });
         layer.on('mouseout',  function(){ layer.setStyle({ weight: 1.2, fillOpacity: 0 }); });
       }
     });
     
     regionLayer.addTo(map);
+    
+    // Zoom to the bounds of the newly selected regions
+    if (filteredFeatures.length > 0) {
+      map.fitBounds(regionLayer.getBounds(), { padding: [30, 30] });
+    }
   };
-})();
 
 // ---- Multi-Step Map Onboarding Tour ----
 (function () {
@@ -3726,25 +3766,25 @@ const FinalAreaSearchControl = L.Control.extend({
         text: '<strong>Step 1: Sectors</strong><br>Select a sector to reveal where scaleup companies cluster across the UK.',
         buttonText: 'Next',
         arrowClass: 'right',
-        placement: 'left' // Tooltip sits to the left of the target
+        placement: 'left'
       },
       {
         targetId: 'region-btn',
         text: '<strong>Step 2: Regions</strong><br>Use this menu to filter the map down to specific UK regions and view local stats.',
         buttonText: 'Next',
-        arrowClass: 'right', // Changed to match Step 1
-        placement: 'left'    // Changed to keep it on the inside of the panel
+        arrowClass: 'right',
+        placement: 'left'
       },
       {
-        targetId: 'cluster-control', // Make sure this matches your HTML ID
-        text: '<strong>Step 3: Clusters</strong><br>Toggle these options to view high-density business clusters on the map.',
+        targetId: 'investor-markers-btn',
+        text: '<strong>Step 3: Investors</strong><br>Toggle this on to overlay investor data and explore who is backing these scaleups.',
         buttonText: 'Next',
         arrowClass: 'right',
         placement: 'left'
       },
       {
-        targetId: 'investor-search', // Make sure this matches your HTML ID
-        text: '<strong>Step 4: Investors</strong><br>Search for specific investors to see exactly where they are deploying capital.',
+        targetId: 'ecosystem-btn',
+        text: '<strong>Step 4: Ecosystem</strong><br>Explore the surrounding environment by toggling universities, infrastructure, and support programmes.',
         buttonText: 'Got it',
         arrowClass: 'right',
         placement: 'left'
