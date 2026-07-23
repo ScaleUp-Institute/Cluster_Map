@@ -3223,8 +3223,8 @@ const FinalAreaSearchControl = L.Control.extend({
     iuk:{label:'IUK backed businesses',list:false,comp:'iuk'},
     nwf:{label:'NWF backed businesses',list:false,dev:true},
     ukef:{label:'UKEF backed businesses',list:false,dev:true},
-    uk_pension:{label:'UK pension / institutional',list:true,dev:true},
-    intl_pension:{label:'International pension / institutional',list:true,dev:true}
+    uk_pension:{label:'UK pension / institutional',list:true,inv:function(v){return v.pension==='uk_pension';}},
+    intl_pension:{label:'International pension / institutional',list:true,inv:function(v){return v.pension==='intl_pension'||v.pension==='swf';}},
   };
  
   fetch('data/investors_enriched.json').then(r=>r.json()).then(d=>{enriched=d||{};console.log('enriched:',Object.keys(enriched).length);}).catch(e=>console.error(e));
