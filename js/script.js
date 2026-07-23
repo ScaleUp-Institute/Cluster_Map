@@ -1837,6 +1837,11 @@ function handleSectorSelectionChange () {
     document.getElementById('overall-stats-button').style.display = 'block';
     if (ecosystemControl) ecosystemControl.style.display = 'block';
     if (investorBtn) investorBtn.style.display = 'block';
+
+    // TRIGGER ADVANCED TOUR WHEN SECTOR IS CLICKED
+    if (typeof window.triggerAdvancedTour === 'function') {
+        window.triggerAdvancedTour();
+    }
   } else {
     // 2*) No sectors selected – wipe clusters & stats
     currentClusters = [];
@@ -3278,23 +3283,41 @@ const FinalAreaSearchControl = L.Control.extend({
     var set=new Set();
     if(selectedInvestors.size){
       selectedInvestors.forEach(function(nm){ (enriched[nm]&&enriched[nm].companies||[]).forEach(id=>set.add(id)); });
-      return set;
+    } else {
+      var tf=currentTypeFilter();
+      if(!selectedCats.size){
+        Object.keys(enriched).forEach(function(nm){
+          if(!tf || enriched[nm].type===tf) (enriched[nm].companies||[]).forEach(id=>set.add(id));
+        });
+      } else {
+        selectedCats.forEach(function(key){
+          var c=CATS[key]; if(!c||c.dev) return;
+          if(c.comp){ (companyFlags[c.comp]||[]).forEach(id=>set.add(id)); }
+          else if(c.top==='number'){ categoryInvestors().forEach(nm=>(enriched[nm].companies||[]).forEach(id=>set.add(id))); }
+          else if(c.inv){ Object.keys(enriched).forEach(function(nm){
+            if(c.inv(enriched[nm]) && (!tf||enriched[nm].type===tf)) (enriched[nm].companies||[]).forEach(id=>set.add(id));
+          }); }
+        });
+      }
     }
-    var tf=currentTypeFilter();
-    if(!selectedCats.size){
-      Object.keys(enriched).forEach(function(nm){
-        if(!tf || enriched[nm].type===tf) (enriched[nm].companies||[]).forEach(id=>set.add(id));
+    
+    // Apply region filter if active
+    if (window.selectedRegions && window.selectedRegions.length > 0) {
+      var filteredSet = new Set();
+      set.forEach(function(id) {
+         var comp = window.companyData && window.companyData.find(c => {
+             var cId = (typeof normCompNum === 'function') ? normCompNum(c.Companynumber) : c.Companynumber;
+             return cId === id;
+         });
+         if (comp) {
+             var reg = itlRegionFor(comp);
+             if (window.selectedRegions.indexOf(reg) !== -1) {
+                 filteredSet.add(id);
+             }
+         }
       });
-      return set;
+      return filteredSet;
     }
-    selectedCats.forEach(function(key){
-      var c=CATS[key]; if(!c||c.dev) return;
-      if(c.comp){ (companyFlags[c.comp]||[]).forEach(id=>set.add(id)); }
-      else if(c.top==='number'){ categoryInvestors().forEach(nm=>(enriched[nm].companies||[]).forEach(id=>set.add(id))); }
-      else if(c.inv){ Object.keys(enriched).forEach(function(nm){
-        if(c.inv(enriched[nm]) && (!tf||enriched[nm].type===tf)) (enriched[nm].companies||[]).forEach(id=>set.add(id));
-      }); }
-    });
     return set;
   }
   
@@ -3360,7 +3383,11 @@ const FinalAreaSearchControl = L.Control.extend({
     (window.companyData || []).forEach(function(c){
       var num = (typeof normCompNum==='function') ? normCompNum(c.Companynumber) : c.Companynumber;
       if (!ids.has(num)) return;
-      if (sectors.length && sectors.indexOf(c.sector)===-1) return;    // respect sector selection
+      if (sectors.length && sectors.indexOf(c.sector)===-1) return;
+      
+      var reg = itlRegionFor(c);
+      if (window.selectedRegions && window.selectedRegions.length > 0 && window.selectedRegions.indexOf(reg) === -1) return;
+
       s.n++;
       s.employees  += (+c.total_employees||0);
       s.turnover   += (+c.total_turnover||0);
@@ -3368,7 +3395,7 @@ const FinalAreaSearchControl = L.Control.extend({
       s.iuk        += (+c.TotalInnovateUKFunding||0);
       var fem=c.WomenFounded; if(fem===true||String(fem).trim().toLowerCase() in {'1':1,'true':1,'yes':1,'women-led':1}) s.female++;
       if(c.sector) s.bySector[c.sector]=(s.bySector[c.sector]||0)+1;
-      var reg=itlRegionFor(c); s.byRegion[reg]=(s.byRegion[reg]||0)+1;
+      s.byRegion[reg]=(s.byRegion[reg]||0)+1;
     });
     return s;
   }
@@ -3435,19 +3462,45 @@ const FinalAreaSearchControl = L.Control.extend({
   function renderList(){
     var panel=document.getElementById('all-inv-list'), body=document.getElementById('all-inv-body'), count=document.getElementById('all-inv-count');
     if(!panel||!body) return;
-    renderBackedStats();                        // <-- always run first, independent of the list
+    renderBackedStats();                        
     var anyList=false; selectedCats.forEach(k=>{ if(CATS[k]&&CATS[k].list&&!CATS[k].dev) anyList=true; });
     if(!markersOn||!anyList){ panel.classList.remove('show'); return; }
-    var names=categoryInvestors().sort((a,b)=>enriched[b].n-enriched[a].n);
+    
+    var names=categoryInvestors();
+    var dynamicCounts = {};
+    
+    if (window.selectedRegions && window.selectedRegions.length > 0) {
+        names.forEach(function(nm) {
+            var cCount = 0;
+            (enriched[nm].companies || []).forEach(function(id) {
+                var comp = window.companyData && window.companyData.find(c => {
+                    var cId = (typeof normCompNum === 'function') ? normCompNum(c.Companynumber) : c.Companynumber;
+                    return cId === id;
+                });
+                if (comp) {
+                    var reg = itlRegionFor(comp);
+                    if (window.selectedRegions.indexOf(reg) !== -1) cCount++;
+                }
+            });
+            dynamicCounts[nm] = cCount;
+        });
+        names = names.filter(nm => dynamicCounts[nm] > 0);
+        names.sort((a,b) => dynamicCounts[b] - dynamicCounts[a]);
+    } else {
+        names.sort((a,b)=>enriched[b].n-enriched[a].n);
+    }
+
     if(count) count.textContent=names.length+' investor'+(names.length===1?'':'s');
     var t2=document.getElementById('all-inv-title'); if(t2) t2.textContent='Investors';
+    
     body.innerHTML = names.length ? names.map(function(nm){
       var v=enriched[nm]||{n:0,country:''};
+      var displayCount = dynamicCounts[nm] !== undefined ? dynamicCounts[nm] : v.n;
       var iso=isoFor(v.country);
       var flag=iso?'<span class="fi fi-'+iso+'"></span>':'<span style="width:20px;display:inline-block"></span>';
       var on=selectedInvestors.has(nm)?' selected':'';
       return '<div class="inv-row'+on+'" data-inv="'+nm.replace(/"/g,'&quot;')+'">'+flag+
-        '<span class="nm">'+nm+'</span><span class="n">'+v.n+'</span></div>';
+        '<span class="nm">'+nm+'</span><span class="n">'+displayCount+'</span></div>';
     }).join('') : '<div class="empty">No investors match.</div>';
     panel.classList.add('show');
   }
@@ -3655,21 +3708,29 @@ const FinalAreaSearchControl = L.Control.extend({
   var regionGeo = null;          // raw geojson
   var regionLayer = null;        // Leaflet layer
   var regionFeatures = [];       // turf features for point-in-polygon
-  var selectedRegions = [];      // NEW: Tracks checked region names
+  window.selectedRegions = [];   // NEW: Make this global so investors can filter by it
  
   // ---- Load the ITL1 geojson ----
   fetch('data/itl1_regions.geojson')
     .then(function(r){ return r.json(); })
     .then(function(gj){
+      // Fix Region Name from 'East' to 'East of England'
+      if (gj.features) {
+        gj.features.forEach(function(f) {
+          if (f.properties && f.properties[REGION_NAME_KEY] === 'East') {
+            f.properties[REGION_NAME_KEY] = 'East of England';
+          }
+        });
+      }
       regionGeo = gj;
       regionFeatures = gj.features || [];
       window.__regionFeatures = regionFeatures;
       window.__regionNameKey  = 'ITL121NM';
       console.log('ITL1 regions loaded:', regionFeatures.length);
-      populateRegionUI();        // NEW: Build the UI checkboxes once loaded
+      populateRegionUI();        
     })
     .catch(function(e){ console.error('ITL1 load failed', e); });
- 
+
   function parseNum(v){ var n = parseFloat(v); return isNaN(n) ? 0 : n; }
  
   function isFemale(c){
@@ -3760,7 +3821,7 @@ const FinalAreaSearchControl = L.Control.extend({
     
     names.forEach(function(name) {
       var lbl = document.createElement('label');
-      lbl.className = 'eco-toggle'; // Reuse your existing checkbox styling
+      lbl.className = 'eco-toggle'; 
       lbl.innerHTML = '<input type="checkbox" value="' + name + '"> ' + name;
       menu.appendChild(lbl);
     });
@@ -3769,8 +3830,11 @@ const FinalAreaSearchControl = L.Control.extend({
     menu.addEventListener('change', function(e) {
       if (e.target.tagName === 'INPUT') {
         var checkboxes = menu.querySelectorAll('input:checked');
-        selectedRegions = Array.from(checkboxes).map(function(cb) { return cb.value; });
+        window.selectedRegions = Array.from(checkboxes).map(function(cb) { return cb.value; });
         window.refreshRegionLayer();
+        
+        // Re-render investor lists/markers to reflect the new region bounds
+        if (typeof window.refreshInvestorMarkers === 'function') window.refreshInvestorMarkers();
       }
     });
   }
@@ -3873,8 +3937,8 @@ const FinalAreaSearchControl = L.Control.extend({
     var tourText = document.getElementById('tour-text');
     var tourArrow = document.getElementById('tour-arrow');
 
-    // Define the steps of the tour using placement logic
-    var steps = [
+    // Split the tour into two phases
+    var initialSteps = [
       {
         targetId: 'sector-chips',
         text: '<strong>Step 1: Sectors</strong><br>Select a sector to reveal where scaleup companies cluster across the UK.',
@@ -3885,10 +3949,13 @@ const FinalAreaSearchControl = L.Control.extend({
       {
         targetId: 'region-btn',
         text: '<strong>Step 2: Regions</strong><br>Use this menu to filter the map down to specific UK regions and view local stats.',
-        buttonText: 'Next',
+        buttonText: 'Got it',
         arrowClass: 'right',
         placement: 'left'
-      },
+      }
+    ];
+    
+    var advancedSteps = [
       {
         targetId: 'investor-markers-btn',
         text: '<strong>Step 3: Investors</strong><br>Toggle this on to overlay investor data and explore who is backing these scaleups.',
@@ -3905,11 +3972,13 @@ const FinalAreaSearchControl = L.Control.extend({
       }
     ];
 
+    var currentSteps = initialSteps;
     var currentStep = 0;
     var currentTarget = null;
+    var advancedTourFired = false;
 
     function renderStep(index) {
-      var step = steps[index];
+      var step = currentSteps[index];
       
       if (currentTarget) currentTarget.classList.remove('tour-highlight');
       
@@ -3917,8 +3986,7 @@ const FinalAreaSearchControl = L.Control.extend({
       
       if (!currentTarget) {
         console.warn('Tour target not found: ' + step.targetId);
-        // Auto-skip to the next step if an HTML element is missing
-        if (index < steps.length - 1) { currentStep++; renderStep(currentStep); }
+        if (index < currentSteps.length - 1) { currentStep++; renderStep(currentStep); }
         else { endTour(); }
         return;
       }
@@ -3928,16 +3996,13 @@ const FinalAreaSearchControl = L.Control.extend({
       nextBtn.innerText = step.buttonText;
       tourArrow.className = 'tour-arrow ' + step.arrowClass;
 
-      // Calculate perfect positioning dynamically
       var rect = currentTarget.getBoundingClientRect();
-      
-      // Reset all positioning styles first
       tooltip.style.top = 'auto'; tooltip.style.bottom = 'auto';
       tooltip.style.left = 'auto'; tooltip.style.right = 'auto';
 
       if (step.placement === 'left') {
-        tooltip.style.top = (rect.top - 10) + 'px'; // Align roughly to top of element
-        tooltip.style.left = (rect.left - 260) + 'px'; // 240px width + 20px gap
+        tooltip.style.top = (rect.top - 10) + 'px'; 
+        tooltip.style.left = (rect.left - 260) + 'px';
       } else if (step.placement === 'right') {
         tooltip.style.top = (rect.top - 10) + 'px';
         tooltip.style.left = (rect.right + 20) + 'px';
@@ -3954,24 +4019,38 @@ const FinalAreaSearchControl = L.Control.extend({
       if (backdrop) backdrop.style.display = 'none';
       if (tooltip) tooltip.style.display = 'none';
       if (currentTarget) currentTarget.classList.remove('tour-highlight');
-      // localStorage.setItem('mapTourSeen', 'true'); // Uncomment when fully tested
     }
 
-    // Initialize Tour
-    // if (!localStorage.getItem('mapTourSeen')) {
-      setTimeout(function() {
-        if (backdrop && tooltip && steps.length > 0) {
-          backdrop.style.display = 'block';
-          tooltip.style.display = 'block';
-          renderStep(0);
-        }
-      }, 1500);
-    // }
+    // Trigger Initial Tour
+    setTimeout(function() {
+      if (backdrop && tooltip && currentSteps.length > 0) {
+        backdrop.style.display = 'block';
+        tooltip.style.display = 'block';
+        renderStep(0);
+      }
+    }, 1500);
+    
+    // Globally exposed function to trigger phase 2 when sector chips are clicked
+    window.triggerAdvancedTour = function() {
+        if (advancedTourFired) return;
+        advancedTourFired = true;
+        currentSteps = advancedSteps;
+        currentStep = 0;
+        
+        // Slight delay to ensure DOM buttons are fully visible
+        setTimeout(function() {
+            if (backdrop && tooltip && currentSteps.length > 0) {
+                backdrop.style.display = 'block';
+                tooltip.style.display = 'block';
+                renderStep(0);
+            }
+        }, 500); 
+    };
 
     if (nextBtn) {
       nextBtn.addEventListener('click', function() {
         currentStep++;
-        if (currentStep < steps.length) {
+        if (currentStep < currentSteps.length) {
           renderStep(currentStep);
         } else {
           endTour();
