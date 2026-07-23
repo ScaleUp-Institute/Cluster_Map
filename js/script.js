@@ -3224,7 +3224,7 @@ const FinalAreaSearchControl = L.Control.extend({
   var CATS = {
     central_gov:{label:'Central Government only',list:true,inv:function(v){return v.type==='Central Government';}},
     devolved_gov:{label:'Devolved Government only',list:true,inv:function(v){return v.type==='Devolved Government';}},
-    regions:{label:'Regions: Mayoral & Council',list:true,inv:function(v){return v.type==='Local and Regional Government';}},
+    regions:{label:'Regions: Mayoral & Council',list:true,inv:function(v){return v.type==='Regions: Mayoral and Council Authorities';}},
     international:{label:'International investors only',list:true,inv:function(v){return v.country && v.country!=='United Kingdom';}},
     top_number:{label:'Top 15 sector investors — by number',list:true,top:'number'},
     top_value:{label:'Top 15 sector investors — by value',list:true,dev:true},
