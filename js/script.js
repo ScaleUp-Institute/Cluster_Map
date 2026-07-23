@@ -3361,9 +3361,20 @@ const FinalAreaSearchControl = L.Control.extend({
       s.iuk        += (+c.TotalInnovateUKFunding||0);
       var fem=c.WomenFounded; if(fem===true||String(fem).trim().toLowerCase() in {'1':1,'true':1,'yes':1,'women-led':1}) s.female++;
       if(c.sector) s.bySector[c.sector]=(s.bySector[c.sector]||0)+1;
-      var reg=c.Region||'Unknown'; s.byRegion[reg]=(s.byRegion[reg]||0)+1;
+      var reg=itlRegionFor(c); s.byRegion[reg]=(s.byRegion[reg]||0)+1;
     });
     return s;
+  }
+
+  function itlRegionFor(c){
+    var feats=window.__regionFeatures||[]; var key=window.__regionNameKey||'ITL121NM';
+    var lat=parseFloat(c.Latitude), lng=parseFloat(c.Longitude);
+    if(isNaN(lat)||isNaN(lng)||!feats.length||typeof turf==='undefined') return 'Unknown';
+    var pt=turf.point([lng,lat]);
+    for(var i=0;i<feats.length;i++){
+      try{ if(turf.booleanPointInPolygon(pt,feats[i])) return feats[i].properties[key]||'Unknown'; }catch(e){}
+    }
+    return 'Unknown';
   }
  
   function fmtMoney(n){
@@ -3411,6 +3422,8 @@ const FinalAreaSearchControl = L.Control.extend({
       if(showBBB) bhtml += backedStatsHtml('BBB backed', backedStats('bbb'));
       if(showIUK) bhtml += backedStatsHtml('IUK backed', backedStats('iuk'));
       if(count) count.textContent='';
+      var t=document.getElementById('all-inv-title');
+      if(t) t.textContent = (showBBB&&showIUK)?'BBB & IUK backed':(showBBB?'BBB backed':'IUK backed');
       body.innerHTML=bhtml;
       panel.classList.add('show');
       return;
@@ -3418,6 +3431,7 @@ const FinalAreaSearchControl = L.Control.extend({
     if(!anyList){ panel.classList.remove('show'); return; }
     var names=categoryInvestors().sort((a,b)=>enriched[b].n-enriched[a].n);
     if(count) count.textContent=names.length+' investor'+(names.length===1?'':'s');
+    var t2=document.getElementById('all-inv-title'); if(t2) t2.textContent='Investors';
     body.innerHTML = names.length ? names.map(function(nm){
       var v=enriched[nm]||{n:0,country:''};
       var iso=isoFor(v.country);
@@ -3635,6 +3649,8 @@ const FinalAreaSearchControl = L.Control.extend({
     .then(function(gj){
       regionGeo = gj;
       regionFeatures = gj.features || [];
+      window.__regionFeatures = regionFeatures;
+      window.__regionNameKey  = 'ITL121NM';
       console.log('ITL1 regions loaded:', regionFeatures.length);
       populateRegionUI();        // NEW: Build the UI checkboxes once loaded
     })
