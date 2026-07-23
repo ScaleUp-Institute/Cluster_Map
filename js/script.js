@@ -3222,7 +3222,17 @@ const FinalAreaSearchControl = L.Control.extend({
  
   fetch('data/investors_enriched.json').then(r=>r.json()).then(d=>{enriched=d||{};console.log('enriched:',Object.keys(enriched).length);}).catch(e=>console.error(e));
   fetch('data/company_category_flags.json').then(r=>r.json()).then(d=>{companyFlags=d||{};}).catch(e=>console.error(e));
-  fetch('data/company_investor_map.json').then(r=>r.json()).then(d=>{companyInvMap=d||{};}).catch(e=>console.error(e));
+  fetch('data/investors_enriched.json').then(r=>r.json()).then(d=>{
+    enriched=d||{};
+    console.log('enriched:',Object.keys(enriched).length);
+    // build company -> [investors] from enriched (avoids needing a separate file)
+    companyInvMap={};
+    Object.keys(enriched).forEach(function(inv){
+      (enriched[inv].companies||[]).forEach(function(cid){
+        (companyInvMap[cid]=companyInvMap[cid]||[]).push(inv);
+      });
+    });
+  }).catch(e=>console.error(e));
  
   function ready(fn){ if(document.readyState!=='loading') fn(); else document.addEventListener('DOMContentLoaded',fn); }
  
