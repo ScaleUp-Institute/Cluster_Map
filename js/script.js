@@ -3406,6 +3406,21 @@ const FinalAreaSearchControl = L.Control.extend({
         '<div class="backed-sub">By region</div><ul class="backed-list">'+regRows+'</ul>'+
       '</div>';
   }
+
+  function renderBackedStats(){
+    var panel=document.getElementById('backed-stats-panel');
+    var body=document.getElementById('backed-stats-body');
+    var title=document.getElementById('backed-stats-title');
+    if(!panel||!body) return;
+    var showBBB=selectedCats.has('bbb'), showIUK=selectedCats.has('iuk');
+    if(!markersOn || (!showBBB && !showIUK)){ panel.classList.remove('show'); return; }
+    var html='';
+    if(showBBB) html+=backedStatsHtml('BBB backed', backedStats('bbb'));
+    if(showIUK) html+=backedStatsHtml('IUK backed', backedStats('iuk'));
+    if(title) title.textContent=(showBBB&&showIUK)?'BBB & IUK backed':(showBBB?'BBB backed':'IUK backed');
+    body.innerHTML=html;
+    panel.classList.add('show');
+  }
  
   // #6: list slides out to the right of the box; #1 shows companies (enriched.n);
   // #2 flags; #7 rows clickable to filter markers
@@ -3417,17 +3432,6 @@ const FinalAreaSearchControl = L.Control.extend({
 
     // BBB / IUK headline stats (marker-only cats) -> show stats instead of an investor list
     var showBBB = selectedCats.has('bbb'), showIUK = selectedCats.has('iuk');
-    if(!anyList && (showBBB || showIUK)){
-      var bhtml='';
-      if(showBBB) bhtml += backedStatsHtml('BBB backed', backedStats('bbb'));
-      if(showIUK) bhtml += backedStatsHtml('IUK backed', backedStats('iuk'));
-      if(count) count.textContent='';
-      var t=document.getElementById('all-inv-title');
-      if(t) t.textContent = (showBBB&&showIUK)?'BBB & IUK backed':(showBBB?'BBB backed':'IUK backed');
-      body.innerHTML=bhtml;
-      panel.classList.add('show');
-      return;
-    }
     if(!anyList){ panel.classList.remove('show'); return; }
     var names=categoryInvestors().sort((a,b)=>enriched[b].n-enriched[a].n);
     if(count) count.textContent=names.length+' investor'+(names.length===1?'':'s');
@@ -3441,6 +3445,8 @@ const FinalAreaSearchControl = L.Control.extend({
         '<span class="nm">'+nm+'</span><span class="n">'+v.n+'</span></div>';
     }).join('') : '<div class="empty">No investors match.</div>';
     panel.classList.add('show');
+
+    renderBackedStats();
   }
  
   ready(function(){
