@@ -2093,6 +2093,7 @@ function updateClusterLayers() {
           fillOpacity: 0
         });
         marker._companyNumber = company.Companynumber;
+        marker._companyData = company;
 
         marker.bindPopup(`
           <div class="popup-content">
@@ -3276,10 +3277,28 @@ const FinalAreaSearchControl = L.Control.extend({
         var num=(typeof normCompNum==='function')?normCompNum(m._companyNumber):m._companyNumber;
         if(hs.has(num)){
           // #5: clickable marker with the company's investor popup
+          // #5: clickable marker with the company's investor popup
           var invs=companyInvMap[num]||[];
           var sel={}; selectedInvestors.forEach(s=>sel[s]=1);
           var li=invs.map(function(iv){return sel[iv]?'<li style="font-weight:600;color:var(--teal-dark,#00998A)">'+iv+'</li>':'<li>'+iv+'</li>';}).join('');
-          var popup='<div class="popup-content"><p><strong>Investors ('+invs.length+')</strong></p><ul style="margin:0;padding:6px 14px;list-style:none;">'+li+'</ul></div>';
+          
+          // Pull company data from the marker we stored earlier
+          var cData = m._companyData || {};
+          var cName = cData.Companyname || 'Unknown';
+          var cSect = cData.sector || 'Unknown';
+          var cClus = cData.cluster === '0' ? 'Cluster 0' : (cData.Region || 'Unknown') + ' (Cluster ' + cData.cluster + ')';
+
+          var popup = `
+            <div class="popup-content">
+              <p><strong>Company Name:</strong> ${cName}</p>
+              <p><strong>Company Number:</strong> ${num}</p>
+              <p><strong>Cluster:</strong> ${cClus}</p>
+              <p><strong>Sector:</strong> ${cSect}</p>
+              <h3 style="margin-top: 12px !important; background: var(--panel-bg); color: var(--ink); border-top: 0.5px solid var(--line);">Investors (${invs.length})</h3>
+              <ul style="margin:0; padding:6px 14px; list-style:none; max-height: 120px; overflow-y: auto;">${li}</ul>
+            </div>
+          `;
+          
           L.marker(m.getLatLng(),{icon:ukInvestorIcon}).bindPopup(popup).addTo(companyMarkerLayer);
         }
       });
