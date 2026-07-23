@@ -3179,146 +3179,142 @@ const FinalAreaSearchControl = L.Control.extend({
 })();
 
 (function () {
-  // ---------- data ----------
-  var enriched = {};          // investor -> {companies,n,type,country,bbb,iuk}
-  var companyFlags = {};      // {iuk:[...], bbb:[...]}
-  var markersOn = false;
-  var companyMarkerLayer = null;
-  var selectedCats = new Set();   // selected category keys
+  var enriched = {}, companyFlags = {}, companyInvMap = {};
+  var markersOn = false, companyMarkerLayer = null;
+  var selectedCats = new Set();
+  var selectedInvestors = new Set();     // #7: individual investors picked from the list
   var TOP_N = 15;
  
-  var ukInvestorIcon = L.icon({
-    iconUrl:'data/UK investor marker.png',
-    iconSize:[35,35], iconAnchor:[17,35], popupAnchor:[0,-32]
-  });
+  var ukInvestorIcon = L.icon({ iconUrl:'data/UK investor marker.png',
+    iconSize:[35,35], iconAnchor:[17,35], popupAnchor:[0,-32] });
  
-  // category keys -> how they qualify. `list:true` = contributes to the investor list.
+  // country -> ISO2 for flags (#2)
+  var ISO = {'united kingdom':'gb','united states':'us','united states of america':'us','ireland':'ie',
+    'france':'fr','germany':'de','spain':'es','italy':'it','netherlands':'nl','belgium':'be','luxembourg':'lu',
+    'switzerland':'ch','sweden':'se','norway':'no','denmark':'dk','finland':'fi','iceland':'is','canada':'ca',
+    'australia':'au','new zealand':'nz','japan':'jp','china':'cn','hong kong':'hk','singapore':'sg',
+    'south korea':'kr','korea':'kr','korea, republic of (south korea)':'kr','india':'in','israel':'il',
+    'united arab emirates':'ae','uae':'ae','saudi arabia':'sa','qatar':'qa','kuwait':'kw','oman':'om',
+    'south africa':'za','brazil':'br','mexico':'mx','argentina':'ar','chile':'cl','portugal':'pt','austria':'at',
+    'poland':'pl','czech republic':'cz','czechia':'cz','hungary':'hu','greece':'gr','turkey':'tr','russia':'ru',
+    'russian federation':'ru','estonia':'ee','latvia':'lv','lithuania':'lt','romania':'ro','bulgaria':'bg',
+    'croatia':'hr','slovenia':'si','slovakia':'sk','ukraine':'ua','taiwan':'tw','malaysia':'my','thailand':'th',
+    'indonesia':'id','philippines':'ph','vietnam':'vn','cayman islands':'ky','jersey':'je','guernsey':'gg',
+    'isle of man':'im','bermuda':'bm','british virgin islands':'vg','virgin islands, british':'vg','malta':'mt',
+    'cyprus':'cy','liechtenstein':'li','monaco':'mc','mauritius':'mu','egypt':'eg','barbados':'bb',
+    'antigua & barbuda':'ag','puerto rico':'pr'};
+  function isoFor(country){ return ISO[(country||'').trim().toLowerCase()] || ''; }
+ 
   var CATS = {
-    central_gov:  { label:'Central Government only',       list:true,  inv:function(v){return v.type==='Central Government';} },
-    devolved_gov: { label:'Devolved Government only',      list:true,  inv:function(v){return v.type==='Devolved Government';} },
-    regions:      { label:'Regions: Mayoral & Council',    list:true,  inv:function(v){return v.type==='Local and Regional Government';} },
-    international: { label:'International investors only',  list:true,  inv:function(v){return v.country && v.country!=='United Kingdom';} },
-    top_number:   { label:'Top 15 sector investors — by number', list:true, top:'number' },
-    top_value:    { label:'Top 15 sector investors — by value',  list:true, dev:true },
-    bbb:          { label:'BBB backed businesses',         list:false, comp:'bbb' },
-    iuk:          { label:'IUK backed businesses',          list:false, comp:'iuk' },
-    nwf:          { label:'NWF backed businesses',          list:false, dev:true },
-    ukef:         { label:'UKEF backed businesses',         list:false, dev:true },
-    uk_pension:   { label:'UK pension / institutional',     list:true,  dev:true },
-    intl_pension: { label:'International pension / institutional', list:true, dev:true }
+    central_gov:{label:'Central Government only',list:true,inv:function(v){return v.type==='Central Government';}},
+    devolved_gov:{label:'Devolved Government only',list:true,inv:function(v){return v.type==='Devolved Government';}},
+    regions:{label:'Regions: Mayoral & Council',list:true,inv:function(v){return v.type==='Local and Regional Government';}},
+    international:{label:'International investors only',list:true,inv:function(v){return v.country && v.country!=='United Kingdom';}},
+    top_number:{label:'Top 15 sector investors — by number',list:true,top:'number'},
+    top_value:{label:'Top 15 sector investors — by value',list:true,dev:true},
+    bbb:{label:'BBB backed businesses',list:false,comp:'bbb'},
+    iuk:{label:'IUK backed businesses',list:false,comp:'iuk'},
+    nwf:{label:'NWF backed businesses',list:false,dev:true},
+    ukef:{label:'UKEF backed businesses',list:false,dev:true},
+    uk_pension:{label:'UK pension / institutional',list:true,dev:true},
+    intl_pension:{label:'International pension / institutional',list:true,dev:true}
   };
  
-  // ---------- load ----------
-  fetch('data/investors_enriched.json').then(function(r){return r.json();})
-    .then(function(d){ enriched=d||{}; console.log('enriched investors:', Object.keys(enriched).length); })
-    .catch(function(e){ console.error('enriched load failed', e); });
-  fetch('data/company_category_flags.json').then(function(r){return r.json();})
-    .then(function(d){ companyFlags=d||{}; console.log('company flags loaded'); })
-    .catch(function(e){ console.error('flags load failed', e); });
+  fetch('data/investors_enriched.json').then(r=>r.json()).then(d=>{enriched=d||{};console.log('enriched:',Object.keys(enriched).length);}).catch(e=>console.error(e));
+  fetch('data/company_category_flags.json').then(r=>r.json()).then(d=>{companyFlags=d||{};}).catch(e=>console.error(e));
+  fetch('data/company_investor_map.json').then(r=>r.json()).then(d=>{companyInvMap=d||{};}).catch(e=>console.error(e));
  
   function ready(fn){ if(document.readyState!=='loading') fn(); else document.addEventListener('DOMContentLoaded',fn); }
  
-  // ---------- compute matching companies (union across selected cats) ----------
-  function selectedSectors(){ return (typeof currentSectors!=='undefined')?currentSectors:[]; }
- 
-  // investors matching the current category selection (only list:true cats)
-  function matchingInvestors(){
-    if (!selectedCats.size) return [];
-    var sectors = selectedSectors();
-    var names = {};
+  // investors matching current CATEGORY selection (list:true, non-dev)
+  function categoryInvestors(){
+    var names={};
     selectedCats.forEach(function(key){
-      var c = CATS[key]; if(!c || !c.list || c.dev) return;
-      if (c.top === 'number') {
-        // top 15 per selected sector by companies backed (on map, within sector)
-        // approximate: rank enriched investors by n (company count), take top 15
-        var ranked = Object.keys(enriched).sort(function(a,b){return enriched[b].n-enriched[a].n;}).slice(0,TOP_N);
-        ranked.forEach(function(nm){ names[nm]=1; });
-      } else if (c.inv) {
-        Object.keys(enriched).forEach(function(nm){ if(c.inv(enriched[nm])) names[nm]=1; });
-      }
+      var c=CATS[key]; if(!c||!c.list||c.dev) return;
+      if(c.top==='number'){ Object.keys(enriched).sort((a,b)=>enriched[b].n-enriched[a].n).slice(0,TOP_N).forEach(n=>names[n]=1); }
+      else if(c.inv){ Object.keys(enriched).forEach(function(n){ if(c.inv(enriched[n])) names[n]=1; }); }
     });
     return Object.keys(names);
   }
  
-  // company numbers to mark (union across ALL selected cats)
+  // companies to mark. If individual investors are picked (#7) use those; else all cats.
   function matchingCompanies(){
-    var set = new Set();
-    if (!selectedCats.size) return set;
+    var set=new Set();
+    if(selectedInvestors.size){
+      selectedInvestors.forEach(function(nm){ (enriched[nm]&&enriched[nm].companies||[]).forEach(id=>set.add(id)); });
+      return set;
+    }
+    if(!selectedCats.size) return set;
     selectedCats.forEach(function(key){
-      var c = CATS[key]; if(!c || c.dev) return;
-      if (c.comp) {                                  // company-flag cats (bbb/iuk)
-        (companyFlags[c.comp]||[]).forEach(function(id){ set.add(id); });
-      } else if (c.top === 'number') {
-        matchingInvestors().forEach(function(nm){ (enriched[nm].companies||[]).forEach(function(id){set.add(id);}); });
-      } else if (c.inv) {
-        Object.keys(enriched).forEach(function(nm){
-          if (c.inv(enriched[nm])) (enriched[nm].companies||[]).forEach(function(id){ set.add(id); });
-        });
-      }
+      var c=CATS[key]; if(!c||c.dev) return;
+      if(c.comp){ (companyFlags[c.comp]||[]).forEach(id=>set.add(id)); }
+      else if(c.top==='number'){ categoryInvestors().forEach(nm=>(enriched[nm].companies||[]).forEach(id=>set.add(id))); }
+      else if(c.inv){ Object.keys(enriched).forEach(function(nm){ if(c.inv(enriched[nm])) (enriched[nm].companies||[]).forEach(id=>set.add(id)); }); }
     });
     return set;
   }
  
-  // ---------- markers + dim ----------
-  window.refreshInvestorMarkers = function () {
-    if (companyMarkerLayer){ map.removeLayer(companyMarkerLayer); companyMarkerLayer=null; }
-    if (!markersOn || !selectedCats.size){
-      window.investorHighlightSet=null;
-      if(typeof refreshHighlightStyles==='function') refreshHighlightStyles();
-      renderList();
-      return;
-    }
-    var hs = matchingCompanies();
-    window.investorHighlightSet = hs;
+  window.refreshInvestorMarkers = function(){
+    if(companyMarkerLayer){ map.removeLayer(companyMarkerLayer); companyMarkerLayer=null; }
+    if(!markersOn){ window.investorHighlightSet=null; if(typeof refreshHighlightStyles==='function') refreshHighlightStyles(); renderList(); return; }
+    var hs=matchingCompanies();
+    window.investorHighlightSet = hs.size?hs:null;
     if(typeof refreshHighlightStyles==='function') refreshHighlightStyles();
- 
-    companyMarkerLayer = L.layerGroup();
-    (window.allCompanyMarkers||[]).forEach(function(m){
-      var num=(typeof normCompNum==='function')?normCompNum(m._companyNumber):m._companyNumber;
-      if (hs.has(num)) L.marker(m.getLatLng(),{icon:ukInvestorIcon}).addTo(companyMarkerLayer);
-    });
-    companyMarkerLayer.addTo(map);
+    if(hs.size){
+      companyMarkerLayer=L.layerGroup();
+      (window.allCompanyMarkers||[]).forEach(function(m){
+        var num=(typeof normCompNum==='function')?normCompNum(m._companyNumber):m._companyNumber;
+        if(hs.has(num)){
+          // #5: clickable marker with the company's investor popup
+          var invs=companyInvMap[num]||[];
+          var sel={}; selectedInvestors.forEach(s=>sel[s]=1);
+          var li=invs.map(function(iv){return sel[iv]?'<li style="font-weight:600;color:var(--teal-dark,#00998A)">'+iv+'</li>':'<li>'+iv+'</li>';}).join('');
+          var popup='<div class="popup-content"><p><strong>Investors ('+invs.length+')</strong></p><ul style="margin:0;padding:6px 14px;list-style:none;">'+li+'</ul></div>';
+          L.marker(m.getLatLng(),{icon:ukInvestorIcon}).bindPopup(popup).addTo(companyMarkerLayer);
+        }
+      });
+      companyMarkerLayer.addTo(map);
+    }
     renderList();
   };
-  window.refreshUkPanel = function(){ renderList(); };
-  window.refreshNonUkPanel = function(){};
+  window.refreshUkPanel=function(){ renderList(); };
+  window.refreshNonUkPanel=function(){};
  
-  // ---------- the sliding investor list ----------
+  // #6: list slides out to the right of the box; #1 shows companies (enriched.n);
+  // #2 flags; #7 rows clickable to filter markers
   function renderList(){
-    var panel=document.getElementById('all-inv-list');
-    var body=document.getElementById('all-inv-body');
-    var count=document.getElementById('all-inv-count');
+    var panel=document.getElementById('all-inv-list'), body=document.getElementById('all-inv-body'), count=document.getElementById('all-inv-count');
     if(!panel||!body) return;
-    // only show list if at least one list:true (non-dev) cat is selected
-    var anyList=false; selectedCats.forEach(function(k){ if(CATS[k]&&CATS[k].list&&!CATS[k].dev) anyList=true; });
-    if(!markersOn || !anyList){ panel.classList.remove('show'); return; }
-    var names=matchingInvestors().sort(function(a,b){return enriched[b].n-enriched[a].n;});
+    var anyList=false; selectedCats.forEach(k=>{ if(CATS[k]&&CATS[k].list&&!CATS[k].dev) anyList=true; });
+    if(!markersOn||!anyList){ panel.classList.remove('show'); return; }
+    var names=categoryInvestors().sort((a,b)=>enriched[b].n-enriched[a].n);
     if(count) count.textContent=names.length+' investor'+(names.length===1?'':'s');
-    body.innerHTML = names.length
-      ? names.map(function(nm){ return '<div class="inv-row"><span class="nm">'+nm+'</span><span class="n">'+enriched[nm].n+'</span></div>'; }).join('')
-      : '<div class="empty">No investors match.</div>';
+    body.innerHTML = names.length ? names.map(function(nm){
+      var v=enriched[nm]||{n:0,country:''};
+      var iso=isoFor(v.country);
+      var flag=iso?'<span class="fi fi-'+iso+'"></span>':'<span style="width:20px;display:inline-block"></span>';
+      var on=selectedInvestors.has(nm)?' selected':'';
+      return '<div class="inv-row'+on+'" data-inv="'+nm.replace(/"/g,'&quot;')+'">'+flag+
+        '<span class="nm">'+nm+'</span><span class="n">'+v.n+'</span></div>';
+    }).join('') : '<div class="empty">No investors match.</div>';
     panel.classList.add('show');
   }
  
-  // ---------- the tag-dropdown multi-select ----------
   ready(function(){
     var btn=document.getElementById('investor-markers-btn');
     var box=document.getElementById('all-investors-box');
     var field=document.getElementById('all-inv-field');
     var menu=document.getElementById('all-inv-menu');
  
-    // build menu options
     if(menu){
-      menu.innerHTML=Object.keys(CATS).map(function(key){
-        var c=CATS[key];
-        return '<div class="ai-opt'+(c.dev?' dev':'')+'" data-key="'+key+'">'+
-          '<span class="tick"></span>'+c.label+(c.dev?' <span class="dev-tag">under development</span>':'')+'</div>';
-      }).join('');
+      menu.innerHTML=Object.keys(CATS).map(function(key){var c=CATS[key];
+        return '<div class="ai-opt'+(c.dev?' dev':'')+'" data-key="'+key+'"><span class="tick"></span>'+c.label+(c.dev?' <span class="dev-tag">under development</span>':'')+'</div>';}).join('');
       menu.querySelectorAll('.ai-opt:not(.dev)').forEach(function(opt){
         opt.addEventListener('click',function(){
           var key=opt.getAttribute('data-key');
-          if(selectedCats.has(key)){ selectedCats.delete(key); opt.classList.remove('sel'); opt.querySelector('.tick').textContent=''; }
-          else { selectedCats.add(key); opt.classList.add('sel'); opt.querySelector('.tick').textContent='✓'; }
+          if(selectedCats.has(key)){selectedCats.delete(key);opt.classList.remove('sel');opt.querySelector('.tick').textContent='';}
+          else{selectedCats.add(key);opt.classList.add('sel');opt.querySelector('.tick').textContent='✓';}
+          selectedInvestors.clear();            // changing categories resets individual picks
           renderField(); window.refreshInvestorMarkers();
         });
       });
@@ -3330,26 +3326,27 @@ const FinalAreaSearchControl = L.Control.extend({
     function renderField(){
       if(!field) return;
       if(!selectedCats.size){ field.innerHTML='<span class="ph">Select categories…</span>'; return; }
-      field.innerHTML=[...selectedCats].map(function(k){
-        return '<span class="token">'+CATS[k].label+'<span class="x" data-key="'+k+'">×</span></span>';
-      }).join('');
-      field.querySelectorAll('.x').forEach(function(x){ x.addEventListener('click',function(ev){
-        ev.stopPropagation(); var k=x.getAttribute('data-key'); selectedCats.delete(k);
-        if(menu){ var o=menu.querySelector('.ai-opt[data-key="'+k+'"]'); if(o){o.classList.remove('sel');o.querySelector('.tick').textContent='';} }
-        renderField(); window.refreshInvestorMarkers();
-      }); });
+      field.innerHTML=[...selectedCats].map(k=>'<span class="token">'+CATS[k].label+'<span class="x" data-key="'+k+'">×</span></span>').join('');
+      field.querySelectorAll('.x').forEach(function(x){ x.addEventListener('click',function(ev){ ev.stopPropagation();
+        var k=x.getAttribute('data-key'); selectedCats.delete(k);
+        if(menu){var o=menu.querySelector('.ai-opt[data-key="'+k+'"]'); if(o){o.classList.remove('sel');o.querySelector('.tick').textContent='';}}
+        selectedInvestors.clear(); renderField(); window.refreshInvestorMarkers(); }); });
     }
-    window.__renderAllInvField = renderField;
  
-    // "Show investors" button toggles the whole box
+    // #7: click an investor row -> toggle it; markers update to just selected investors
+    var listBody=document.getElementById('all-inv-body');
+    if(listBody) listBody.addEventListener('click',function(e){
+      var row=e.target.closest('.inv-row'); if(!row) return;
+      var nm=row.getAttribute('data-inv'); if(!nm) return;
+      if(selectedInvestors.has(nm)) selectedInvestors.delete(nm); else selectedInvestors.add(nm);
+      window.refreshInvestorMarkers();
+    });
+ 
     if(btn) btn.addEventListener('click',function(){
-      markersOn=!markersOn;
-      btn.classList.toggle('active',markersOn);
-      window.investorMarkersOn=markersOn;
-      var lbl=document.getElementById('investor-btn-label');
-      if(lbl) lbl.textContent=markersOn?'Hide investors':'Show investors';
+      markersOn=!markersOn; btn.classList.toggle('active',markersOn); window.investorMarkersOn=markersOn;
+      var lbl=document.getElementById('investor-btn-label'); if(lbl) lbl.textContent=markersOn?'Hide investors':'Show investors';
       if(box) box.style.display=markersOn?'block':'none';
-      if(!markersOn){ selectedCats.clear(); renderField(); }
+      if(!markersOn){ selectedCats.clear(); selectedInvestors.clear(); renderField(); }
       window.refreshInvestorMarkers();
     });
   });
