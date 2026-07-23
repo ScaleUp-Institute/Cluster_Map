@@ -3407,13 +3407,14 @@ const FinalAreaSearchControl = L.Control.extend({
       '</div>';
   }
 
+  var backedStatsHidden=false;
   function renderBackedStats(){
     var panel=document.getElementById('backed-stats-panel');
     var body=document.getElementById('backed-stats-body');
     var title=document.getElementById('backed-stats-title');
     if(!panel||!body) return;
     var showBBB=selectedCats.has('bbb'), showIUK=selectedCats.has('iuk');
-    if(!markersOn || (!showBBB && !showIUK)){ panel.classList.remove('show'); return; }
+    if(!markersOn || (!showBBB && !showIUK) || backedStatsHidden){ panel.classList.remove('show'); return; }
     var html='';
     if(showBBB) html+=backedStatsHtml('BBB backed', backedStats('bbb'));
     if(showIUK) html+=backedStatsHtml('IUK backed', backedStats('iuk'));
@@ -3522,6 +3523,12 @@ const FinalAreaSearchControl = L.Control.extend({
   ready(function () {
     var methBtn = document.getElementById('methodology-btn');
     var methContent = document.getElementById('methodology-content');
+
+    var bsClose=document.getElementById('backed-stats-close');
+    if(bsClose) bsClose.addEventListener('click',function(){
+      backedStatsHidden=true;
+      var p=document.getElementById('backed-stats-panel'); if(p) p.classList.remove('show');
+    });
     
     if (methBtn && methContent) {
       methBtn.addEventListener('click', function () {
