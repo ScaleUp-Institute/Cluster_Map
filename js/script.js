@@ -3393,7 +3393,7 @@ const FinalAreaSearchControl = L.Control.extend({
           var inBBB = companyFlags.bbb && companyFlags.bbb.indexOf(num) !== -1;
           var inIUK = companyFlags.iuk && companyFlags.iuk.indexOf(num) !== -1;
           var markerIcon = ukInvestorIcon;
-          if (selectedCats.has('bbb') && selectedCats.has('iuk') && inBBB && inIUK) {
+          if ((selectedCats.has('bbb_iuk_both') || (selectedCats.has('bbb') && selectedCats.has('iuk'))) && inBBB && inIUK) {
             markerIcon = dualInvestorIcon;
           } else if (selectedCats.has('bbb') && inBBB) {
             markerIcon = bbbIcon;
