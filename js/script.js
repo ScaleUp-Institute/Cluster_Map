@@ -2230,16 +2230,44 @@ function updateClusterLayers() {
 
 function refreshHighlightStyles() {
   var hs = window.investorHighlightSet;
+  var activeRegions = window.selectedRegions || [];
+  var regionFeatures = window.__regionFeatures || [];
+  var nameKey = window.__regionNameKey || 'ITL121NM';
+  
+  // Isolate just the geographical features for the currently selected regions
+  var activeRegionFeatures = regionFeatures.filter(function(f) {
+    return activeRegions.indexOf(f.properties[nameKey]) !== -1;
+  });
+
   (window.allCompanyMarkers || []).forEach(function(m){
     var num = normCompNum(m._companyNumber);
-    var dimmed = hs && !hs.has(num);
-    m._dimmed = !!dimmed;                        // remember state for hover
-    if (!hs) {
-      m.setStyle && m.setStyle({ fillOpacity: 0.8, opacity: 1 });
-    } else if (hs.has(num)) {
-      m.setStyle && m.setStyle({ fillOpacity: 1, opacity: 1 });
-    } else {
+    
+    // 1. Check if it fails the Investor filter
+    var failsInvestor = hs && !hs.has(num);
+    
+    // 2. Check if it fails the Region filter (using Turf.js for point-in-polygon)
+    var failsRegion = false;
+    if (activeRegions.length > 0) {
+      failsRegion = true; // Assume it fails until proven inside the boundary
+      var pt = turf.point([m.getLatLng().lng, m.getLatLng().lat]);
+      for (var i = 0; i < activeRegionFeatures.length; i++) {
+        try { 
+          if (turf.booleanPointInPolygon(pt, activeRegionFeatures[i])) { 
+            failsRegion = false; 
+            break; 
+          } 
+        } catch(e){}
+      }
+    }
+    
+    // If it fails EITHER filter, dim it.
+    var dimmed = failsInvestor || failsRegion;
+    m._dimmed = !!dimmed; // Remember state so the hover effect doesn't break
+
+    if (dimmed) {
       m.setStyle && m.setStyle({ fillOpacity: 0.12, opacity: 0.1 });
+    } else {
+      m.setStyle && m.setStyle({ fillOpacity: 0.8, opacity: 1 });
     }
   });
 }
@@ -3866,11 +3894,9 @@ const FinalAreaSearchControl = L.Control.extend({
   window.refreshRegionLayer = function () {
     if (regionLayer) { map.removeLayer(regionLayer); regionLayer = null; }
     
-    // If no regions are selected, reset map view and marker styles
+    // If no regions are selected, clear map view bounds and reset styles via Master Filter
     if (!regionGeo || selectedRegions.length === 0) {
-      (window.allCompanyMarkers || []).forEach(function(m) {
-        m.setStyle({ fillOpacity: 0.8, opacity: 1 });
-      });
+      if (typeof window.applyMasterFilters === 'function') window.applyMasterFilters();
       map.closePopup();
       return; 
     }   
@@ -3881,19 +3907,8 @@ const FinalAreaSearchControl = L.Control.extend({
 
     var filteredGeo = { type: "FeatureCollection", features: filteredFeatures };
 
-    // Dim markers outside the selected regions
-    (window.allCompanyMarkers || []).forEach(function(m) {
-      var pt = turf.point([m.getLatLng().lng, m.getLatLng().lat]);
-      var inside = false;
-      for (var i = 0; i < filteredFeatures.length; i++) {
-        try { if (turf.booleanPointInPolygon(pt, filteredFeatures[i])) { inside = true; break; } } catch(e){}
-      }
-      if (inside) {
-        m.setStyle({ fillOpacity: 1, opacity: 1 });
-      } else {
-        m.setStyle({ fillOpacity: 0.12, opacity: 0.1 });
-      }
-    });
+    // Trigger unified marker dimming
+    if (typeof window.applyMasterFilters === 'function') window.applyMasterFilters();
 
     regionLayer = L.geoJSON(filteredGeo, {
       style: function () {
