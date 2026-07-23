@@ -3260,6 +3260,7 @@ const FinalAreaSearchControl = L.Control.extend({
     top_value:{label:'Top 15 sector investors — by value',list:true,dev:true},
     bbb:{label:'BBB backed businesses',list:false,comp:'bbb'},
     iuk:{label:'IUK backed businesses',list:false,comp:'iuk'},
+    bbb_iuk_both:{label:'BBB & IUK backed (both)',list:false,comp:'both'},
     nwf:{label:'NWF backed businesses',list:false,dev:true},
     ukef:{label:'UKEF backed businesses',list:false,dev:true},
     uk_pension:{label:'UK pension / institutional',list:true,inv:function(v){return v.pension==='uk_pension';}},
@@ -3322,7 +3323,11 @@ const FinalAreaSearchControl = L.Control.extend({
       } else {
         selectedCats.forEach(function(key){
           var c=CATS[key]; if(!c||c.dev) return;
-          if(c.comp){ (companyFlags[c.comp]||[]).forEach(id=>set.add(id)); }
+          if(c.comp==='both'){
+            var bset=new Set(companyFlags.bbb||[]);
+            (companyFlags.iuk||[]).forEach(function(id){ if(bset.has(id)) set.add(id); });
+          }
+          else if(c.comp){ (companyFlags[c.comp]||[]).forEach(id=>set.add(id)); }
           else if(c.top==='number'){ categoryInvestors().forEach(nm=>(enriched[nm].companies||[]).forEach(id=>set.add(id))); }
           else if(c.inv){ Object.keys(enriched).forEach(function(nm){
             if(c.inv(enriched[nm]) && (!tf||enriched[nm].type===tf)) (enriched[nm].companies||[]).forEach(id=>set.add(id));
