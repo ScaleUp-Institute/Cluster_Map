@@ -3427,12 +3427,9 @@ const FinalAreaSearchControl = L.Control.extend({
   function renderList(){
     var panel=document.getElementById('all-inv-list'), body=document.getElementById('all-inv-body'), count=document.getElementById('all-inv-count');
     if(!panel||!body) return;
+    renderBackedStats();                        // <-- always run first, independent of the list
     var anyList=false; selectedCats.forEach(k=>{ if(CATS[k]&&CATS[k].list&&!CATS[k].dev) anyList=true; });
-    if(!markersOn){ panel.classList.remove('show'); return; }
-
-    // BBB / IUK headline stats (marker-only cats) -> show stats instead of an investor list
-    var showBBB = selectedCats.has('bbb'), showIUK = selectedCats.has('iuk');
-    if(!anyList){ panel.classList.remove('show'); return; }
+    if(!markersOn||!anyList){ panel.classList.remove('show'); return; }
     var names=categoryInvestors().sort((a,b)=>enriched[b].n-enriched[a].n);
     if(count) count.textContent=names.length+' investor'+(names.length===1?'':'s');
     var t2=document.getElementById('all-inv-title'); if(t2) t2.textContent='Investors';
@@ -3445,8 +3442,6 @@ const FinalAreaSearchControl = L.Control.extend({
         '<span class="nm">'+nm+'</span><span class="n">'+v.n+'</span></div>';
     }).join('') : '<div class="empty">No investors match.</div>';
     panel.classList.add('show');
-
-    renderBackedStats();
   }
  
   ready(function(){
