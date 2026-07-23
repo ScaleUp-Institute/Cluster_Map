@@ -3188,6 +3188,12 @@ const FinalAreaSearchControl = L.Control.extend({
  
   var ukInvestorIcon = L.icon({ iconUrl:'data/UK investor marker.png',
     iconSize:[35,35], iconAnchor:[17,35], popupAnchor:[0,-32] });
+
+  var bbbIcon = L.icon({ iconUrl:'data/BBB Marker.png', // <-- Update filename if needed
+    iconSize:[35,35], iconAnchor:[17,35], popupAnchor:[0,-32] });
+    
+  var iukIcon = L.icon({ iconUrl:'data/IUK Marker.png', // <-- Update filename if needed
+    iconSize:[35,35], iconAnchor:[17,35], popupAnchor:[0,-32] });
  
   // country -> ISO2 for flags (#2)
   var ISO = {'united kingdom':'gb','united states':'us','united states of america':'us','ireland':'ie',
@@ -3299,7 +3305,17 @@ const FinalAreaSearchControl = L.Control.extend({
             </div>
           `;
           
-          L.marker(m.getLatLng(),{icon:ukInvestorIcon}).bindPopup(popup).addTo(companyMarkerLayer);
+          // Determine which icon to use based on the active category and company data
+          var markerIcon = ukInvestorIcon; // Default fallback
+          
+          if (selectedCats.has('bbb') && companyFlags['bbb'] && companyFlags['bbb'].indexOf(num) !== -1) {
+            markerIcon = bbbIcon;
+          } else if (selectedCats.has('iuk') && companyFlags['iuk'] && companyFlags['iuk'].indexOf(num) !== -1) {
+            markerIcon = iukIcon;
+          }
+          
+          // Apply the chosen icon
+          L.marker(m.getLatLng(), {icon: markerIcon}).bindPopup(popup).addTo(companyMarkerLayer);
         }
       });
       companyMarkerLayer.addTo(map);
