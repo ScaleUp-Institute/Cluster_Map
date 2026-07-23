@@ -1292,27 +1292,50 @@ button:active { transform: scale(0.98); }
 .backed-list li{ display:flex; justify-content:space-between; font-size:12px; color:var(--text-soft); padding:3px 0; border-bottom:0.5px solid #f4f2ec; }
 .backed-list li span{ font-family:var(--font-head); font-variant-numeric:tabular-nums; color:var(--text); }
 
-#backed-stats-panel{
-    position:absolute; top:150px; right:360px;   /* just left of the right panel */
-    width:300px; max-height:66vh; z-index:3298;
-    background:var(--paper); border:0.5px solid var(--line); border-radius:14px;
-    box-shadow:0 6px 22px rgba(14,27,44,.14); overflow:hidden; display:none; flex-direction:column;
-  }
-  #backed-stats-panel.show{ display:flex; }
-  #backed-stats-panel .all-inv-head{ flex:0 0 auto; }
-  #backed-stats-body{ flex:1 1 auto; overflow-y:auto; }
+/* ---------- Backed Stats Panel ---------- */
+#backed-stats-panel {
+  position: absolute;
+  top: 80px;
+  /* Mathematically anchors to the left of the right-frame (25% or 270px min-width) + 16px gap */
+  right: calc(max(25%, 270px) + 16px);
+  width: 300px; 
+  max-height: 74vh; 
+  z-index: 3300;
+  background: var(--paper); 
+  border: 0.5px solid var(--line); 
+  border-radius: 14px;
+  box-shadow: 0 6px 22px rgba(14,27,44,.16);
+  overflow: hidden; 
+  display: none; 
+  flex-direction: column;
+}
 
-#backed-stats-panel{
-    position:fixed;
-    top:80px;
-    right:370px;                 /* sits just LEFT of the right panel; tune to your panel width */
-    width:300px; max-height:74vh; z-index:3000;
-    background:var(--paper); border:0.5px solid var(--line); border-radius:14px;
-    box-shadow:0 6px 22px rgba(14,27,44,.16);
-    overflow:hidden; display:none; flex-direction:column;
-  }
-  #backed-stats-panel.show{ display:flex; }
-  #backed-stats-panel .all-inv-head{ flex:0 0 auto; display:flex; justify-content:space-between; align-items:center; }
-  #backed-stats-panel #backed-stats-close{ background:none; border:none; color:var(--on-ink-dim); font-size:1.3rem; line-height:1; cursor:pointer; padding:0 2px; }
-  #backed-stats-panel #backed-stats-close:hover{ color:#fff; }
-  #backed-stats-body{ flex:1 1 auto; overflow-y:auto; }
+#backed-stats-panel.show { 
+  display: flex; 
+}
+
+#backed-stats-panel .all-inv-head { 
+  flex: 0 0 auto; 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+}
+
+#backed-stats-panel #backed-stats-close { 
+  background: none; 
+  border: none; 
+  color: var(--on-ink-dim); 
+  font-size: 1.3rem; 
+  line-height: 1; 
+  cursor: pointer; 
+  padding: 0 2px; 
+}
+
+#backed-stats-panel #backed-stats-close:hover { 
+  color: #fff; 
+}
+
+#backed-stats-body { 
+  flex: 1 1 auto; 
+  overflow-y: auto; 
+}
