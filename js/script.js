@@ -3194,6 +3194,9 @@ const FinalAreaSearchControl = L.Control.extend({
     
   var iukIcon = L.icon({ iconUrl:'data/IUK Marker.png', // <-- Update filename if needed
     iconSize:[35,35], iconAnchor:[17,35], popupAnchor:[0,-32] });
+
+  var dualInvestorIcon = L.icon({ iconUrl:'data/dual investor marker.png',
+    iconSize:[35,35], iconAnchor:[17,35], popupAnchor:[0,-32] });
  
   // country -> ISO2 for flags (#2)
   var ISO = {'united kingdom':'gb','united states':'us','united states of america':'us','ireland':'ie',
@@ -3227,12 +3230,11 @@ const FinalAreaSearchControl = L.Control.extend({
     intl_pension:{label:'International pension / institutional',list:true,inv:function(v){return v.pension==='intl_pension'||v.pension==='swf';}},
   };
  
-  fetch('data/investors_enriched.json').then(r=>r.json()).then(d=>{enriched=d||{};console.log('enriched:',Object.keys(enriched).length);}).catch(e=>console.error(e));
   fetch('data/company_category_flags.json').then(r=>r.json()).then(d=>{companyFlags=d||{};}).catch(e=>console.error(e));
+  fetch('data/company_investor_map.json').then(r=>r.json()).catch(()=>null); // optional; map built below
   fetch('data/investors_enriched.json').then(r=>r.json()).then(d=>{
     enriched=d||{};
     console.log('enriched:',Object.keys(enriched).length);
-    // build company -> [investors] from enriched (avoids needing a separate file)
     companyInvMap={};
     Object.keys(enriched).forEach(function(inv){
       (enriched[inv].companies||[]).forEach(function(cid){
@@ -3240,6 +3242,16 @@ const FinalAreaSearchControl = L.Control.extend({
       });
     });
     window.companyInvMap = companyInvMap;
+    // populate the investor-type dropdown now that enriched is loaded
+    var typeSel=document.getElementById('all-inv-type');
+    if(typeSel && typeSel.options.length<=1){
+      var types={};
+      Object.keys(enriched).forEach(function(nm){ var t=(enriched[nm].type||'').trim(); if(t) types[t]=1; });
+      Object.keys(types).sort().forEach(function(t){
+        var o=document.createElement('option'); o.value=t; o.textContent=t; typeSel.appendChild(o);
+      });
+      typeSel.addEventListener('change', function(){ window.refreshInvestorMarkers(); });
+    }
   }).catch(e=>console.error(e));
  
   function ready(fn){ if(document.readyState!=='loading') fn(); else document.addEventListener('DOMContentLoaded',fn); }
@@ -3247,10 +3259,15 @@ const FinalAreaSearchControl = L.Control.extend({
   // investors matching current CATEGORY selection (list:true, non-dev)
   function categoryInvestors(){
     var names={};
+    var tf=currentTypeFilter();
     selectedCats.forEach(function(key){
       var c=CATS[key]; if(!c||!c.list||c.dev) return;
-      if(c.top==='number'){ Object.keys(enriched).sort((a,b)=>enriched[b].n-enriched[a].n).slice(0,TOP_N).forEach(n=>names[n]=1); }
-      else if(c.inv){ Object.keys(enriched).forEach(function(n){ if(c.inv(enriched[n])) names[n]=1; }); }
+      if(c.top==='number'){
+        Object.keys(enriched).filter(function(n){return !tf||enriched[n].type===tf;})
+          .sort((a,b)=>enriched[b].n-enriched[a].n).slice(0,TOP_N).forEach(n=>names[n]=1);
+      } else if(c.inv){
+        Object.keys(enriched).forEach(function(n){ if(c.inv(enriched[n]) && (!tf||enriched[n].type===tf)) names[n]=1; });
+      }
     });
     return Object.keys(names);
   }
@@ -3306,17 +3323,17 @@ const FinalAreaSearchControl = L.Control.extend({
             </div>
           `;
           
-          // Determine which icon to use based on the active category and company data
-          var markerIcon = ukInvestorIcon; // Default fallback
-          
-          if (selectedCats.has('bbb') && companyFlags['bbb'] && companyFlags['bbb'].indexOf(num) !== -1) {
+          var inBBB = companyFlags.bbb && companyFlags.bbb.indexOf(num) !== -1;
+          var inIUK = companyFlags.iuk && companyFlags.iuk.indexOf(num) !== -1;
+          var markerIcon = ukInvestorIcon;
+          if (selectedCats.has('bbb') && selectedCats.has('iuk') && inBBB && inIUK) {
+            markerIcon = dualInvestorIcon;
+          } else if (selectedCats.has('bbb') && inBBB) {
             markerIcon = bbbIcon;
-          } else if (selectedCats.has('iuk') && companyFlags['iuk'] && companyFlags['iuk'].indexOf(num) !== -1) {
+          } else if (selectedCats.has('iuk') && inIUK) {
             markerIcon = iukIcon;
           }
-          
-          // Apply the chosen icon
-          L.marker(m.getLatLng(), {icon: markerIcon}).bindPopup(popup).addTo(companyMarkerLayer);
+          L.marker(m.getLatLng(), {icon: markerIcon}).bindPopup(popup, {maxWidth:280}).addTo(companyMarkerLayer);
         }
       });
       companyMarkerLayer.addTo(map);
