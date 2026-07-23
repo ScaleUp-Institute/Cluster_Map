@@ -3499,9 +3499,19 @@ const FinalAreaSearchControl = L.Control.extend({
     if(!panel||!body) return;
     renderBackedStats();                        
     var anyList=false; selectedCats.forEach(k=>{ if(CATS[k]&&CATS[k].list&&!CATS[k].dev) anyList=true; });
-    if(!markersOn||!anyList){ panel.classList.remove('show'); return; }
-    
-    var names=categoryInvestors();
+    // also show the list for the default / type-only case (no category, or only marker-only cats selected)
+    var tf=currentTypeFilter();
+    var onlyMarkerCats = selectedCats.size>0 && !anyList;   // e.g. only BBB/IUK selected
+    var showDefaultList = !selectedCats.size;               // "All types" default
+    if(!markersOn || (!anyList && !showDefaultList)){ panel.classList.remove('show'); return; }
+
+    var names;
+    if(anyList){
+      names=categoryInvestors();
+    } else {
+      // default: all investors, optionally narrowed by the type dropdown
+      names=Object.keys(enriched).filter(function(nm){ return !tf || enriched[nm].type===tf; });
+    }
     var dynamicCounts = {};
     
     if (window.selectedRegions && window.selectedRegions.length > 0) {
