@@ -3743,6 +3743,7 @@ const FinalAreaSearchControl = L.Control.extend({
       map.fitBounds(regionLayer.getBounds(), { padding: [30, 30] });
     }
   };
+})();
 
 // ---- Multi-Step Map Onboarding Tour ----
 (function () {
