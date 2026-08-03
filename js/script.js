@@ -100,6 +100,8 @@ map.getPane('polygonsPane').style.zIndex = 400; // Below markerPane (600)
 map.createPane('finalAreasBoundaryPane');
 map.getPane('finalAreasBoundaryPane').style.zIndex = 350;
 map.getPane('markerPane').style.zIndex = 600;
+map.createPane('primesPane');
+map.getPane('primesPane').style.zIndex = 650;   // above company markers (markerPane 600)
 // Ensure popupPane is above other panes
 map.getPane('popupPane').style.zIndex = 700;
 
@@ -3656,15 +3658,25 @@ const FinalAreaSearchControl = L.Control.extend({
     return '£'+Math.round(n);
   }
   function popupHtml(p, loc){
+    var town = loc.la ? '<p><strong>Town / area:</strong> '+loc.la+'</p>' : '';
     return '<div class="popup-content">'+
       '<p><strong>'+p.name+'</strong></p>'+
       '<p><strong>Company ID:</strong> '+p.id+'</p>'+
+      town+
       '<p><strong>Employees (this office):</strong> '+(loc.employees!=null?loc.employees.toLocaleString():'n/a')+'</p>'+
       '<p><strong>Turnover (this office):</strong> '+fmtMoney(loc.turnover)+'</p>'+
       '<p><strong>Sector'+(p.sectors.length>1?'s':'')+':</strong> '+(p.sectors.join(', ')||'n/a')+'</p>'+
       '<p><strong>Total UK offices:</strong> '+p.n_offices+'</p>'+
     '</div>';
   }
+
+  function locInSelectedRegion(loc){
+    var sel = window.selectedRegions || [];
+    if(!sel.length) return true;
+    var reg = itlRegionFor({Latitude: loc.lat, Longitude: loc.lng});
+    return sel.indexOf(reg) !== -1;
+  }
+
   window.refreshPrimes = function(){
     if(primeLayer){ map.removeLayer(primeLayer); primeLayer=null; }
     if(!primesOn) return;
@@ -3675,7 +3687,10 @@ const FinalAreaSearchControl = L.Control.extend({
       var icon = (p.sectors && p.sectors.length>1) ? primeMultiIcon : primeIcon;
       (p.locations||[]).forEach(function(loc){
         if(loc.lat==null||loc.lng==null) return;
-        L.marker([loc.lat,loc.lng],{icon:icon}).bindPopup(popupHtml(p,loc),{maxWidth:280}).addTo(primeLayer);
+        if(!locInSelectedRegion(loc)) return;
+        L.marker([loc.lat,loc.lng],{icon:icon, pane:'primesPane'})
+          .bindPopup(popupHtml(p,loc),{maxWidth:280})
+          .addTo(primeLayer);
       });
     });
     primeLayer.addTo(map);
@@ -3688,6 +3703,8 @@ const FinalAreaSearchControl = L.Control.extend({
       btn.classList.toggle('active',primesOn);
       var lbl=document.getElementById('primes-btn-label');
       if(lbl) lbl.textContent=primesOn?'Hide Primes':'Show Primes';
+      var pl=document.getElementById('primes-legend');
+      if(pl) pl.style.display = primesOn ? 'block' : 'none';
       window.refreshPrimes();
     });
   });
@@ -3947,6 +3964,7 @@ const FinalAreaSearchControl = L.Control.extend({
         
         // Re-render investor lists/markers to reflect the new region bounds
         if (typeof window.refreshInvestorMarkers === 'function') window.refreshInvestorMarkers();
+        if (typeof window.refreshPrimes === 'function') window.refreshPrimes();
       }
     });
   }
