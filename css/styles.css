@@ -1341,3 +1341,22 @@ button:active { transform: scale(0.98); }
 }
 
 #primes-btn.active{ background:var(--ink); color:#fff; }
+
+#primes-btn{
+  width:100%;
+  text-align:center;
+  background:var(--panel-bg);
+  color:var(--text);
+  border:0.5px solid var(--line-strong);
+  border-radius:var(--radius-sm);
+  padding:11px 14px;
+  font-size:13px;
+  font-weight:500;
+  cursor:pointer;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  transition:all 0.2s ease;
+}
+#primes-btn:hover{ border-color:var(--teal); color:var(--teal-dark); }
+#primes-btn.active{ background:var(--ink); color:#fff; border-color:var(--ink); }
