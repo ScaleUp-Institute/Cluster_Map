@@ -3734,14 +3734,8 @@ const FinalAreaSearchControl = L.Control.extend({
     if (methBtn && methContent) {
       methBtn.addEventListener('click', function () {
         var isHidden = methContent.style.display === 'none';
-        
-        // Toggle visibility
         methContent.style.display = isHidden ? 'block' : 'none';
-        
-        // Toggle active button state
         methBtn.classList.toggle('active', isHidden);
-        
-        // Optional: Scroll to bottom so the user immediately sees the text
         if (isHidden) {
           setTimeout(function() {
             methContent.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -3749,6 +3743,13 @@ const FinalAreaSearchControl = L.Control.extend({
         }
       });
     }
+
+    // accordion blocks — wire ONCE at load, outside the button handler
+    document.querySelectorAll('.method-block-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        btn.parentElement.classList.toggle('open');
+      });
+    });
   });
 })();
 
