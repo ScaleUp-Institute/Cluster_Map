@@ -1865,6 +1865,7 @@ function handleSectorSelectionChange () {
   if (typeof refreshNonUkPanel === 'function') refreshNonUkPanel();
   if (typeof refreshUkPanel === 'function') refreshUkPanel();
   if (typeof refreshRegionLayer === 'function') refreshRegionLayer();
+  if (window.refreshPrimes) window.refreshPrimes();
 }
 
 function populateSectorCheckboxes(sectorsList) {
@@ -3625,6 +3626,70 @@ const FinalAreaSearchControl = L.Control.extend({
       if (helpBtn) helpBtn.classList.toggle('shift-right', open);
     });
     obs.observe(stats, { attributes:true, attributeFilter:['class'] });
+  });
+})();
+
+(function(){
+  var primes = {}, primesOn = false, primeLayer = null;
+  var primeIcon = L.icon({ iconUrl:'data/prime marker.png',
+    iconSize:[32,32], iconAnchor:[16,32], popupAnchor:[0,-30] });
+  var primeMultiIcon = L.icon({ iconUrl:'data/prime multi marker.png',
+    iconSize:[32,32], iconAnchor:[16,32], popupAnchor:[0,-30] });
+
+  fetch('data/primes.json').then(r=>r.json()).then(d=>{ primes=d||{};
+    console.log('primes loaded:', Object.keys(primes).length);
+  }).catch(e=>console.error('primes.json load failed', e));
+
+  function selectedSectors(){ return (typeof currentSectors!=='undefined' && currentSectors) ? currentSectors : []; }
+  function primeVisible(p){
+    var sel=selectedSectors();
+    if(!sel.length) return true;
+    if(!p.sectors||!p.sectors.length) return false;
+    for(var i=0;i<p.sectors.length;i++){ if(sel.indexOf(p.sectors[i])!==-1) return true; }
+    return false;
+  }
+  function fmtMoney(n){
+    if(n==null) return 'n/a';
+    if(n>=1e9) return '£'+(n/1e9).toFixed(1)+'B';
+    if(n>=1e6) return '£'+(n/1e6).toFixed(1)+'M';
+    if(n>=1e3) return '£'+(n/1e3).toFixed(0)+'K';
+    return '£'+Math.round(n);
+  }
+  function popupHtml(p, loc){
+    return '<div class="popup-content">'+
+      '<p><strong>'+p.name+'</strong></p>'+
+      '<p><strong>Company ID:</strong> '+p.id+'</p>'+
+      '<p><strong>Employees (this office):</strong> '+(loc.employees!=null?loc.employees.toLocaleString():'n/a')+'</p>'+
+      '<p><strong>Turnover (this office):</strong> '+fmtMoney(loc.turnover)+'</p>'+
+      '<p><strong>Sector'+(p.sectors.length>1?'s':'')+':</strong> '+(p.sectors.join(', ')||'n/a')+'</p>'+
+      '<p><strong>Total UK offices:</strong> '+p.n_offices+'</p>'+
+    '</div>';
+  }
+  window.refreshPrimes = function(){
+    if(primeLayer){ map.removeLayer(primeLayer); primeLayer=null; }
+    if(!primesOn) return;
+    primeLayer = L.layerGroup();
+    Object.keys(primes).forEach(function(cid){
+      var p=primes[cid];
+      if(!primeVisible(p)) return;
+      var icon = (p.sectors && p.sectors.length>1) ? primeMultiIcon : primeIcon;
+      (p.locations||[]).forEach(function(loc){
+        if(loc.lat==null||loc.lng==null) return;
+        L.marker([loc.lat,loc.lng],{icon:icon}).bindPopup(popupHtml(p,loc),{maxWidth:280}).addTo(primeLayer);
+      });
+    });
+    primeLayer.addTo(map);
+  };
+  function ready(fn){ if(document.readyState!=='loading') fn(); else document.addEventListener('DOMContentLoaded',fn); }
+  ready(function(){
+    var btn=document.getElementById('primes-btn');
+    if(btn) btn.addEventListener('click',function(){
+      primesOn=!primesOn;
+      btn.classList.toggle('active',primesOn);
+      var lbl=document.getElementById('primes-btn-label');
+      if(lbl) lbl.textContent=primesOn?'Hide Primes':'Show Primes';
+      window.refreshPrimes();
+    });
   });
 })();
 
