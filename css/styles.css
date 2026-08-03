@@ -1378,9 +1378,9 @@ button:active { transform: scale(0.98); }
 }
 .method-block-btn:hover { color: var(--teal-dark, #00998A); }
 .mb-chev { font-size: 10px; color: var(--text-soft); transition: transform 0.25s ease; }
-.method-block.open .mb-chev { transform: rotate(180deg); }
+.method-block:hover .mb-chev { transform: rotate(180deg); }
 .method-block-body {
   max-height: 0; overflow: hidden; transition: max-height 0.3s ease;
   font-size: 11.5px; line-height: 1.5; color: var(--text-soft); font-style: italic;
 }
-.method-block.open .method-block-body { max-height: 400px; padding: 0 2px 12px; }
+.method-block:hover .method-block-body { max-height: 400px; padding: 0 2px 12px; }
