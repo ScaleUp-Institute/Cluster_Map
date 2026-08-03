@@ -1368,3 +1368,19 @@ button:active { transform: scale(0.98); }
 #primes-legend .pl-title{ font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-soft,#5f6b77); margin-bottom:6px; }
 #primes-legend .pl-row{ display:flex; align-items:center; gap:8px; margin:4px 0; }
 #primes-legend .pl-row img{ width:18px; height:18px; }
+
+.method-block { border-bottom: 0.5px solid var(--line); }
+.method-block:last-child { border-bottom: none; }
+.method-block-btn {
+  width: 100%; text-align: left; background: none; border: none;
+  padding: 10px 2px; font-family: var(--font-body); font-size: 12px; font-weight: 600;
+  color: var(--text); cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+}
+.method-block-btn:hover { color: var(--teal-dark, #00998A); }
+.mb-chev { font-size: 10px; color: var(--text-soft); transition: transform 0.25s ease; }
+.method-block.open .mb-chev { transform: rotate(180deg); }
+.method-block-body {
+  max-height: 0; overflow: hidden; transition: max-height 0.3s ease;
+  font-size: 11.5px; line-height: 1.5; color: var(--text-soft); font-style: italic;
+}
+.method-block.open .method-block-body { max-height: 400px; padding: 0 2px 12px; }
