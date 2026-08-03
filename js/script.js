@@ -3694,14 +3694,13 @@ const FinalAreaSearchControl = L.Control.extend({
     primeLayer = L.layerGroup();
     Object.keys(primes).forEach(function(cid){
       var p=primes[cid];
+      if(cid==='04463534') console.log('BBC reached. visible?', primeVisible(p), 'locs:', p.locations);
       if(!primeVisible(p)) return;
       var icon = (p.sectors && p.sectors.length>1) ? primeMultiIcon : primeIcon;
       (p.locations||[]).forEach(function(loc){
+        if(cid==='04463534') console.log('BBC loc:', loc.lat, loc.lng);
         if(loc.lat==null||loc.lng==null) return;
-        if(!locInSelectedRegion(loc)) return;
-        L.marker([loc.lat,loc.lng],{icon:icon, pane:'primesPane'})
-          .bindPopup(popupHtml(p,loc),{maxWidth:280})
-          .addTo(primeLayer);
+        L.marker([loc.lat,loc.lng],{icon:icon}).bindPopup(popupHtml(p,loc),{maxWidth:280}).addTo(primeLayer);
       });
     });
     primeLayer.addTo(map);
