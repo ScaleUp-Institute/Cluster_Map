@@ -3743,13 +3743,6 @@ const FinalAreaSearchControl = L.Control.extend({
         }
       });
     }
-
-    // accordion blocks — wire ONCE at load, outside the button handler
-    document.querySelectorAll('.method-block-btn').forEach(function(btn){
-      btn.addEventListener('click', function(){
-        btn.parentElement.classList.toggle('open');
-      });
-    });
   });
 })();
 
