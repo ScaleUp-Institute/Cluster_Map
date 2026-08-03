@@ -1340,8 +1340,6 @@ button:active { transform: scale(0.98); }
   overflow-y: auto; 
 }
 
-#primes-btn.active{ background:var(--ink); color:#fff; }
-
 #primes-btn{
   width:100%;
   text-align:center;
