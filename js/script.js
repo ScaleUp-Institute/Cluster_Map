@@ -3670,6 +3670,17 @@ const FinalAreaSearchControl = L.Control.extend({
     '</div>';
   }
 
+  function itlRegionFor(c){
+    var feats=window.__regionFeatures||[]; var key=window.__regionNameKey||'ITL121NM';
+    var lat=parseFloat(c.Latitude), lng=parseFloat(c.Longitude);
+    if(isNaN(lat)||isNaN(lng)||!feats.length||typeof turf==='undefined') return 'Unknown';
+    var pt=turf.point([lng,lat]);
+    for(var i=0;i<feats.length;i++){
+      try{ if(turf.booleanPointInPolygon(pt,feats[i])) return feats[i].properties[key]||'Unknown'; }catch(e){}
+    }
+    return 'Unknown';
+  }
+
   function locInSelectedRegion(loc){
     var sel = window.selectedRegions || [];
     if(!sel.length) return true;
