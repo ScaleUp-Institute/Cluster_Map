@@ -1384,3 +1384,27 @@ button:active { transform: scale(0.98); }
   font-size: 11.5px; line-height: 1.5; color: var(--text-soft); font-style: italic;
 }
 .method-block:hover .method-block-body { max-height: 400px; padding: 0 2px 12px; }
+
+#procurement-legend{
+  position:absolute; left:12px; bottom:200px; z-index:1000;
+  background:var(--paper,#fff); border:0.5px solid var(--line,#ddd);
+  border-radius:10px; padding:9px 12px; box-shadow:0 2px 8px rgba(14,27,44,.12);
+  font-size:12px; color:var(--text,#1b2836);
+}
+#procurement-legend .pl-title{ font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-soft,#5f6b77); margin-bottom:6px; }
+#procurement-legend .pl-row{ display:flex; align-items:center; gap:8px; margin:4px 0; }
+#procurement-legend .pl-row img{ width:18px; height:18px; }
+
+#procurement-list{
+  position:absolute; top:150px; left:324px; width:320px; max-height:65vh; z-index:3298;
+  background:var(--paper); border:0.5px solid var(--line); border-radius:12px;
+  box-shadow:0 12px 30px rgba(14,27,44,0.15); overflow:hidden; display:none; flex-direction:column;
+}
+#procurement-list.show{ display:flex; }
+#procurement-count{ color:var(--on-ink-dim); font-size:13px; font-weight:400; }
+#procurement-body{ flex:1 1 auto; overflow-y:auto; }
+#procurement-body .proc-row{ display:flex; align-items:center; gap:12px; padding:10px 16px; border-bottom:0.5px solid var(--line); font-size:13px; cursor:pointer; }
+#procurement-body .proc-row:hover{ background:var(--panel-bg); }
+#procurement-body .proc-row.selected{ background:var(--teal-tint); box-shadow:inset 3px 0 0 var(--teal); }
+#procurement-body .proc-row .p-name{ flex:1; font-weight:500; color:var(--text); }
+#procurement-body .proc-row .p-count{ margin-left:auto; font-family:var(--font-head); color:var(--text-soft); font-size:12px; }
