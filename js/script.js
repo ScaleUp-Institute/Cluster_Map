@@ -101,6 +101,8 @@ map.createPane('finalAreasBoundaryPane');
 map.getPane('finalAreasBoundaryPane').style.zIndex = 350;
 map.getPane('markerPane').style.zIndex = 600;
 map.createPane('primesPane');
+map.createPane('procurementPane');
+map.getPane('procurementPane').style.zIndex = 655;
 map.getPane('primesPane').style.zIndex = 650;   // above company markers (markerPane 600)
 // Ensure popupPane is above other panes
 map.getPane('popupPane').style.zIndex = 700;
@@ -3716,6 +3718,112 @@ const FinalAreaSearchControl = L.Control.extend({
       var pl=document.getElementById('primes-legend');
       if(pl) pl.style.display = primesOn ? 'block' : 'none';
       window.refreshPrimes();
+    });
+  });
+})();
+
+(function(){
+  var procurement = {}, procOn = false, procLayer = null, selectedProc = null;
+  var procIcon = L.icon({ iconUrl:'data/procurement marker.png',
+    iconSize:[30,30], iconAnchor:[15,30], popupAnchor:[0,-28] });
+
+  function coordFor(cid){
+    if(!window.masterClusterData) return null;
+    var target = String(cid).replace(/\D/g,'').padStart(8,'0');
+    for(var i=0;i<masterClusterData.length;i++){
+      var r = masterClusterData[i];
+      var rn = String(r.Companynumber||'').replace(/\D/g,'').padStart(8,'0');
+      if(rn===target && !isNaN(r.Latitude) && !isNaN(r.Longitude))
+        return {lat:r.Latitude, lng:r.Longitude};
+    }
+    return null;
+  }
+
+  fetch('data/procurement.json').then(r=>r.json()).then(d=>{ procurement=d||{};
+    console.log('procurement loaded:', Object.keys(procurement).length);
+    renderProcList();
+  }).catch(e=>console.error('procurement.json load failed', e));
+
+  function fmtMoney(n){
+    if(n==null) return 'n/a';
+    if(n>=1e9) return '£'+(n/1e9).toFixed(1)+'bn';
+    if(n>=1e6) return '£'+(n/1e6).toFixed(1)+'m';
+    if(n>=1e3) return '£'+(n/1e3).toFixed(0)+'k';
+    return '£'+Math.round(n);
+  }
+
+  function popupHtml(p){
+    var buyers = (p.top_buyers&&p.top_buyers.length) ? p.top_buyers.join(', ') : 'n/a';
+    var secs   = (p.sectors&&p.sectors.length) ? p.sectors.join(', ') : 'n/a';
+    return '<div class="popup-content">'+
+      '<p><strong>'+p.name+'</strong></p>'+
+      '<p><strong>Company ID:</strong> '+p.id+'</p>'+
+      '<p><strong>Total contract value:</strong> '+fmtMoney(p.total_value)+'</p>'+
+      '<p><strong>Number of contracts:</strong> '+p.n_contracts+'</p>'+
+      '<p><strong>Top buyer'+(p.top_buyers&&p.top_buyers.length>1?'s':'')+':</strong> '+buyers+'</p>'+
+      '<p><strong>Buyer type:</strong> '+(p.gov_split||'n/a')+'</p>'+
+      '<p><strong>Procurement sector'+(p.sectors&&p.sectors.length>1?'s':'')+':</strong> '+secs+'</p>'+
+      '<p><strong>On a framework:</strong> '+(p.on_framework?'Yes':'No')+'</p>'+
+      '<p><strong>SME:</strong> '+(p.is_sme?'Yes':'No')+'</p>'+
+    '</div>';
+  }
+
+  window.refreshProcurement = function(){
+    if(procLayer){ map.removeLayer(procLayer); procLayer=null; }
+    if(!procOn) return;
+    procLayer = L.layerGroup();
+    Object.keys(procurement).forEach(function(cid){
+      var p = procurement[cid];
+      if(selectedProc && p.id !== selectedProc) return;
+      var c = coordFor(cid);
+      if(!c) return;
+      L.marker([c.lat,c.lng],{icon:procIcon, pane:'procurementPane'})
+        .bindPopup(popupHtml(p),{maxWidth:280})
+        .addTo(procLayer);
+    });
+    procLayer.addTo(map);
+    if(typeof renderProcList==='function') renderProcList();
+  };
+
+  function renderProcList(){
+    var panel=document.getElementById('procurement-list');
+    var body=document.getElementById('procurement-body');
+    var count=document.getElementById('procurement-count');
+    if(!panel||!body) return;
+    if(!procOn){ panel.classList.remove('show'); return; }
+    var rows=Object.keys(procurement).map(function(cid){return procurement[cid];})
+      .filter(function(p){ return coordFor(p.id)!==null; })
+      .sort(function(a,b){ return b.total_value - a.total_value; });
+    if(count) count.textContent=rows.length+' compan'+(rows.length===1?'y':'ies');
+    body.innerHTML=rows.map(function(p){
+      var on=(selectedProc===p.id)?' selected':'';
+      return '<div class="proc-row'+on+'" data-id="'+p.id+'">'+
+        '<span class="p-name">'+p.name+'</span>'+
+        '<span class="p-count">'+fmtMoney(p.total_value)+'</span></div>';
+    }).join('');
+    panel.classList.add('show');
+    body.querySelectorAll('.proc-row').forEach(function(row){
+      row.addEventListener('click',function(){
+        var id=row.getAttribute('data-id');
+        selectedProc = (selectedProc===id) ? null : id;
+        window.refreshProcurement();
+      });
+    });
+  }
+
+  function ready(fn){ if(document.readyState!=='loading') fn(); else document.addEventListener('DOMContentLoaded',fn); }
+  ready(function(){
+    var btn=document.getElementById('procurement-btn');
+    if(btn) btn.addEventListener('click',function(){
+      procOn=!procOn;
+      btn.classList.toggle('active',procOn);
+      var lbl=document.getElementById('procurement-btn-label');
+      if(lbl) lbl.textContent=procOn?'Hide Procurement':'Show Procurement';
+      var lg=document.getElementById('procurement-legend');
+      if(lg) lg.style.display=procOn?'block':'none';
+      if(!procOn){ selectedProc=null; var pl=document.getElementById('procurement-list'); if(pl) pl.classList.remove('show'); }
+      window.refreshProcurement();
+      renderProcList();
     });
   });
 })();
