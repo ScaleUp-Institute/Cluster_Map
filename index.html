@@ -40,6 +40,16 @@
   <div class="pl-row"><img src="data/prime multi marker.png" alt=""> Multi-sector Prime</div>
 </div>
 
+<div id="procurement-legend" style="display:none;">
+  <div class="pl-title">Procurement</div>
+  <div class="pl-row"><img src="data/procurement marker.png" alt=""> Scaleup with public-sector contracts</div>
+</div>
+
+<div id="procurement-list">
+  <div class="all-inv-head"><span>Procurement</span><span id="procurement-count"></span></div>
+  <div id="procurement-body"></div>
+</div>
+
 <!-- Guided Tour Overlay -->
 <div id="tour-backdrop"></div>
 <div id="onboarding-tooltip" class="tour-tooltip" style="display: none;">
@@ -177,6 +187,10 @@
 
       <button id="primes-btn" class="SAME-CLASS-AS-ECOSYSTEM-BTN">
         <span id="primes-btn-label">Show Primes</span>
+      </button>
+
+      <button id="procurement-btn">
+        <span id="procurement-btn-label">Show Procurement</span>
       </button>
 
       <div id="ecosystem-control" style="display:none;">
