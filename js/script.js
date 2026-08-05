@@ -150,7 +150,9 @@ window.companyVisibleBySector = function(cid){
     var r = masterClusterData[i];
     if(String(r.Companynumber||'').toUpperCase().replace(/\s+/g,'') === target){
       if(currentSectors.length===0) return true;
-      return currentSectors.includes(r.Sector);
+      var raw = String(r.Sector||'').trim();
+      var disp = raw.replace(/_/g,' ').trim();
+      return currentSectors.indexOf(raw)!==-1 || currentSectors.indexOf(disp)!==-1;
     }
   }
   return currentSectors.length===0;
@@ -3826,7 +3828,7 @@ const FinalAreaSearchControl = L.Control.extend({
     if(!panel||!body) return;
     if(!procOn){ panel.classList.remove('show'); return; }
     var rows=Object.keys(procurement).map(function(cid){return procurement[cid];})
-      .filter(function(p){ return coordFor(p.id)!==null; })
+      .filter(function(p){ return coordFor(p.id)!==null && window.companyVisibleBySector(p.id); })
       .sort(function(a,b){ return b.total_value - a.total_value; });
     if(count) count.textContent=rows.length+' compan'+(rows.length===1?'y':'ies');
     body.innerHTML=rows.map(function(p){
