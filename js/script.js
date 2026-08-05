@@ -3712,7 +3712,6 @@ const FinalAreaSearchControl = L.Control.extend({
       var p=primes[cid];
       if(cid==='04463534') console.log('BBC reached. visible?', primeVisible(p), 'locs:', p.locations);
       if(!primeVisible(p)) return;
-      if(!window.companyVisibleBySector(p.id)) return;
       var icon = (p.sectors && p.sectors.length>1) ? primeMultiIcon : primeIcon;
       (p.locations||[]).forEach(function(loc){
         if(cid==='04463534') console.log('BBC loc:', loc.lat, loc.lng);
@@ -3748,7 +3747,9 @@ const FinalAreaSearchControl = L.Control.extend({
           });
       }
       pbtn.addEventListener('mouseenter', function(){
-        var blk=findPrimesBlock(); if(blk) blk.classList.add('open');
+        var blk=findPrimesBlock();
+        console.log('primes hover fired. block found?', !!blk, blk);
+        if(blk) blk.classList.add('open');
       });
       pbtn.addEventListener('mouseleave', function(){
         var blk=findPrimesBlock(); if(blk) blk.classList.remove('open');
