@@ -3747,12 +3747,25 @@ const FinalAreaSearchControl = L.Control.extend({
           });
       }
       pbtn.addEventListener('mouseenter', function(){
-        var blk=findPrimesBlock();
-        console.log('primes hover fired. block found?', !!blk, blk);
+        var content = document.getElementById('methodology-content');
+        var methBtn = document.getElementById('methodology-btn');
+        var blk = findPrimesBlock();
+        // remember if the panel was already open, so we can restore state on leave
+        pbtn._methWasOpen = content && content.style.display !== 'none';
+        if(content) content.style.display = 'block';
+        if(methBtn) methBtn.classList.add('active');
         if(blk) blk.classList.add('open');
       });
       pbtn.addEventListener('mouseleave', function(){
-        var blk=findPrimesBlock(); if(blk) blk.classList.remove('open');
+        var content = document.getElementById('methodology-content');
+        var methBtn = document.getElementById('methodology-btn');
+        var blk = findPrimesBlock();
+        if(blk) blk.classList.remove('open');
+        // only re-hide the panel if the user hadn't opened it themselves
+        if(!pbtn._methWasOpen){
+          if(content) content.style.display = 'none';
+          if(methBtn) methBtn.classList.remove('active');
+        }
       });
     }
   });
