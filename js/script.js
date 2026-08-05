@@ -144,6 +144,17 @@ var companyData = [];        // per-sector filtered data used by the map
 var masterClusterData = [];  // all rows from the new cluster file
 var companyDetailsByNumber = {};
 
+window.companyVisibleBySector = function(cid){
+  var target = String(cid).toUpperCase().replace(/\s+/g,'');
+  for(var i=0;i<masterClusterData.length;i++){
+    var r = masterClusterData[i];
+    if(String(r.Companynumber||'').toUpperCase().replace(/\s+/g,'') === target){
+      if(currentSectors.length===0) return true;
+      return currentSectors.includes(r.Sector);
+    }
+  }
+  return currentSectors.length===0;
+};
 
 // List of company numbers to exclude
 var excludedCompanyNumbers = [
@@ -3698,6 +3709,7 @@ const FinalAreaSearchControl = L.Control.extend({
       var p=primes[cid];
       if(cid==='04463534') console.log('BBC reached. visible?', primeVisible(p), 'locs:', p.locations);
       if(!primeVisible(p)) return;
+      if(!window.companyVisibleBySector(p.id)) return;
       var icon = (p.sectors && p.sectors.length>1) ? primeMultiIcon : primeIcon;
       (p.locations||[]).forEach(function(loc){
         if(cid==='04463534') console.log('BBC loc:', loc.lat, loc.lng);
@@ -3712,6 +3724,8 @@ const FinalAreaSearchControl = L.Control.extend({
     var btn=document.getElementById('primes-btn');
     if(btn) btn.addEventListener('click',function(){
       primesOn=!primesOn;
+      var es=document.getElementById('map-empty-state');
+      if(es && primesOn) es.classList.add('hidden');
       btn.classList.toggle('active',primesOn);
       var lbl=document.getElementById('primes-btn-label');
       if(lbl) lbl.textContent=primesOn?'Hide Primes':'Show Primes';
@@ -3719,6 +3733,20 @@ const FinalAreaSearchControl = L.Control.extend({
       if(pl) pl.style.display = primesOn ? 'block' : 'none';
       window.refreshPrimes();
     });
+    // hover Show Primes -> open the Primes methodology block
+    var pbtn = document.getElementById('primes-btn');
+    if(pbtn){
+      var primesMethodBlock = Array.prototype.slice
+        .call(document.querySelectorAll('.method-block'))
+        .find(function(b){
+          var t=b.querySelector('.method-block-btn');
+          return t && /primes/i.test(t.textContent);
+        });
+      if(primesMethodBlock){
+        pbtn.addEventListener('mouseenter', function(){ primesMethodBlock.classList.add('open'); });
+        pbtn.addEventListener('mouseleave', function(){ primesMethodBlock.classList.remove('open'); });
+      }
+    }
   });
 })();
 
@@ -3775,6 +3803,7 @@ const FinalAreaSearchControl = L.Control.extend({
     Object.keys(procurement).forEach(function(cid){
       var p = procurement[cid];
       if(selectedProc && p.id !== selectedProc) return;
+      if(!window.companyVisibleBySector(p.id)) return;
       var c = coordFor(cid);
       if(!c) return;
       L.marker([c.lat,c.lng],{icon:procIcon, pane:'procurementPane'})
@@ -3816,6 +3845,8 @@ const FinalAreaSearchControl = L.Control.extend({
     var btn=document.getElementById('procurement-btn');
     if(btn) btn.addEventListener('click',function(){
       procOn=!procOn;
+      var es=document.getElementById('map-empty-state');
+      if(es && procOn) es.classList.add('hidden');
       btn.classList.toggle('active',procOn);
       var lbl=document.getElementById('procurement-btn-label');
       if(lbl) lbl.textContent=procOn?'Hide Procurement':'Show Procurement';
