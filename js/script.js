@@ -1881,6 +1881,7 @@ function handleSectorSelectionChange () {
   if (typeof refreshUkPanel === 'function') refreshUkPanel();
   if (typeof refreshRegionLayer === 'function') refreshRegionLayer();
   if (window.refreshPrimes) window.refreshPrimes();
+  if (window.refreshProcurement) window.refreshProcurement();
 }
 
 function populateSectorCheckboxes(sectorsList) {
@@ -3736,16 +3737,20 @@ const FinalAreaSearchControl = L.Control.extend({
     // hover Show Primes -> open the Primes methodology block
     var pbtn = document.getElementById('primes-btn');
     if(pbtn){
-      var primesMethodBlock = Array.prototype.slice
-        .call(document.querySelectorAll('.method-block'))
-        .find(function(b){
-          var t=b.querySelector('.method-block-btn');
-          return t && /primes/i.test(t.textContent);
-        });
-      if(primesMethodBlock){
-        pbtn.addEventListener('mouseenter', function(){ primesMethodBlock.classList.add('open'); });
-        pbtn.addEventListener('mouseleave', function(){ primesMethodBlock.classList.remove('open'); });
+      function findPrimesBlock(){
+        return Array.prototype.slice
+          .call(document.querySelectorAll('.method-block'))
+          .find(function(b){
+            var t=b.querySelector('.method-block-btn');
+            return t && /primes/i.test(t.textContent);
+          });
       }
+      pbtn.addEventListener('mouseenter', function(){
+        var blk=findPrimesBlock(); if(blk) blk.classList.add('open');
+      });
+      pbtn.addEventListener('mouseleave', function(){
+        var blk=findPrimesBlock(); if(blk) blk.classList.remove('open');
+      });
     }
   });
 })();
@@ -4108,6 +4113,7 @@ const FinalAreaSearchControl = L.Control.extend({
         // Re-render investor lists/markers to reflect the new region bounds
         if (typeof window.refreshInvestorMarkers === 'function') window.refreshInvestorMarkers();
         if (typeof window.refreshPrimes === 'function') window.refreshPrimes();
+        if (typeof window.refreshProcurement === 'function') window.refreshProcurement();
       }
     });
   }
