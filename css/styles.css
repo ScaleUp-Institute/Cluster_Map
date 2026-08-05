@@ -1427,3 +1427,5 @@ button:active { transform: scale(0.98); }
 #procurement-body .proc-row.selected{ background:var(--teal-tint); box-shadow:inset 3px 0 0 var(--teal); }
 #procurement-body .proc-row .p-name{ flex:1; font-weight:500; color:var(--text); }
 #procurement-body .proc-row .p-count{ margin-left:auto; font-family:var(--font-head); color:var(--text-soft); font-size:12px; }
+
+#primes-btn, #procurement-btn { margin-bottom: 8px; }
