@@ -4,18 +4,26 @@ var ukBoundsLandscape = L.latLngBounds(
   L.latLng(61.0, 2.1)    // Northeast coordinates
 );
 
-// Define base map layers
-var lightMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
-  attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-  subdomains: 'abcd',
-  noWrap: true
+var ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/';
+var ESRI_ATTR = 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors';
+
+// matches your old `light_nolabels` — unlabelled canvas
+var lightMap = L.tileLayer(ESRI + 'World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+  attribution: ESRI_ATTR,
+  noWrap: true,
+  maxNativeZoom: 16,
+  maxZoom: 18
 });
 
-var darkMap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-  attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-  subdomains: 'abcd',
-  noWrap: true
-});
+// matches your old `dark_all` — dark canvas plus place-name labels
+var darkMap = L.layerGroup([
+  L.tileLayer(ESRI + 'World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+    attribution: ESRI_ATTR, noWrap: true, maxNativeZoom: 16, maxZoom: 18
+  }),
+  L.tileLayer(ESRI + 'World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+    noWrap: true, maxNativeZoom: 16, maxZoom: 18
+  })
+]);
 
 var streetMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; OpenStreetMap contributors',
