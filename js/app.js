@@ -1348,6 +1348,15 @@ function companyVisible(id){ const n=normNum(id); const c=S.byNum[n]; if(!c) ret
     let hit=false; secs.forEach(sec=>{ if(S.selSectors.has(sec)) hit=true; });
     if(!hit) return false; }
   if(S.selRegions.size && (!c.region||!S.selRegions.has(c.region))) return false;
+  /* Constituency and investor were missing from this test, so a procurement
+     marker stayed on the map after the dot underneath it had been filtered
+     away -- the layer appeared to ignore the investor rail entirely. Both read
+     exactly the state the dots read: S.selConIdx is the row the constituency
+     panel picked, and S._invSet is the investor set onFilterChange() has just
+     recomputed (recomputed here as a fallback for the procurement-only
+     handlers, which do not go through onFilterChange). */
+  if(S.selCon!=null && S.selConIdx>=0 && c.conIdx!==S.selConIdx) return false;
+  if(investorMode()){ const set=S._invSet||investorCompanySet(); if(!set.has(n)) return false; }
   if(S.femOnly && !c.women) return false;
   if(S.fundAny && !fundedAtAll(c)) return false;
   if(sizeActive() && !sizeOk(c)) return false;
@@ -1434,11 +1443,14 @@ function renderProcList(){
   const hasLoc=p=>!!S.byNum[normNum(p.id)];
   // 138 procurement companies are absent from the mapped scaleup population, so
   // they have no coordinates and cannot be plotted. They are still listed (so the
-  // count reconciles to the full dataset) but flagged and not selectable. A
-  // sector/region filter hides them, because they have no sector/region to test.
-  const geoFilter = S.selSectors.size>0 || S.selRegions.size>0;
+  // count reconciles to the full dataset) but flagged and not selectable. ANY
+  // company-level filter hides them: with no record in the scaleup data there is
+  // nothing to test them against, and listing them would count them as passing a
+  // filter they were never judged by. This used to read sector/region only, so an
+  // investor or size filter left all 138 sitting in the list.
+  const untestable = hasActiveFilter();
   const mapped=matching.filter(p=>hasLoc(p) && companyVisible(p.id));
-  const unmapped=geoFilter?[]:matching.filter(p=>!hasLoc(p));
+  const unmapped=untestable?[]:matching.filter(p=>!hasLoc(p));
   const rows=mapped.concat(unmapped).sort((a,b)=>(b.total_value||0)-(a.total_value||0));
   if(count) count.textContent=nf(rows.length)+' compan'+(rows.length===1?'y':'ies')+(unmapped.length?' · '+nf(mapped.length)+' on map':'');
   body.innerHTML = rows.length ? rows.slice(0,300).map(p=>{
