@@ -68,6 +68,11 @@
   <div class="tabpane" id="tab-map">
     <div class="body">
       <aside class="rail" id="rail">
+        <!-- Every active filter, in one place, each one individually removable.
+             Without this the rail's five collapsed sections can hide a filter
+             that is silently cutting the map down. -->
+        <div class="activebar" id="activeBar" hidden></div>
+
         <section class="rail-sec collapsible" data-group="clusters">
           <button class="sec-head sec-toggle" type="button"><h2>Clusters</h2><span class="chev">▾</span></button>
           <div class="sec-body">
@@ -82,6 +87,43 @@
               <span class="tl"><span class="name">Women-Led</span><span class="meta">Show only these companies</span></span>
               <span class="key"></span>
             </button>
+          </div>
+        </section>
+
+        <section class="rail-sec collapsible collapsed" data-group="size">
+          <button class="sec-head sec-toggle" type="button"><h2>Size &amp; growth</h2><span class="sec-badge" id="sizeBadge" hidden></span><span class="chev">▾</span></button>
+          <div class="sec-body">
+            <div class="rng" id="rngTurn">
+              <div class="rng-head"><span>Turnover</span><b class="rng-val">Any</b></div>
+              <div class="rng-track">
+                <div class="rng-fill"></div>
+                <input type="range" class="rng-lo" min="0" step="1" value="0" aria-label="Minimum turnover">
+                <input type="range" class="rng-hi" min="0" step="1" aria-label="Maximum turnover">
+              </div>
+              <div class="rng-note"></div>
+            </div>
+            <div class="rng" id="rngEmp">
+              <div class="rng-head"><span>Employees</span><b class="rng-val">Any</b></div>
+              <div class="rng-track">
+                <div class="rng-fill"></div>
+                <input type="range" class="rng-lo" min="0" step="1" value="0" aria-label="Minimum employees">
+                <input type="range" class="rng-hi" min="0" step="1" aria-label="Maximum employees">
+              </div>
+              <div class="rng-note"></div>
+            </div>
+            <div class="rng" id="rngGrow">
+              <div class="rng-head"><span>Growth a year</span><b class="rng-val">Any</b></div>
+              <div class="rng-track">
+                <div class="rng-fill"></div>
+                <input type="range" class="rng-lo" min="0" step="1" value="0" aria-label="Minimum annual growth">
+                <input type="range" class="rng-hi" min="0" step="1" aria-label="Maximum annual growth">
+              </div>
+              <div class="rng-note"></div>
+              <div class="rng-src">Three-year employment growth. Mixed sources &mdash; see methodology.</div>
+            </div>
+            <div class="rng-foot">
+              <button class="linkbtn" id="sizeReset" type="button">Reset all three</button>
+            </div>
           </div>
         </section>
 
@@ -116,18 +158,31 @@
         </section>
 
         <section class="rail-sec collapsible collapsed" data-group="investors">
-          <button class="sec-head sec-toggle" type="button"><h2>Investors</h2><span class="chev">▾</span></button>
+          <button class="sec-head sec-toggle" type="button"><h2>Funding &amp; investors</h2><span class="sec-badge" id="invBadge" hidden></span><span class="chev">▾</span></button>
           <div class="sec-body">
+            <!-- The broadest question first. Everything below narrows it. -->
+            <button type="button" class="toggle-row toggle-btn" id="fundAnyBtn" aria-pressed="false"
+                    title="Any company that has raised equity or received a grant">
+              <span class="tl"><span class="name">Any funding received</span><span class="meta">Equity, grant or a named investor</span></span>
+              <span class="key"></span>
+            </button>
+
+            <!-- Funding FLAGS pick companies by what they received. Kept apart from
+                 the investor controls below, which pick by who backed them — these
+                 are not subsets of one another. -->
+            <div class="sub-head sub-head-mt">Public funding received</div>
+            <div class="seg" id="flagSeg"></div>
+
+            <div class="sub-head sub-head-mt">Backed by an investor</div>
             <button id="invAllBtn" class="rail-btn" type="button">Show all investor-backed</button>
-            <button id="invOriginBtn" class="rail-btn" type="button">Colour pins by investor origin</button>
             <div class="field-label">Investor type</div>
             <div class="inv-cat" id="invTypeWrap">
               <div class="inv-cat-field" id="invTypeField"><span class="ph">All investor types…</span></div>
               <div class="inv-cat-menu" id="invTypeMenu"></div>
             </div>
-            <div class="field-label">Category</div>
+            <div class="field-label">Investor group</div>
             <div class="inv-cat" id="invCatWrap">
-              <div class="inv-cat-field" id="invCatField"><span class="ph">Filter by category…</span></div>
+              <div class="inv-cat-field" id="invCatField"><span class="ph">Any investor group…</span></div>
               <div class="inv-cat-menu" id="invCatMenu"></div>
             </div>
             <div class="inv-search-wrap">
@@ -135,6 +190,9 @@
               <div id="invSuggest" class="inv-suggest"></div>
             </div>
             <div id="invSelected" class="inv-selected"></div>
+
+            <div class="sub-head sub-head-mt">Display</div>
+            <button id="invOriginBtn" class="rail-btn" type="button">Colour pins by investor origin</button>
           </div>
         </section>
 

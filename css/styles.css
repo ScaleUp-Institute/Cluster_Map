@@ -100,8 +100,13 @@ h2,h3,h4{font-family:var(--font-head);}
 .toggle-row.is-dev{opacity:.75; cursor:not-allowed;}
 /* an active filter row (vs the .is-dev placeholders) */
 .toggle-btn{width:100%; text-align:left; font:inherit; cursor:pointer;}
-.toggle-btn[aria-pressed="true"]{border-color:var(--fem); background:var(--fem-soft);}
-.toggle-btn .key{width:11px; height:11px; border-radius:50%; background:var(--fem); flex:0 0 auto;}
+.toggle-btn[aria-pressed="true"]{border-color:var(--accent); background:var(--accent-soft);}
+.toggle-btn .key{width:11px; height:11px; border-radius:50%; background:var(--accent); flex:0 0 auto;}
+/* The women-led filter paints its dots pink, so its own toggle has to match it.
+   Every other toggle takes the neutral accent above -- pink means women-led
+   everywhere else in this UI and must not be borrowed for anything else. */
+#femBtn[aria-pressed="true"]{border-color:var(--fem); background:var(--fem-soft);}
+#femBtn .key{background:var(--fem);}
 .toggle-row .soon{font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--warn); background:var(--warn-soft); border-radius:8px; padding:3px 7px;}
 
 .dd{width:100%; appearance:none; -webkit-appearance:none; border:1px solid var(--line-strong);
@@ -606,3 +611,65 @@ h2,h3,h4{font-family:var(--font-head);}
   border:3px solid var(--fem); opacity:0; transform:scale(.4);}
 .demo-cursor.click .ring{animation:demoPing .5s ease-out;}
 @keyframes demoPing{0%{opacity:.9; transform:scale(.4);} 100%{opacity:0; transform:scale(1.5);}}
+
+/* =====================================================================
+   Active-filter bar, size sliders and the funding segment control
+   Added with the 2026 filter work. Everything here is built from the
+   tokens above, so dark mode needs no separate rules.
+   ===================================================================== */
+
+/* ---- the bar listing every active filter ---- */
+/* Opaque, not a tint: it sticks over the rail as you scroll, so anything
+   translucent lets the headings underneath read through it. */
+.activebar{position:sticky; top:0; z-index:5; margin:-4px -4px 12px; padding:10px 12px 11px;
+  background:var(--surface); border:1px solid var(--accent); border-radius:var(--radius-sm);
+  box-shadow:var(--shadow-sm);}
+.ab-head{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px;}
+.ab-head span{font:600 11.5px var(--font-body); letter-spacing:.03em; text-transform:uppercase; color:var(--accent-ink);}
+.ab-chips{display:flex; flex-wrap:wrap; gap:6px;}
+.ab-chip{display:inline-flex; align-items:center; gap:5px; max-width:100%;
+  padding:4px 5px 4px 10px; border-radius:20px; border:1px solid var(--line-strong);
+  background:var(--surface); color:var(--ink-2); font:600 11.5px var(--font-body);}
+.ab-chip button{appearance:none; border:0; cursor:pointer; width:17px; height:17px; flex:0 0 auto;
+  border-radius:50%; background:var(--panel-2); color:var(--muted); font:600 12px/1 var(--font-body);
+  display:inline-flex; align-items:center; justify-content:center; padding:0;}
+.ab-chip button:hover{background:var(--accent); color:#fff;}
+
+/* ---- count badge on a collapsed section header ---- */
+.sec-badge{display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px;
+  margin-left:auto; padding:0 6px; border-radius:9px; background:var(--accent); color:#fff;
+  font:700 11px/1 var(--font-body);}
+.sec-head .chev{margin-left:8px;}
+.sec-head .sec-badge + .chev{margin-left:8px;}
+
+/* ---- dual-handle range slider ---- */
+.rng{margin-bottom:16px;}
+.rng-head{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:9px;}
+.rng-head span{font:600 12.5px var(--font-body); color:var(--ink-2);}
+.rng-val{font:600 12.5px var(--font-body); color:var(--muted);}
+.rng.on .rng-val{color:var(--accent-ink);}
+.rng-track{position:relative; height:26px;}
+.rng-track::before{content:''; position:absolute; left:0; right:0; top:11px; height:4px;
+  border-radius:2px; background:var(--line-strong);}
+.rng-fill{position:absolute; top:11px; height:4px; border-radius:2px; background:var(--accent);}
+.rng-track input[type=range]{position:absolute; left:0; top:0; width:100%; height:26px; margin:0;
+  appearance:none; -webkit-appearance:none; background:none; pointer-events:none;}
+.rng-track input[type=range]:focus{outline:none;}
+.rng-track input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; pointer-events:auto;
+  width:16px; height:16px; border-radius:50%; cursor:grab;
+  background:var(--surface); border:2px solid var(--accent); box-shadow:var(--shadow-sm);}
+.rng-track input[type=range]::-moz-range-thumb{pointer-events:auto;
+  width:16px; height:16px; border-radius:50%; cursor:grab;
+  background:var(--surface); border:2px solid var(--accent); box-shadow:var(--shadow-sm);}
+.rng-track input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(--accent-soft);}
+.rng-note{margin-top:7px; font:500 11px var(--font-body); color:var(--warn); min-height:13px;}
+.rng-foot{display:flex; justify-content:flex-end;}
+
+/* ---- segmented buttons for the funding flags ---- */
+.seg{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:4px;}
+.seg-btn{flex:1 1 auto; appearance:none; cursor:pointer; padding:7px 10px;
+  border:1px solid var(--line-strong); border-radius:var(--radius-sm); background:var(--surface);
+  color:var(--ink-2); font:600 12px var(--font-body); transition:all .14s; white-space:nowrap;}
+.seg-btn:hover{background:var(--panel-2);}
+.seg-btn.on{background:var(--accent-soft); border-color:var(--accent); color:var(--accent-ink);}
+.rng-src{margin-top:4px; font:500 10.5px/1.45 var(--font-body); color:var(--faint);}

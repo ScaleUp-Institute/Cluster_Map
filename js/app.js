@@ -21,6 +21,18 @@ const SECTOR_COLORS = {
   'Life Sciences':                     '#7BAF3A',
   'Defence':                           '#566573'
 };
+/* Size-filter stops. Round numbers the eye can read rather than a linear sweep:
+   turnover runs from nothing to £34bn and headcount to 159,684, so a plain
+   slider would spend almost all of its travel on the smallest companies. Index
+   0 is "no lower bound" and the last index is "no upper bound", so a fresh
+   slider filters nothing. */
+const TURN_STOPS = [0, 1e6, 5e6, 1e7, 2.5e7, 5e7, 1e8, 2.5e8, 5e8, 1e9, 5e9, 1e10, Infinity];
+const EMP_STOPS  = [0, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, Infinity];
+
+/* Growth stops. Open at both ends: a handful of companies sit above 1,000% a
+   year and a floor of -Infinity means "no lower bound". */
+const GROWTH_STOPS = [-Infinity, -25, 0, 10, 20, 30, 50, 100, 200, Infinity];
+
 const NOISE_COLOR = '#aab6c0';
 const BASE_DOT = '#7d97ab';   /* light uniform colour for the base layer (no sector selected) */
 /* Read from CSS so the dots, the rail swatch and the legend key share one value. */
@@ -81,9 +93,9 @@ const CATS = {
      all, which is why picking Innovate UK can return MORE companies than
      "all investor-backed" for the same sector (Advanced Manufacturing: 259 vs
      203, overlapping on just 77). The labels say so explicitly. */
-  bbb:          {label:'British Business Bank-backed',   comp:'bbb'},
-  iuk:          {label:'Innovate UK grant recipients',   comp:'iuk'},
-  bbb_iuk_both: {label:'BBB + Innovate UK (both)',       comp:'both'},
+  bbb:          {label:'British Business Bank',          comp:'bbb',  flag:true},
+  iuk:          {label:'Innovate UK grant',               comp:'iuk',  flag:true},
+  bbb_iuk_both: {label:'Both',                            comp:'both', flag:true},
   uk_pension:   {label:'UK pension / institutional',     list:true, inv:v=>v.pension==='uk_pension'},
   intl_pension: {label:'International pension / SWF',     list:true, inv:v=>v.pension==='intl_pension'||v.pension==='swf'},
   top_value:    {label:'Top 15 by value',                dev:true},
@@ -102,6 +114,13 @@ const S = {
   // WHO LEADS the company (Datacity's GenderLedCategory), not who founded it —
   // see tools/merge_datacity.py. The UI says "Women-led" for that reason.
   femOnly:false,
+  /* Size filters, held as INDEXES into TURN_STOPS / EMP_STOPS. The high ends are
+     set to the last stop at boot, so nothing is filtered until a handle moves. */
+  turnLo:0, turnHi:TURN_STOPS.length-1, empLo:0, empHi:EMP_STOPS.length-1,
+  growLo:0, growHi:GROWTH_STOPS.length-1,
+  /* "Any funding received" — the broad version of the investor rail. True when a
+     company raised equity, took a grant, or has a named investor. */
+  fundAny:false,
   invTypes: new Set(), invAll:false, invCats: new Set(), _invSet: null,
   primes:{}, procurement:{}, byNum:{}, secsByNum:{}, primesOn:false, procOn:false, selectedProc:null,
   // procListOpen is purely the list panel's collapsed state — procOn is what
@@ -326,6 +345,9 @@ getJSON('data/master.json').then(M=>{
       color:SECTOR_COLORS[sector]||NOISE_COLOR,
       region:(r[F.region]>=0 ? REG[r[F.region]] : null),
       employees:r[F.employees], turnover:r[F.turnover],
+      // Three-year employment CAGR as a whole percent, or null where the company
+      // has no usable figure. null is NOT zero growth -- see tools/build_growth.py.
+      growth:(F.growth!=null ? r[F.growth] : null),
       // investment = EQUITY only; funding = every funding type combined
       // (equity + debt + grants, incl. Innovate UK). See tools/build_funding.py.
       investment:r[F.investment], funding:(r[F.funding]||r[F.investment]||0), iuk:r[F.iuk],
@@ -390,17 +412,48 @@ function investorCompanySet(){
 }
 
 /* =================================================================== FILTER */
+/* Has this company been funded at all? Deliberately broad: equity raised, OR any
+   funding including grants, OR an Innovate UK grant, OR a BBB / IUK flag, OR a
+   named investor. The investor rail below answers the narrower questions. */
+function fundedAtAll(c){
+  return (c.investment>0) || (c.funding>0) || (c.iuk>0) ||
+         S.flags.bbb.has(c.num) || S.flags.iuk.has(c.num) ||
+         !!(c.investors && c.investors.length);
+}
+function sizeActive(){
+  return S.turnLo>0 || S.turnHi<TURN_STOPS.length-1 ||
+         S.empLo>0  || S.empHi<EMP_STOPS.length-1 || growthActive();
+}
+function growthActive(){ return S.growLo>0 || S.growHi<GROWTH_STOPS.length-1; }
+/* A company with no figure on file carries 0, which is not the same as "£0 of
+   turnover". It therefore passes while the lower handle is at 0 and drops out
+   the moment a floor is set — the rail says so underneath the slider. */
+function sizeOk(c){
+  const t=c.turnover||0, e=c.employees||0;
+  if(t<TURN_STOPS[S.turnLo] || t>TURN_STOPS[S.turnHi]) return false;
+  if(e<EMP_STOPS[S.empLo]   || e>EMP_STOPS[S.empHi])   return false;
+  if(growthActive()){
+    // No figure is not zero growth, so an unmeasured company cannot satisfy a
+    // growth band -- it drops out, and the rail says how many that is.
+    if(c.growth==null) return false;
+    if(c.growth<GROWTH_STOPS[S.growLo] || c.growth>GROWTH_STOPS[S.growHi]) return false;
+  }
+  return true;
+}
 function getFiltered(opts){
   opts=opts||{};
   const useRegion=!opts.ignoreRegion && S.selRegions.size>0;
   const invSet=(!opts.ignoreInvestor && investorMode()) ? (S._invSet||investorCompanySet()) : null;
   const conIdx=(!opts.ignoreCon && S.selCon!=null) ? S.selConIdx : -1;
+  const size=!opts.ignoreSize && sizeActive();
   return S.all.filter(c=>{
     if(conIdx>=0 && c.conIdx!==conIdx) return false;
     if(S.selSectors.size && !S.selSectors.has(c.sector)) return false;
     if(useRegion && (!c.region || !S.selRegions.has(c.region))) return false;
     if(invSet && !invSet.has(c.num)) return false;
     if(S.femOnly && !c.women) return false;
+    if(S.fundAny && !fundedAtAll(c)) return false;
+    if(size && !sizeOk(c)) return false;
     return true;
   });
 }
@@ -619,6 +672,166 @@ map.on('mouseout', ()=>{
   hoveredHull=null; hideHoverDot(); map.getContainer().style.cursor='';
 });
 
+/* ============================================================== SIZE SLIDERS */
+function rangeCfg(id){
+  if(id==='rngTurn') return {stops:TURN_STOPS, lo:'turnLo', hi:'turnHi', kind:'money',  noun:'turnover', title:'Turnover'};
+  if(id==='rngGrow') return {stops:GROWTH_STOPS, lo:'growLo', hi:'growHi', kind:'pct',  noun:'growth',   title:'Growth'};
+  return {stops:EMP_STOPS, lo:'empLo', hi:'empHi', kind:'count', noun:'employee', title:'Employees'};
+}
+function stopText(v, kind){
+  if(v===Infinity || v===-Infinity) return 'Any';
+  if(kind==='pct') return v+'%';
+  if(v===0) return kind==='money' ? '£0' : '0';
+  return kind==='money' ? money(v) : nf(v);
+}
+/* One label for both the slider and its chip, so the two can never disagree. */
+function rangeLabel(id){
+  const cf=rangeCfg(id), last=cf.stops.length-1, lo=S[cf.lo], hi=S[cf.hi];
+  if(lo===0 && hi===last) return {full:true, text:'Any'};
+  if(lo===0)    return {full:false, text:'Up to '+stopText(cf.stops[hi],cf.kind)};
+  if(hi===last) return {full:false, text:stopText(cf.stops[lo],cf.kind)+' and above'};
+  return {full:false, text:stopText(cf.stops[lo],cf.kind)+' – '+stopText(cf.stops[hi],cf.kind)};
+}
+function sizeLabelShort(){
+  return ['rngTurn','rngEmp','rngGrow'].map(id=>{ const l=rangeLabel(id);
+    return l.full ? null : rangeCfg(id).title.toLowerCase()+' '+l.text; }).filter(Boolean).join(', ');
+}
+/* A company with no figure on file carries 0, so a floor above zero silently
+   drops it. Counted once and cached -- the rail prints it under the slider. */
+function noFigureCount(kind){
+  if(!S._noFig) S._noFig={};
+  if(S._noFig[kind]==null){
+    const miss = kind==='money' ? (c=>!c.turnover)
+               : kind==='pct'  ? (c=>c.growth==null)
+                               : (c=>!c.employees);
+    S._noFig[kind]=uniqueCompanies(S.all).filter(miss).length;
+  }
+  return S._noFig[kind];
+}
+function syncRange(id){
+  const el=$(id); if(!el) return;
+  const cf=rangeCfg(id), last=cf.stops.length-1, lo=S[cf.lo], hi=S[cf.hi];
+  const a=el.querySelector('.rng-lo'), b=el.querySelector('.rng-hi');
+  a.max=last; b.max=last; a.value=lo; b.value=hi;
+  const f=el.querySelector('.rng-fill');
+  f.style.left=(lo/last*100)+'%';
+  f.style.right=((last-hi)/last*100)+'%';
+  const lab=rangeLabel(id);
+  el.querySelector('.rng-val').textContent=lab.text;
+  el.classList.toggle('on',!lab.full);
+  const note=el.querySelector('.rng-note');
+  const cuts = cf.kind==='pct' ? !lab.full : lo>0;
+  const miss = cuts ? noFigureCount(cf.kind) : 0;
+  note.textContent = miss ? nf(miss)+' companies with no '+cf.noun+' figure are excluded' : '';
+}
+function wireRange(id){
+  const el=$(id); if(!el) return;
+  const cf=rangeCfg(id), last=cf.stops.length-1;
+  const a=el.querySelector('.rng-lo'), b=el.querySelector('.rng-hi');
+  a.max=last; b.max=last; b.value=last;
+  const push=()=>{ syncRange(id); renderActiveBar(); onFilterChange(); };
+  // Handles may not cross: each one stops at the other.
+  a.addEventListener('input',()=>{ S[cf.lo]=Math.min(+a.value, S[cf.hi]); push(); });
+  b.addEventListener('input',()=>{ S[cf.hi]=Math.max(+b.value, S[cf.lo]); push(); });
+  syncRange(id);
+}
+function resetSize(){
+  S.turnLo=0; S.turnHi=TURN_STOPS.length-1;
+  S.empLo=0;  S.empHi=EMP_STOPS.length-1;
+  S.growLo=0; S.growHi=GROWTH_STOPS.length-1;
+  ['rngTurn','rngEmp','rngGrow'].forEach(syncRange);
+}
+
+/* ========================================================== FUNDING CONTROLS */
+function syncFundAnyBtn(){ const b=$('fundAnyBtn'); if(b) b.setAttribute('aria-pressed', S.fundAny?'true':'false'); }
+/* The three funding FLAGS get their own visible control rather than hiding in
+   the category dropdown with the investor groups. They answer a different
+   question -- what a company received, not who backed it -- and the old mixed
+   list was the main thing making this section hard to read. */
+function flagKeys(){ return Object.keys(CATS).filter(k=>CATS[k].flag); }
+function syncFlagSeg(){
+  document.querySelectorAll('#flagSeg .seg-btn').forEach(b=>
+    b.classList.toggle('on', S.invCats.has(b.dataset.k)));
+}
+function renderFlagSeg(){
+  const el=$('flagSeg'); if(!el) return;
+  el.innerHTML=flagKeys().map(k=>'<button type="button" class="seg-btn" data-k="'+k+'">'+
+    esc(CATS[k].label)+'</button>').join('');
+  el.querySelectorAll('.seg-btn').forEach(b=>b.addEventListener('click',()=>{
+    const k=b.dataset.k;
+    if(S.invCats.has(k)) S.invCats.delete(k);
+    else { S.invCats.add(k); S.selInvestors.clear(); renderInvTags(); }
+    syncFlagSeg(); renderCatField(); syncCatMenu(); renderActiveBar(); onFilterChange(); }));
+  syncFlagSeg();
+}
+
+/* ============================================================== ACTIVE FILTERS */
+/* The rail has six sections, five of them collapsed. Without this bar a filter
+   set earlier can keep cutting the map down with nothing on screen to say so. */
+function activeChips(){
+  const out=[];
+  S.selSectors.forEach(s=>out.push({k:'sec|'+s, t:s}));
+  S.selRegions.forEach(r=>out.push({k:'reg|'+r, t:regionShort(r)}));
+  if(S.femOnly)  out.push({k:'fem', t:'Women-led'});
+  if(S.fundAny)  out.push({k:'fund', t:'Any funding'});
+  ['rngTurn','rngEmp','rngGrow'].forEach(id=>{ const l=rangeLabel(id);
+    if(!l.full) out.push({k:'size|'+id, t:rangeCfg(id).title+' '+l.text}); });
+  S.invCats.forEach(k=>{ const c=CATS[k]; if(c) out.push({k:'cat|'+k, t:c.label}); });
+  S.invTypes.forEach(t=>out.push({k:'type|'+t, t:t}));
+  S.selInvestors.forEach(n=>out.push({k:'inv|'+n, t:n}));
+  if(S.invAll) out.push({k:'invall', t:'Investor-backed'});
+  return out;
+}
+function renderActiveBar(){
+  const bar=$('activeBar'); if(!bar) return;
+  const chips=activeChips();
+  bar.hidden=!chips.length;
+  if(!chips.length){ bar.innerHTML=''; syncBadges(); return; }
+  bar.innerHTML='<div class="ab-head"><span>'+chips.length+' filter'+(chips.length===1?'':'s')+
+    ' active</span><button type="button" class="linkbtn" data-k="__all">Clear all</button></div>'+
+    '<div class="ab-chips">'+chips.map(c=>'<span class="ab-chip">'+esc(c.t)+
+      '<button type="button" aria-label="Remove '+esc(c.t)+'" data-k="'+esc(c.k)+'">×</button></span>').join('')+'</div>';
+  syncBadges();
+}
+function syncSectorChips(){
+  document.querySelectorAll('.chip[data-sector]').forEach(c=>
+    c.setAttribute('aria-pressed', S.selSectors.has(c.dataset.sector)?'true':'false'));
+}
+function syncInvAllBtn(){
+  const ab=$('invAllBtn'); if(!ab) return;
+  ab.classList.toggle('active',S.invAll);
+  ab.textContent=S.invAll?'Hide all investor-backed':'Show all investor-backed';
+}
+/* Drop one filter, named by the chip carrying it. */
+function clearFilter(key){
+  const i=key.indexOf('|'), kind=i<0?key:key.slice(0,i), val=i<0?'':key.slice(i+1);
+  if(kind==='__all'){ resetAllFilters(); return; }
+  if(kind==='sec'){ S.selSectors.delete(val); syncSectorChips(); }
+  else if(kind==='reg')  { S.selRegions.delete(val); }
+  else if(kind==='fem')  { S.femOnly=false; syncFemBtn(); }
+  else if(kind==='fund') { S.fundAny=false; syncFundAnyBtn(); }
+  else if(kind==='size') { const cf=rangeCfg(val); S[cf.lo]=0; S[cf.hi]=cf.stops.length-1; syncRange(val); }
+  else if(kind==='cat')  { S.invCats.delete(val); syncFlagSeg(); renderCatField(); syncCatMenu(); }
+  else if(kind==='type') { S.invTypes.delete(val); renderTypeField(); syncTypeMenu(); }
+  else if(kind==='inv')  { S.selInvestors.delete(val); renderInvTags(); }
+  else if(kind==='invall'){ S.invAll=false; syncInvAllBtn(); }
+  onFilterChange({region:kind==='reg'});
+}
+function resetAllFilters(){
+  S.selSectors.clear(); S.selRegions.clear(); S.selInvestors.clear();
+  S.invCats.clear(); S.invTypes.clear(); S.invAll=false; S.femOnly=false; S.fundAny=false;
+  S.selCon=null; S.selConIdx=-1;
+  resetSize(); syncFemBtn(); femVideo(false); syncFundAnyBtn(); syncInvAllBtn(); syncFlagSeg();
+  syncSectorChips(); renderTypeField(); syncTypeMenu(); renderInvTags(); renderCatField(); syncCatMenu();
+  onFilterChange({region:true});
+}
+/* A count on each collapsed section header, so you can see where a filter lives. */
+function syncBadges(){
+  const put=(id,n)=>{ const el=$(id); if(!el) return; el.hidden=!n; el.textContent=n||''; };
+  put('sizeBadge', ['rngTurn','rngEmp','rngGrow'].filter(id=>!rangeLabel(id).full).length);
+  put('invBadge', (S.fundAny?1:0)+S.invCats.size+S.invTypes.size+S.selInvestors.size+(S.invAll?1:0));
+}
+
 /* =================================================================== DETAIL PANEL */
 function renderDetail(){
   const list=getFiltered(); const s=aggregate(list);
@@ -631,6 +844,8 @@ function renderDetail(){
   const sub=[nf(s.n)+' companies'];
   if(S.selSectors.size) sub.push(S.selSectors.size+' of '+S.sectors.length+' sectors');
   if(investorActive()){ const l=investorFilterLabel(); if(l) sub.push(l); }
+  if(S.fundAny) sub.push('funded');
+  if(sizeActive()) sub.push(sizeLabelShort());
   $('dKicker').textContent=kicker; $('dName').textContent=name; $('dSub').textContent=sub.join(' · ');
   const mpCard=$('conMpCard');
   if(mpCard){
@@ -646,7 +861,7 @@ function renderDetail(){
         (selCon.gov?'<div class="gov-badge">UK Government post</div>':'');
     } else { mpCard.hidden=true; mpCard.innerHTML=''; }
   }
-  $('detailReset').hidden=!(S.selSectors.size||S.selRegions.size||investorActive());
+  $('detailReset').hidden=!hasActiveFilter();
 
   $('statGrid').innerHTML=[['Companies',nf(s.n),''],['Employees',compact(s.emp),''],['Turnover',money(s.turn),'aggregate'],
     ['Investment',money(s.inv),'equity raised'],['IUK funding',money(s.iuk),'grants'],['Women-led',s.femPct.toFixed(1)+'%','of companies']]
@@ -969,7 +1184,10 @@ function companyVisible(id){ const n=normNum(id); const c=S.byNum[n]; if(!c) ret
     let hit=false; secs.forEach(sec=>{ if(S.selSectors.has(sec)) hit=true; });
     if(!hit) return false; }
   if(S.selRegions.size && (!c.region||!S.selRegions.has(c.region))) return false;
-  if(S.femOnly && !c.women) return false; return true; }
+  if(S.femOnly && !c.women) return false;
+  if(S.fundAny && !fundedAtAll(c)) return false;
+  if(sizeActive() && !sizeOk(c)) return false;
+  return true; }
 
 /* ---- Primes: firms with multiple UK offices, plotted per office ---- */
 function primeVisible(p){ if(!S.selSectors.size) return true; if(!p.sectors||!p.sectors.length) return false; return p.sectors.some(s=>S.selSectors.has(s)); }
@@ -1136,12 +1354,13 @@ function runDemo(){
   })();
 }
 function syncFemBtn(){ const b=$('femBtn'); if(b) b.setAttribute('aria-pressed', S.femOnly?'true':'false'); }
-function hasActiveFilter(){ return S.selSectors.size>0 || S.selRegions.size>0 || investorActive() || S.femOnly || S.selCon!=null; }
+function hasActiveFilter(){ return S.selSectors.size>0 || S.selRegions.size>0 || investorActive() || S.femOnly || S.selCon!=null || S.fundAny || sizeActive(); }
 function openDetail(){ S.detailOpen=true; $('detail').classList.add('open'); const t=$('detailToggle'); if(t) t.classList.add('active'); setTimeout(()=>{ try{ map.invalidateSize({pan:false}); }catch(e){} },300); }
 function closeDetail(){ S.detailOpen=false; $('detail').classList.remove('open'); const t=$('detailToggle'); if(t) t.classList.remove('active'); setTimeout(()=>{ try{ map.invalidateSize({pan:false}); }catch(e){} },300); }
 function onFilterChange(o){ o=o||{};
   S._invSet = investorMode() ? investorCompanySet() : null;
-  renderMap(); renderDetail(); renderRegionList(); if(o.region) renderRegionBoundary(); renderEco();
+  renderMap(); renderDetail(); renderRegionList(); renderActiveBar();
+  if(o.region) renderRegionBoundary(); renderEco();
   if(S.conMode!=='off') styleConSelection();
   refreshPrimes(); refreshProcurement();
   // On-demand right panel: open automatically when a filter is active, unless the
@@ -1221,6 +1440,19 @@ function boot(){
   document.addEventListener('click',e=>{ if(!e.target.closest('#invTypeWrap')) tMenu.classList.remove('open'); });
   renderTypeField();
 
+  // size sliders, the broad funding toggle, and the funding-flag buttons
+  wireRange('rngTurn'); wireRange('rngEmp'); wireRange('rngGrow');
+  const szReset=$('sizeReset');
+  if(szReset) szReset.addEventListener('click',()=>{ resetSize(); onFilterChange(); });
+  const fundBtn=$('fundAnyBtn');
+  if(fundBtn) fundBtn.addEventListener('click',()=>{ S.fundAny=!S.fundAny; syncFundAnyBtn(); onFilterChange(); });
+  renderFlagSeg();
+
+  // one bar listing every active filter, each chip removable
+  const abar=$('activeBar');
+  if(abar) abar.addEventListener('click',e=>{
+    const b=e.target.closest('button[data-k]'); if(b) clearFilter(b.dataset.k); });
+
   // show every investor-backed company, without picking a specific investor
   const invAllBtn=$('invAllBtn');
   if(invAllBtn) invAllBtn.addEventListener('click',()=>{
@@ -1230,8 +1462,10 @@ function boot(){
     onFilterChange(); });
 
   // investor category multiselect
+  // Only the investor-driven groups: the three funding flags have their own
+  // buttons above, because they pick companies by a different question.
   const menu=$('invCatMenu');
-  menu.innerHTML=Object.keys(CATS).map(k=>{ const c=CATS[k];
+  menu.innerHTML=Object.keys(CATS).filter(k=>!CATS[k].flag).map(k=>{ const c=CATS[k];
     return '<div class="inv-opt'+(c.dev?' dev':'')+'" data-k="'+k+'"><span class="tick"></span>'+esc(c.label)+(c.dev?'<span class="devtag">soon</span>':'')+'</div>'; }).join('');
   menu.querySelectorAll('.inv-opt:not(.dev)').forEach(opt=>opt.addEventListener('click',()=>{ const k=opt.dataset.k;
     if(S.invCats.has(k)){ S.invCats.delete(k); } else { S.invCats.add(k); S.selInvestors.clear(); renderInvTags(); }
@@ -1295,11 +1529,7 @@ function boot(){
   }
 
   // detail reset
-  $('detailReset').addEventListener('click',()=>{ S.selSectors.clear(); S.selRegions.clear(); S.selInvestors.clear(); S.invCats.clear(); S.invTypes.clear(); S.invAll=false; S.femOnly=false; syncFemBtn(); femVideo(false);
-    const ab=$('invAllBtn'); if(ab){ ab.classList.remove('active'); ab.textContent='Show all investor-backed'; }
-    renderTypeField(); syncTypeMenu();
-    S.selCon=null; S.selConIdx=-1;
-    document.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed','false')); renderInvTags(); renderCatField(); syncCatMenu(); onFilterChange({region:true}); });
+  $('detailReset').addEventListener('click',resetAllFilters);
 
   // primes / procurement toggles
   const primesBtn=$('primesBtn');
@@ -1356,8 +1586,8 @@ function boot(){
 
 function renderInvTags(){ $('invSelected').innerHTML=[...S.selInvestors].map(n=>'<span class="inv-tag">'+esc(n)+'<span class="x" data-inv="'+esc(n)+'">×</span></span>').join('');
   $('invSelected').querySelectorAll('.x').forEach(x=>x.addEventListener('click',()=>{ S.selInvestors.delete(x.getAttribute('data-inv')); renderInvTags(); onFilterChange(); })); }
-function renderCatField(){ const f=$('invCatField'); const sel=[...S.invCats];
-  if(!sel.length){ f.innerHTML='<span class="ph">Filter by category…</span>'; return; }
+function renderCatField(){ const f=$('invCatField'); const sel=[...S.invCats].filter(k=>CATS[k]&&!CATS[k].flag);
+  if(!sel.length){ f.innerHTML='<span class="ph">Any investor group…</span>'; return; }
   f.innerHTML=sel.map(k=>'<span class="token">'+esc(CATS[k].label)+'<span class="x" data-k="'+k+'">×</span></span>').join('');
   f.querySelectorAll('.x').forEach(x=>x.addEventListener('click',ev=>{ ev.stopPropagation(); S.invCats.delete(x.dataset.k); syncCatMenu(); renderCatField(); onFilterChange(); })); }
 function renderTypeField(){ const f=$('invTypeField'); if(!f) return; const sel=[...S.invTypes];
