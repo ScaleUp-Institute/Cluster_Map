@@ -34,6 +34,59 @@ const EMP_STOPS  = [0, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000
 const GROWTH_STOPS = [-Infinity, -25, 0, 10, 20, 30, 50, 100, 200, Infinity];
 
 const NOISE_COLOR = '#aab6c0';
+
+/* One glyph per sector for the rail chips and the map legend. Stroke-only on a
+   16px box, drawn in the sector's own colour, so a chip reads at a glance
+   instead of asking you to learn twelve dots. */
+const SECTOR_ICONS = {
+  // A cog loses its teeth at 14px and reads as a sunburst, so: a factory.
+  'Advanced Manufacturing':
+    '<path d="M1.9 13.6V7.7l4 2.3V7.7l4 2.3V3.3h4.2v10.3z"/><path d="M1.9 13.6h12.2"/>',
+  'Clean Energy Industries':
+    '<path d="M2.8 13.2C2.8 7.9 7 3.4 13.2 2.8c.3 6.1-3.6 10.4-10.4 10.4z"/>'+
+    '<path d="M3.4 12.6c1.9-3.1 4.4-5.3 7.6-6.7"/>',
+  'Construction':
+    '<path d="M1.9 11.6h12.2"/><path d="M4 11.6V8.1a4 4 0 0 1 8 0v3.5"/>'+
+    '<path d="M6.6 4.7V2.9h2.8v1.8"/>',
+  'Creative Industries':
+    '<path d="M8 14A6 6 0 1 1 14 8c0 1.8-1.7 2.1-2.7 2.1h-1.2a1.4 1.4 0 0 0-1 2.4'+
+    'c.3.5 0 1.2-.6 1.3A6 6 0 0 1 8 14z"/><circle cx="5.4" cy="7.1" r=".85"/>'+
+    '<circle cx="8" cy="5.1" r=".85"/><circle cx="10.7" cy="7.1" r=".85"/>',
+  'Defence':
+    '<path d="M8 1.8 13.1 4v4.1c0 3-2.1 5.4-5.1 6.1-3-.7-5.1-3.1-5.1-6.1V4z"/>',
+  'Digital and Technologies':
+    '<rect x="5" y="5" width="6" height="6" rx="1.1"/>'+
+    '<path d="M6.6 2.4v2.4M9.4 2.4v2.4M6.6 11.2v2.4M9.4 11.2v2.4'+
+    'M2.4 6.6h2.4M2.4 9.4h2.4M11.2 6.6h2.4M11.2 9.4h2.4"/>',
+  'Education':
+    '<path d="M8 2.6 1.6 5.9 8 9.2l6.4-3.3z"/>'+
+    '<path d="M4.3 7.5v3.2c0 1 1.7 1.9 3.7 1.9s3.7-.9 3.7-1.9V7.5"/>',
+  'Financial Services':
+    '<circle cx="8" cy="8" r="6.1"/>'+
+    '<path d="M6 11.3h4.1M5.9 8.4h2.8M9.6 5.5A1.9 1.9 0 0 0 6.5 7v2.2c0 1-.3 1.5-.8 2.1"/>',
+  'Life Sciences':
+    '<path d="M6.4 2.2v4L3.1 11.5c-.6 1 .1 2.2 1.3 2.2h7.2c1.2 0 1.9-1.2 1.3-2.2L9.6 6.2v-4"/>'+
+    '<path d="M5.5 2.2h5"/><path d="M4.6 9.7h6.8"/>',
+  'Professional and Business Service':
+    '<rect x="1.9" y="5.2" width="12.2" height="7.7" rx="1.2"/>'+
+    '<path d="M6 5.2V4.1a1.1 1.1 0 0 1 1.1-1.1h1.8A1.1 1.1 0 0 1 10 4.1v1.1"/>'+
+    '<path d="M1.9 8.6h12.2"/>',
+  'Transportation and storage':
+    '<path d="M1.8 4.5h7.4v6.3H1.8z"/><path d="M9.2 7.1h2.5l2.5 2.2v1.5H9.2z"/>'+
+    '<circle cx="4.6" cy="12.1" r="1.3"/><circle cx="11.5" cy="12.1" r="1.3"/>',
+  'Wholesale and retail':
+    '<path d="M3.2 5.3h9.6l-.8 8.1a1 1 0 0 1-1 .9H5a1 1 0 0 1-1-.9z"/>'+
+    '<path d="M6 7.1V4.7a2 2 0 0 1 4 0v2.4"/>'
+};
+function sectorIcon(sec, cls){
+  const g=SECTOR_ICONS[sec];
+  const col=SECTOR_COLORS[sec]||NOISE_COLOR;
+  if(!g) return '<span class="'+(cls||'sicon')+'-dot" style="background:'+col+'"></span>';
+  return '<svg class="'+(cls||'sicon')+'" viewBox="0 0 16 16" aria-hidden="true" style="color:'+col+
+         '" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" '+
+         'stroke-linejoin="round">'+g+'</svg>';
+}
+
 const BASE_DOT = '#7d97ab';   /* light uniform colour for the base layer (no sector selected) */
 /* Read from CSS so the dots, the rail swatch and the legend key share one value. */
 const FEM_DOT = (getComputedStyle(document.documentElement).getPropertyValue('--fem')||'').trim() || '#E0479E';
@@ -116,8 +169,12 @@ const S = {
   femOnly:false,
   /* Size filters, held as INDEXES into TURN_STOPS / EMP_STOPS. The high ends are
      set to the last stop at boot, so nothing is filtered until a handle moves. */
-  turnLo:0, turnHi:TURN_STOPS.length-1, empLo:0, empHi:EMP_STOPS.length-1,
-  growLo:0, growHi:GROWTH_STOPS.length-1,
+  /* Size / growth bounds, held as REAL VALUES rather than slider positions, so
+     a typed figure is not rounded to the nearest stop. The stops only decide
+     where the handles land. An open end is the first stop, or Infinity. */
+  turnMin:TURN_STOPS[0], turnMax:Infinity,
+  empMin:EMP_STOPS[0],   empMax:Infinity,
+  growMin:-Infinity,     growMax:Infinity,
   /* "Any funding received" — the broad version of the investor rail. True when a
      company raised equity, took a grant, or has a named investor. */
   fundAny:false,
@@ -246,7 +303,10 @@ function updateInvestorLegend(show){ const box=$('investor-legend'); if(!box) re
     $('ilIUK').innerHTML=pinImg(INV_PINS.mixed)+' UK + international';
     $('ilDual').innerHTML='<span class="pl-note">Shown only where an investor country is recorded.</span>'; return;
   }
-  $('ilUK').innerHTML=pinImg(INV_PINS.uk)+' UK investor';
+  // Under "any funding" the fourth pin is everyone funded who carries neither
+  // public flag -- calling that "UK investor" would overstate what is known.
+  $('ilUK').innerHTML=pinImg(INV_PINS.uk)+
+    (S.fundAny && !investorActive() ? ' Equity or other funding' : ' UK investor');
   $('ilBBB').innerHTML=pinImg(INV_PINS.bbb)+' British Business Bank-backed';
   $('ilIUK').innerHTML=pinImg(INV_PINS.iuk)+' Innovate UK-backed';
   $('ilDual').innerHTML=pinImg(INV_PINS.dual)+' Backed by both'; }
@@ -420,23 +480,24 @@ function fundedAtAll(c){
          S.flags.bbb.has(c.num) || S.flags.iuk.has(c.num) ||
          !!(c.investors && c.investors.length);
 }
-function sizeActive(){
-  return S.turnLo>0 || S.turnHi<TURN_STOPS.length-1 ||
-         S.empLo>0  || S.empHi<EMP_STOPS.length-1 || growthActive();
+function rangeOpen(id){
+  const cf=rangeCfg(id);
+  return S[cf.min]<=cf.stops[0] && S[cf.max]===Infinity;
 }
-function growthActive(){ return S.growLo>0 || S.growHi<GROWTH_STOPS.length-1; }
+function sizeActive(){ return ['rngTurn','rngEmp','rngGrow'].some(id=>!rangeOpen(id)); }
+function growthActive(){ return !rangeOpen('rngGrow'); }
 /* A company with no figure on file carries 0, which is not the same as "£0 of
    turnover". It therefore passes while the lower handle is at 0 and drops out
    the moment a floor is set — the rail says so underneath the slider. */
 function sizeOk(c){
   const t=c.turnover||0, e=c.employees||0;
-  if(t<TURN_STOPS[S.turnLo] || t>TURN_STOPS[S.turnHi]) return false;
-  if(e<EMP_STOPS[S.empLo]   || e>EMP_STOPS[S.empHi])   return false;
+  if(t<S.turnMin || t>S.turnMax) return false;
+  if(e<S.empMin  || e>S.empMax)  return false;
   if(growthActive()){
     // No figure is not zero growth, so an unmeasured company cannot satisfy a
-    // growth band -- it drops out, and the rail says how many that is.
+    // growth band and drops out.
     if(c.growth==null) return false;
-    if(c.growth<GROWTH_STOPS[S.growLo] || c.growth>GROWTH_STOPS[S.growHi]) return false;
+    if(c.growth<S.growMin || c.growth>S.growMax) return false;
   }
   return true;
 }
@@ -452,7 +513,7 @@ function getFiltered(opts){
     if(useRegion && (!c.region || !S.selRegions.has(c.region))) return false;
     if(invSet && !invSet.has(c.num)) return false;
     if(S.femOnly && !c.women) return false;
-    if(S.fundAny && !fundedAtAll(c)) return false;
+    if(S.fundAny && !opts.ignoreFunding && !fundedAtAll(c)) return false;
     if(size && !sizeOk(c)) return false;
     return true;
   });
@@ -497,21 +558,26 @@ function renderMap(){
   // the polygons keep their true cluster shape and the pins simply highlight
   // which of those companies the chosen investors back. Drawing hulls around the
   // investor subset alone would imply clusters that aren't in the data.
-  const baseList = invMode ? getFiltered({ignoreInvestor:true}) : list;
+  // "Any funding received" puts pins on the map on the same terms as the
+  // investor filters: the dots and hulls keep the UNFILTERED shape underneath
+  // and the pins mark which of those companies carry funding.
+  const fundMode = S.fundAny;
+  const pinMode = invMode || fundMode;
+  const baseList = pinMode ? getFiltered({ignoreInvestor:true, ignoreFunding:true}) : list;
   // One pin per COMPANY: a company in several sectors would otherwise get
   // several identical pins stacked at one point, and count several times
   // against the marker cap.
   // In origin mode only companies whose backers have a recorded country are
   // pinned. Falling back to the UK pin would assert UK-only backing for the 470
   // companies whose investors (all Datacity-sourced) carry no country at all.
-  const pinList = invMode ? (S.invOrigin ? uniqueCompanies(list).filter(c=>originOf(c.num))
-                                         : uniqueCompanies(list)) : [];
-  const useMarkers = invMode && pinList.length>0 && pinList.length<=MARKER_CAP;
+  const pinList = pinMode ? ((S.invOrigin && invMode) ? uniqueCompanies(list).filter(c=>originOf(c.num))
+                                                     : uniqueCompanies(list)) : [];
+  const useMarkers = pinMode && pinList.length>0 && pinList.length<=MARKER_CAP;
   S.markersShown = useMarkers;
   // With no sector chosen, investor browsing stays a clean pin-only view;
   // once a sector is chosen the cluster context comes back underneath.
   // ...and the pink dots are the point of the female filter, so they stay on too.
-  const showDots = !invMode || S.selSectors.size>0 || S.femOnly;
+  const showDots = !pinMode || S.selSectors.size>0 || S.femOnly;
   dotLayer.setData((S.displayMode==='polygons' || !showDots) ? [] : baseList);
   // The sector legend and the Points/Polygons/Both switch both only describe the
   // sector cluster layer, so neither is meaningful until a sector is selected.
@@ -674,9 +740,30 @@ map.on('mouseout', ()=>{
 
 /* ============================================================== SIZE SLIDERS */
 function rangeCfg(id){
-  if(id==='rngTurn') return {stops:TURN_STOPS, lo:'turnLo', hi:'turnHi', kind:'money',  noun:'turnover', title:'Turnover'};
-  if(id==='rngGrow') return {stops:GROWTH_STOPS, lo:'growLo', hi:'growHi', kind:'pct',  noun:'growth',   title:'Growth'};
-  return {stops:EMP_STOPS, lo:'empLo', hi:'empHi', kind:'count', noun:'employee', title:'Employees'};
+  if(id==='rngTurn') return {stops:TURN_STOPS,   min:'turnMin', max:'turnMax', kind:'money', title:'Turnover'};
+  if(id==='rngGrow') return {stops:GROWTH_STOPS, min:'growMin', max:'growMax', kind:'pct',   title:'Growth rate'};
+  return {stops:EMP_STOPS, min:'empMin', max:'empMax', kind:'count', title:'Employees'};
+}
+/* Accepts what a person would actually type: 25m, 1.5bn, 10k, 250, -5. */
+function parseAmount(txt, kind){
+  const t=String(txt||'').trim().toLowerCase().replace(/[, £%]/g,'');
+  if(!t) return null;
+  const m=t.match(/^(-?\d*\.?\d+)(k|m|bn|b)?$/);
+  if(!m) return NaN;
+  let v=parseFloat(m[1]);
+  if(kind!=='pct'){ const u=m[2];
+    if(u==='k') v*=1e3; else if(u==='m') v*=1e6; else if(u==='b'||u==='bn') v*=1e9; }
+  return v;
+}
+/* The handle sits on the nearest stop; the bound itself keeps the exact value. */
+function nearestStop(stops, v){
+  const fin=x=>x===Infinity?1e18:(x===-Infinity?-1e18:x);
+  let best=0, gap=Infinity;
+  for(let i=0;i<stops.length;i++){
+    const d=Math.abs(fin(stops[i])-fin(v));
+    if(d<gap){ gap=d; best=i; }
+  }
+  return best;
 }
 function stopText(v, kind){
   if(v===Infinity || v===-Infinity) return 'Any';
@@ -686,64 +773,97 @@ function stopText(v, kind){
 }
 /* One label for both the slider and its chip, so the two can never disagree. */
 function rangeLabel(id){
-  const cf=rangeCfg(id), last=cf.stops.length-1, lo=S[cf.lo], hi=S[cf.hi];
-  if(lo===0 && hi===last) return {full:true, text:'Any'};
-  if(lo===0)    return {full:false, text:'Up to '+stopText(cf.stops[hi],cf.kind)};
-  if(hi===last) return {full:false, text:stopText(cf.stops[lo],cf.kind)+' and above'};
-  return {full:false, text:stopText(cf.stops[lo],cf.kind)+' – '+stopText(cf.stops[hi],cf.kind)};
+  const cf=rangeCfg(id), lo=S[cf.min], hi=S[cf.max];
+  const openLo=lo<=cf.stops[0], openHi=hi===Infinity;
+  if(openLo && openHi) return {full:true, text:'Any'};
+  if(openLo) return {full:false, text:'Up to '+stopText(hi,cf.kind)};
+  if(openHi) return {full:false, text:stopText(lo,cf.kind)+' and above'};
+  return {full:false, text:stopText(lo,cf.kind)+' – '+stopText(hi,cf.kind)};
 }
 function sizeLabelShort(){
   return ['rngTurn','rngEmp','rngGrow'].map(id=>{ const l=rangeLabel(id);
     return l.full ? null : rangeCfg(id).title.toLowerCase()+' '+l.text; }).filter(Boolean).join(', ');
 }
-/* A company with no figure on file carries 0, so a floor above zero silently
-   drops it. Counted once and cached -- the rail prints it under the slider. */
-function noFigureCount(kind){
-  if(!S._noFig) S._noFig={};
-  if(S._noFig[kind]==null){
-    const miss = kind==='money' ? (c=>!c.turnover)
-               : kind==='pct'  ? (c=>c.growth==null)
-                               : (c=>!c.employees);
-    S._noFig[kind]=uniqueCompanies(S.all).filter(miss).length;
-  }
-  return S._noFig[kind];
-}
 function syncRange(id){
   const el=$(id); if(!el) return;
-  const cf=rangeCfg(id), last=cf.stops.length-1, lo=S[cf.lo], hi=S[cf.hi];
+  const cf=rangeCfg(id), last=cf.stops.length-1;
+  const lo=S[cf.min], hi=S[cf.max];
+  const li=nearestStop(cf.stops,lo), hj=nearestStop(cf.stops,hi);
   const a=el.querySelector('.rng-lo'), b=el.querySelector('.rng-hi');
-  a.max=last; b.max=last; a.value=lo; b.value=hi;
+  a.max=last; b.max=last; a.value=li; b.value=hj;
   const f=el.querySelector('.rng-fill');
-  f.style.left=(lo/last*100)+'%';
-  f.style.right=((last-hi)/last*100)+'%';
+  f.style.left=(li/last*100)+'%';
+  f.style.right=((last-hj)/last*100)+'%';
   const lab=rangeLabel(id);
   el.querySelector('.rng-val').textContent=lab.text;
   el.classList.toggle('on',!lab.full);
-  const note=el.querySelector('.rng-note');
-  const cuts = cf.kind==='pct' ? !lab.full : lo>0;
-  const miss = cuts ? noFigureCount(cf.kind) : 0;
-  note.textContent = miss ? nf(miss)+' companies with no '+cf.noun+' figure are excluded' : '';
+  // The boxes stay blank at an open end rather than printing an infinity, and
+  // are left alone while they have focus so typing is never overwritten.
+  const nMin=el.querySelector('.rng-min'), nMax=el.querySelector('.rng-max');
+  if(nMin && document.activeElement!==nMin) nMin.value = lo<=cf.stops[0] ? '' : plainNum(lo,cf.kind);
+  if(nMax && document.activeElement!==nMax) nMax.value = hi===Infinity  ? '' : plainNum(hi,cf.kind);
+}
+/* What goes in the typing box: short, and parseable straight back. */
+function plainNum(v,kind){
+  if(v===Infinity||v===-Infinity) return '';
+  if(kind==='money'){
+    if(Math.abs(v)>=1e9 && v%1e8===0) return (v/1e9)+'bn';
+    if(Math.abs(v)>=1e6 && v%1e5===0) return (v/1e6)+'m';
+  }
+  return String(v);
 }
 function wireRange(id){
   const el=$(id); if(!el) return;
   const cf=rangeCfg(id), last=cf.stops.length-1;
   const a=el.querySelector('.rng-lo'), b=el.querySelector('.rng-hi');
   a.max=last; b.max=last; b.value=last;
-  const push=()=>{ syncRange(id); renderActiveBar(); onFilterChange(); };
+  const push=()=>{ syncRange(id); onFilterChange(); };
   // Handles may not cross: each one stops at the other.
-  a.addEventListener('input',()=>{ S[cf.lo]=Math.min(+a.value, S[cf.hi]); push(); });
-  b.addEventListener('input',()=>{ S[cf.hi]=Math.max(+b.value, S[cf.lo]); push(); });
+  a.addEventListener('input',()=>{
+    S[cf.min]=cf.stops[Math.min(+a.value, nearestStop(cf.stops,S[cf.max]))]; push(); });
+  b.addEventListener('input',()=>{
+    S[cf.max]=cf.stops[Math.max(+b.value, nearestStop(cf.stops,S[cf.min]))]; push(); });
+
+  const nMin=el.querySelector('.rng-min'), nMax=el.querySelector('.rng-max');
+  const typed=(box,key,openTo)=>{
+    const v=parseAmount(box.value,cf.kind);
+    box.classList.toggle('bad', Number.isNaN(v));
+    if(Number.isNaN(v)) return;
+    S[key] = (v===null) ? openTo : v;
+    // A pair typed the wrong way round is swapped rather than refused.
+    if(S[cf.min]>S[cf.max]){ const t=S[cf.min]; S[cf.min]=S[cf.max]; S[cf.max]=t; }
+    syncRange(id); onFilterChange();
+  };
+  if(nMin && nMax){
+    nMin.addEventListener('change',()=>typed(nMin,cf.min,cf.stops[0]));
+    nMax.addEventListener('change',()=>typed(nMax,cf.max,Infinity));
+    [nMin,nMax].forEach(n=>n.addEventListener('keydown',e=>{ if(e.key==='Enter') n.blur(); }));
+  }
   syncRange(id);
 }
 function resetSize(){
-  S.turnLo=0; S.turnHi=TURN_STOPS.length-1;
-  S.empLo=0;  S.empHi=EMP_STOPS.length-1;
-  S.growLo=0; S.growHi=GROWTH_STOPS.length-1;
+  S.turnMin=TURN_STOPS[0]; S.turnMax=Infinity;
+  S.empMin=EMP_STOPS[0];   S.empMax=Infinity;
+  S.growMin=-Infinity;     S.growMax=Infinity;
   ['rngTurn','rngEmp','rngGrow'].forEach(syncRange);
 }
 
 /* ========================================================== FUNDING CONTROLS */
 function syncFundAnyBtn(){ const b=$('fundAnyBtn'); if(b) b.setAttribute('aria-pressed', S.fundAny?'true':'false'); }
+/* "Investor-backed" is a strict SUBSET of "any funding": every one of those
+   companies sits inside the larger set, the difference being the grant-only
+   ones with no named investor. Printing both counts is the clearest way to
+   show the two controls are nested rather than alternatives. */
+function labelFundingCounts(){
+  const uniq=uniqueCompanies(S.all);
+  const m=document.querySelector('#fundAnyBtn .meta');
+  if(m) m.textContent='Equity, grant or a named investor \u00b7 '+nf(uniq.filter(fundedAtAll).length);
+  const h=$('invAllHint');
+  if(h) h.textContent=nf(uniq.filter(c=>c.investors&&c.investors.length).length)+
+        ' of those have a named investor';
+}
+/* The pin-colour control only changes pins that are already on the map. */
+function syncOriginHint(){ const h=$('originHint'); if(h) h.hidden=investorActive(); }
 /* The three funding FLAGS get their own visible control rather than hiding in
    the category dropdown with the investor groups. They answer a different
    question -- what a company received, not who backed it -- and the old mixed
@@ -786,12 +906,44 @@ function renderActiveBar(){
   const bar=$('activeBar'); if(!bar) return;
   const chips=activeChips();
   bar.hidden=!chips.length;
-  if(!chips.length){ bar.innerHTML=''; syncBadges(); return; }
+  if(!chips.length){ bar.innerHTML=''; return; }
   bar.innerHTML='<div class="ab-head"><span>'+chips.length+' filter'+(chips.length===1?'':'s')+
     ' active</span><button type="button" class="linkbtn" data-k="__all">Clear all</button></div>'+
     '<div class="ab-chips">'+chips.map(c=>'<span class="ab-chip">'+esc(c.t)+
       '<button type="button" aria-label="Remove '+esc(c.t)+'" data-k="'+esc(c.k)+'">×</button></span>').join('')+'</div>';
-  syncBadges();
+}
+/* The bar can be dragged anywhere on screen and stays put for the session. It
+   starts docked at the top of the rail; the first drag lifts it to fixed
+   positioning. Pointer events, so a touchscreen drags it too. */
+function makeBarDraggable(bar){
+  let id=null, dx=0, dy=0;
+  const place=(x,y)=>{
+    const w=bar.offsetWidth, h=bar.offsetHeight;
+    x=Math.max(4, Math.min(window.innerWidth-w-4, x));
+    y=Math.max(4, Math.min(window.innerHeight-h-4, y));
+    bar.style.left=x+'px'; bar.style.top=y+'px';
+    try{ sessionStorage.setItem('cm_bar', x+','+y); }catch(e){}
+  };
+  bar.addEventListener('pointerdown',e=>{
+    if(e.target.closest('button')) return;      // chips stay clickable
+    const r=bar.getBoundingClientRect();
+    bar.classList.add('floating','dragging');
+    bar.style.width=r.width+'px';
+    dx=e.clientX-r.left; dy=e.clientY-r.top;
+    id=e.pointerId; bar.setPointerCapture(id);
+    place(r.left, r.top);
+    e.preventDefault();
+  });
+  bar.addEventListener('pointermove',e=>{ if(id===e.pointerId) place(e.clientX-dx, e.clientY-dy); });
+  const stop=e=>{ if(id===e.pointerId){ bar.classList.remove('dragging');
+    try{ bar.releasePointerCapture(id); }catch(err){} id=null; } };
+  bar.addEventListener('pointerup',stop);
+  bar.addEventListener('pointercancel',stop);
+  try{                                          // back where it was left
+    const saved=sessionStorage.getItem('cm_bar');
+    if(saved){ const xy=saved.split(',').map(Number);
+      bar.classList.add('floating'); bar.style.left=xy[0]+'px'; bar.style.top=xy[1]+'px'; }
+  }catch(e){}
 }
 function syncSectorChips(){
   document.querySelectorAll('.chip[data-sector]').forEach(c=>
@@ -810,7 +962,8 @@ function clearFilter(key){
   else if(kind==='reg')  { S.selRegions.delete(val); }
   else if(kind==='fem')  { S.femOnly=false; syncFemBtn(); }
   else if(kind==='fund') { S.fundAny=false; syncFundAnyBtn(); }
-  else if(kind==='size') { const cf=rangeCfg(val); S[cf.lo]=0; S[cf.hi]=cf.stops.length-1; syncRange(val); }
+  else if(kind==='size') { const cf=rangeCfg(val);
+    S[cf.min]=cf.stops[0]; S[cf.max]=Infinity; syncRange(val); }
   else if(kind==='cat')  { S.invCats.delete(val); syncFlagSeg(); renderCatField(); syncCatMenu(); }
   else if(kind==='type') { S.invTypes.delete(val); renderTypeField(); syncTypeMenu(); }
   else if(kind==='inv')  { S.selInvestors.delete(val); renderInvTags(); }
@@ -825,14 +978,6 @@ function resetAllFilters(){
   syncSectorChips(); renderTypeField(); syncTypeMenu(); renderInvTags(); renderCatField(); syncCatMenu();
   onFilterChange({region:true});
 }
-/* A count on each collapsed section header, so you can see where a filter lives. */
-function syncBadges(){
-  const put=(id,n)=>{ const el=$(id); if(!el) return; el.hidden=!n; el.textContent=n||''; };
-  put('sizeBadge', ['rngTurn','rngEmp','rngGrow'].filter(id=>!rangeLabel(id).full).length);
-  put('invBadge', (S.fundAny?1:0)+S.invCats.size+S.invTypes.size+S.selInvestors.size+(S.invAll?1:0));
-}
-
-/* =================================================================== DETAIL PANEL */
 function renderDetail(){
   const list=getFiltered(); const s=aggregate(list);
   const regs=[...S.selRegions];
@@ -1359,7 +1504,7 @@ function openDetail(){ S.detailOpen=true; $('detail').classList.add('open'); con
 function closeDetail(){ S.detailOpen=false; $('detail').classList.remove('open'); const t=$('detailToggle'); if(t) t.classList.remove('active'); setTimeout(()=>{ try{ map.invalidateSize({pan:false}); }catch(e){} },300); }
 function onFilterChange(o){ o=o||{};
   S._invSet = investorMode() ? investorCompanySet() : null;
-  renderMap(); renderDetail(); renderRegionList(); renderActiveBar();
+  renderMap(); renderDetail(); renderRegionList(); renderActiveBar(); syncOriginHint();
   if(o.region) renderRegionBoundary(); renderEco();
   if(S.conMode!=='off') styleConSelection();
   refreshPrimes(); refreshProcurement();
@@ -1377,7 +1522,7 @@ function boot(){
   const chips=$('chips');
   S.sectors.forEach(sec=>{ const b=document.createElement('button');
     b.className='chip'; b.setAttribute('aria-pressed','false'); b.dataset.sector=sec;
-    b.innerHTML='<span class="dot" style="background:'+(SECTOR_COLORS[sec]||NOISE_COLOR)+'"></span>'+esc(sec);
+    b.innerHTML=sectorIcon(sec)+esc(sec);
     b.addEventListener('click',()=>{ b.getAttribute('aria-pressed')==='true'?(S.selSectors.delete(sec),b.setAttribute('aria-pressed','false')):(S.selSectors.add(sec),b.setAttribute('aria-pressed','true')); onFilterChange(); });
     chips.appendChild(b); });
   $('selAll').addEventListener('click',()=>{ S.selSectors=new Set(S.sectors); document.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed','true')); onFilterChange(); });
@@ -1390,8 +1535,9 @@ function boot(){
   if(originBtn) originBtn.addEventListener('click',()=>{ S.invOrigin=!S.invOrigin;
     originBtn.classList.toggle('active',S.invOrigin);
     originBtn.textContent=S.invOrigin?'Colour pins by backing type':'Colour pins by investor origin';
-    if(S.invOrigin && !investorActive()){ S.invAll=true;
-      const ab=$('invAllBtn'); if(ab){ ab.classList.add('active'); ab.textContent='Hide all investor-backed'; } }
+    // This used to switch "all investor-backed" on behind the scenes, so a
+    // display control silently changed which companies were on the map. It no
+    // longer does; the hint beneath it says what to turn on instead.
     onFilterChange(); });
   const femBtn=$('femBtn'), femKey=$('femKey');
   if(femKey) femKey.style.background=FEM_DOT;
@@ -1400,7 +1546,7 @@ function boot(){
   if(fvClose) fvClose.addEventListener('click',()=>femVideo(false));
 
   // legend
-  $('legendRows').innerHTML=S.sectors.map(sec=>'<div class="lrow"><i style="background:'+(SECTOR_COLORS[sec]||NOISE_COLOR)+'"></i>'+esc(sec)+'</div>').join('');
+  $('legendRows').innerHTML=S.sectors.map(sec=>'<div class="lrow">'+sectorIcon(sec,'licon')+esc(sec)+'</div>').join('');
   $('legendToggle').addEventListener('click',()=>{ const l=$('legend'); const c=l.classList.toggle('collapsed'); $('legendToggle').textContent=c?'Show':'Hide'; });
 
   // display pill
@@ -1450,8 +1596,12 @@ function boot(){
 
   // one bar listing every active filter, each chip removable
   const abar=$('activeBar');
-  if(abar) abar.addEventListener('click',e=>{
-    const b=e.target.closest('button[data-k]'); if(b) clearFilter(b.dataset.k); });
+  if(abar){
+    abar.addEventListener('click',e=>{
+      const b=e.target.closest('button[data-k]'); if(b) clearFilter(b.dataset.k); });
+    makeBarDraggable(abar);
+  }
+  labelFundingCounts(); syncOriginHint();
 
   // show every investor-backed company, without picking a specific investor
   const invAllBtn=$('invAllBtn');
@@ -1465,8 +1615,10 @@ function boot(){
   // Only the investor-driven groups: the three funding flags have their own
   // buttons above, because they pick companies by a different question.
   const menu=$('invCatMenu');
-  menu.innerHTML=Object.keys(CATS).filter(k=>!CATS[k].flag).map(k=>{ const c=CATS[k];
-    return '<div class="inv-opt'+(c.dev?' dev':'')+'" data-k="'+k+'"><span class="tick"></span>'+esc(c.label)+(c.dev?'<span class="devtag">soon</span>':'')+'</div>'; }).join('');
+  // Groups that are not built yet are left out entirely rather than listed as
+  // "soon": the menu was already long enough to be hard to scan.
+  menu.innerHTML=Object.keys(CATS).filter(k=>!CATS[k].flag && !CATS[k].dev).map(k=>
+    '<div class="inv-opt" data-k="'+k+'"><span class="tick"></span>'+esc(CATS[k].label)+'</div>').join('');
   menu.querySelectorAll('.inv-opt:not(.dev)').forEach(opt=>opt.addEventListener('click',()=>{ const k=opt.dataset.k;
     if(S.invCats.has(k)){ S.invCats.delete(k); } else { S.invCats.add(k); S.selInvestors.clear(); renderInvTags(); }
     syncCatMenu(); renderCatField(); onFilterChange(); }));
