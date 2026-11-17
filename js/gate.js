@@ -81,6 +81,14 @@
     });
   }
 
+  /* The label comes from our own build, but it is still interpolated into
+     innerHTML, so it is escaped like anything else would be. */
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
   /* ---------------------------------------------------------------- the gate */
   function showGate(m) {
     return new Promise(function (resolve) {
@@ -108,7 +116,8 @@
       wrap.id = 'sg-wrap';
       wrap.innerHTML =
         '<div id="sg-box" role="dialog" aria-modal="true" aria-labelledby="sg-h">' +
-        '<h1 id="sg-h">UK Scaleup Map</h1>' +
+        '<h1 id="sg-h">' + esc(m.scopeLabel ? m.scopeLabel + ' Scaleup Map'
+                                            : 'UK Scaleup Map') + '</h1>' +
         '<p>This build is encrypted. Enter the passphrase to load the data.</p>' +
         '<input id="sg-in" type="password" autocomplete="off" spellcheck="false" ' +
         'autocapitalize="off" aria-label="Passphrase" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX">' +

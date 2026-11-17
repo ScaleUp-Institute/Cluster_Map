@@ -703,3 +703,8 @@ h2,h3,h4{font-family:var(--font-head);}
 .legend .lrow{display:flex; align-items:center; gap:8px;}
 .legend .licon{width:13px; height:13px; flex:0 0 auto;}
 .legend .licon-dot{width:10px; height:10px; border-radius:3px; flex:0 0 auto;}
+
+/* ---- region-build badge: says which edition of the map this is ---- */
+.scope-tag{display:inline-block; margin-top:2px; padding:1px 7px; border-radius:999px;
+  background:var(--accent-ink); color:#fff; font-size:10px; font-weight:700;
+  letter-spacing:.04em; text-transform:uppercase; line-height:1.6; align-self:flex-start;}

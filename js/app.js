@@ -118,6 +118,66 @@ const ITL1_ORDER = ['London','South East (England)','North West (England)','East
   'Wales','Northern Ireland'];
 const regionShort = n => n.replace(' (England)','');
 
+/* =================================================================== SCOPE
+   A region build (tools/make_region_build.py) ships a data file holding one
+   region and nothing else -- the British Business Bank copy carries the North
+   East alone. meta.scope is how that file announces itself, and everything
+   below keys off S.scope being set. Nothing here hides data: the data is
+   already absent. What it does is stop the interface claiming a national view
+   it no longer has -- a region picker with one entry, a regions-comparison tab
+   with one bar, and figures captioned "of the UK" that are nothing of the
+   kind. The national build sets no scope and is untouched by all of it. */
+let SCOPE_REGION = null, SCOPE_LABEL = null;
+function scoped(){ return !!SCOPE_REGION; }
+/* What to call the universe in a caption: "the UK", or "the North East". */
+function universeName(){ return scoped() ? 'the '+SCOPE_LABEL : 'the UK'; }
+let scopeLayer = null;
+/* The region sits under a permanent tint rather than being selected as a
+   filter: selecting it would put a chip in the active-filter bar for a filter
+   that excludes nothing, and would zoom the map to the region on load. The
+   brief was that the UK map still opens as it does now, with the region
+   highlighted on it. */
+function drawScopeRegion(){
+  if(!scoped() || !S.regionGeo) return;
+  if(scopeLayer){ map.removeLayer(scopeLayer); scopeLayer=null; }
+  const feat=S.regionGeo.features.filter(f=>f.properties.ITL121NM===SCOPE_REGION);
+  if(!feat.length) return;
+  const accent=getComputedStyle(document.documentElement).getPropertyValue('--accent-ink').trim()||'#0a7a67';
+  scopeLayer=L.geoJSON({type:'FeatureCollection',features:feat},{interactive:false,
+    style:()=>({color:accent,weight:1.8,opacity:.95,fill:true,fillColor:accent,fillOpacity:.07})}).addTo(map);
+  scopeLayer.bringToBack();
+}
+/* Strip the parts of the interface that only mean something nationally. */
+function applyScope(){
+  if(!scoped()) return;
+  document.documentElement.setAttribute('data-scope','region');
+  const t=$('scopeTag');
+  if(t){ t.textContent=SCOPE_LABEL; t.hidden=false; }
+  const p=document.querySelector('.brand .product');
+  if(p) p.textContent=SCOPE_LABEL+' Scaleup Map';
+  document.title=SCOPE_LABEL+' Scaleup Map — Scaleup Institute';
+  // The regions tab compares twelve regions; there is one.
+  const rb=document.querySelector('.dashtabs button[data-tab="regions"]');
+  if(rb) rb.hidden=true;
+  // The region rail section would offer a single choice that filters nothing.
+  const rs=document.querySelector('.rail-sec[data-group="regions"]');
+  if(rs) rs.hidden=true;
+  // Dashboard "region" dropdowns, same reason.
+  ['secRegionFilter','invRegionFilter'].forEach(id=>{ const el=$(id); if(el) el.hidden=true; });
+  // Headings written for a national file. Rewritten rather than removed: a
+  // reader needs to know which population every figure on the page is drawn
+  // from, and "the UK's scaleups" on a 521-company North East file is wrong.
+  const poss=SCOPE_LABEL+"'s";
+  [['ovSub',    'The '+poss+' high-growth company population at a glance.'],
+   ['secSub',   'How the '+poss+' scaleup population breaks down by sector.'],
+   ['invSub',   'Equity raised, all funding types combined, and who is backing the '+poss+' scaleups.'],
+   ['helpIntro','Explore where the '+poss+' high-growth companies — scaleups — cluster, who funds them, and how they break down by sector. '+
+                'This is the '+SCOPE_LABEL+' edition: it holds that region only. Use the tabs at the top; the Map tab is interactive.']
+  ].forEach(([id,txt])=>{ const el=$(id); if(el) el.textContent=txt; });
+  drawScopeRegion();
+}
+
+
 /* ---------- Country -> ISO2 (for flag icons) ---------- */
 const ISO = {'united kingdom':'gb','united states':'us','united states of america':'us','ireland':'ie','france':'fr',
   'germany':'de','spain':'es','italy':'it','netherlands':'nl','belgium':'be','luxembourg':'lu','switzerland':'ch',
@@ -218,6 +278,7 @@ const map = L.map('map',{minZoom:5,maxZoom:16,zoomControl:true,preferCanvas:true
    mass from our own ITL1 boundaries, so the map still reads as the UK. */
 const NO_TILES = (typeof window!=='undefined' && window.NO_BASEMAP_TILES===true);
 let landLayer=null;
+/* Redrawn on a theme change, because the tint is mixed from --accent-ink. */
 function drawLandLayer(){
   if(!NO_TILES || !S.regionGeo) return;
   if(landLayer){ map.removeLayer(landLayer); landLayer=null; }
@@ -338,7 +399,11 @@ const DotLayer = L.Layer.extend({
         const pt=m.latLngToLayerPoint([p.lat,p.lng]).subtract(tl);
         // slightly under the sector dot size — the pink already carries the highlight,
         // so the dots don't need extra bulk on top of it
-        const sel = S.dotsAreSelection && !isNoise;
+        // The 1.9px / 40% base wash below is tuned for 19,138 dots, where sheer
+        // density does the work. A region build carries a few hundred, so at UK
+        // zoom that wash is invisible -- the same way a funded selection was.
+        // Both get drawn at selection weight instead.
+        const sel = (S.dotsAreSelection || scoped()) && !isNoise;
         const r = fem ? 2.5 : (isNoise ? 1.6 : (byS ? 2.9 : (sel ? 2.7 : 1.9)));
         ctx.beginPath(); ctx.arc(pt.x,pt.y, r, 0, 6.283);
         ctx.fillStyle = fem ? FEM_DOT : (isNoise ? NOISE_COLOR : (byS ? p.color : BASE_DOT));
@@ -424,10 +489,14 @@ getJSON('data/master.json').then(M=>{
   S.all.forEach(c=>{ S.byNum[c.num]=c; (S.secsByNum[c.num]||(S.secsByNum[c.num]=new Set())).add(c.sector); });
   S.primes=M.primes||{}; S.procurement=M.procurement||{};
   S.regionGeo=M.regionGeo;   // ITL1 boundaries, already renamed + simplified for drawing
+  // A region build announces itself here; see SCOPE above.
+  const sc=(M.meta&&M.meta.scope)||null;
+  if(sc && sc.region){ SCOPE_REGION=sc.region; SCOPE_LABEL=sc.label||regionShort(sc.region); }
   drawLandLayer();
   S.eco=M.ecosystem||{universities:[],infrastructure:[],support:[]};
   console.log('Loaded companies:',S.all.length,'| sectors:',S.sectors.length,'| investors:',S.invNames.length,'| BBB:',S.flags.bbb.size,'IUK:',S.flags.iuk.size,'| built',M.meta&&M.meta.generated);
   boot();
+  applyScope();
   if(/[?&]demo=1/.test(location.search)) runDemo();
 }).catch(e=>{ console.error('Data load failed',e); const l=$('mapLoading'); if(l) l.textContent='Failed to load data.'; });
 
@@ -1185,9 +1254,11 @@ function conPrepareStats(){
   S.all.forEach(c=>{ nat[c.sector]=(nat[c.sector]||0)+1; tot++; });
   S._natShare={}; Object.keys(nat).forEach(k=>{ S._natShare[k]=nat[k]/tot; });
 }
-/* Location quotient: a seat's share of a sector divided by the UK's share.
-   2.0x means the sector is twice as concentrated here as nationally. Needs at
-   least 3 companies in the sector so one or two firms can't manufacture a spike. */
+/* Location quotient: a seat's share of a sector divided by the share across
+   the whole file -- the UK normally, the region in a region build, since that
+   is the only population present to compare against. 2.0x means the sector is
+   twice as concentrated here as across that population. Needs at least 3
+   companies in the sector so one or two firms can't manufacture a spike. */
 function conSpecialisms(c){
   if(!c.sectorCounts || !c.companies || !S._natShare || !S.sectorsRaw) return [];
   const out=[];
@@ -1234,7 +1305,7 @@ function conPopup(c){
           '<span class="cp-spec-name" title="'+nf(s.n)+' of '+nf(c.companies)+' scaleups here">'+swatch(SECTOR_COLORS[s.sector])+esc(s.sector)+'</span>'+
           '<span class="cp-spec-bar"><i style="width:'+w.toFixed(0)+'%;background:'+(SECTOR_COLORS[s.sector]||'#6C8693')+'"></i></span>'+
           '<span class="cp-spec-lq">'+s.lq.toFixed(1)+'×</span></div>'; }).join('')
-    : '<div class="cp-none">Sector mix closely matches the UK average.</div>';
+    : '<div class="cp-none">Sector mix closely matches the '+(scoped()?esc(SCOPE_LABEL):'UK')+' average.</div>';
   return '<div class="popup con-popup">'+
     '<div class="ph">'+esc(c.name)+'</div>'+
     '<div class="cp-mp">'+
@@ -1372,7 +1443,11 @@ function primePopup(p,loc){
     '<div class="row"><span>Employees (office)</span><b>'+(loc.employees!=null?compact(loc.employees):'n/a')+'</b></div>'+
     '<div class="row"><span>Turnover (office)</span><b>'+pMoney(loc.turnover)+'</b></div>'+
     '<div class="row"><span>Sector'+((p.sectors||[]).length>1?'s':'')+'</span><b>'+esc((p.sectors||[]).join(', ')||'n/a')+'</b></div>'+
-    '<div class="row"><span>Total UK offices</span><b>'+nf(p.n_offices||0)+'</b></div></div>';
+    // In a region build the locations are pruned to the region and n_offices is
+    // reset to match, so quoting a UK total here would be quoting a figure the
+    // file no longer holds.
+    '<div class="row"><span>'+(scoped()?'Offices in '+esc(SCOPE_LABEL):'Total UK offices')+
+      '</span><b>'+nf(p.n_offices||0)+'</b></div></div>';
 }
 function refreshPrimes(){
   if(primeLayer){ map.removeLayer(primeLayer); primeLayer=null; }
@@ -2045,7 +2120,7 @@ function renderConstituenciesDash(){
 
   $('cdKpis').innerHTML =
     kpiCard(nf(rows.length),'Seats in view', nf(all.length)+' in total') +
-    kpiCard(nf(tot),'Scaleups in them', totAll?(tot/totAll*100).toFixed(1)+'% of the UK':'') +
+    kpiCard(nf(tot),'Scaleups in them', totAll?(tot/totAll*100).toFixed(1)+'% of '+universeName():'') +
     kpiCard(nf(gov.length),'Government-held seats', nf(govN)+' scaleups ('+(totAll?(govN/totAll*100).toFixed(1):0)+'%)') +
     kpiCard(rows.length?nf(Math.round(tot/rows.length)):'0','Average per seat');
 
@@ -2322,6 +2397,8 @@ function applyTheme(mode){ document.documentElement.setAttribute('data-theme',mo
   else if(mode==='dark'){ if(map.hasLayer(lightTiles)) map.removeLayer(lightTiles); if(!map.hasLayer(darkTiles)) darkTiles.addTo(map); }
   else { if(map.hasLayer(darkTiles)) map.removeLayer(darkTiles); if(!map.hasLayer(lightTiles)) lightTiles.addTo(map); }
   if(regionLayer&&S.selRegions.size) renderRegionBoundary();
+  // The scope tint is mixed from --accent-ink, which the theme redefines.
+  if(scopeLayer) drawScopeRegion();
   S._invpDone=false;
   if(S.all && S.all.length){ if(S.tab && S.tab!=='map' && typeof renderTab==='function') renderTab(S.tab);
     else if(S.tab==='map' && S.detailOpen && typeof renderDetail==='function') renderDetail(); } }

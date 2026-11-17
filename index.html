@@ -7,7 +7,7 @@
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/css/flag-icons.min.css" />
-  <link rel="stylesheet" href="css/styles.css?v=60" />
+  <link rel="stylesheet" href="css/styles.css?v=62" />
 </head>
 <body>
 <div class="app">
@@ -19,6 +19,7 @@
       <span class="names">
         <span class="org">Scaleup Institute</span>
         <span class="product">UK Scaleup Map</span>
+        <span class="scope-tag" id="scopeTag" hidden></span>
       </span>
     </div>
 
@@ -51,7 +52,7 @@
   <!-- ============================ TAB: OVERVIEW ============================ -->
   <div class="tabpane" id="tab-overview" hidden>
     <div class="dash">
-      <div class="dash-head"><div><h1>Overview</h1><p class="dash-sub">The UK's high-growth company population at a glance.</p></div></div>
+      <div class="dash-head"><div><h1>Overview</h1><p class="dash-sub" id="ovSub">The UK's high-growth company population at a glance.</p></div></div>
       <div class="dash-active" id="overviewActive"></div>
       <div class="kpi-row kpi-6" id="ovKpis"></div>
       <div class="insight-row" id="ovInsights"></div>
@@ -339,7 +340,7 @@
   <!-- ============================ TAB: SECTORS ============================ -->
   <div class="tabpane" id="tab-sectors" hidden>
     <div class="dash">
-      <div class="dash-head"><div><h1>Sectors</h1><p class="dash-sub">How the UK's scaleup population breaks down by sector.</p></div>
+      <div class="dash-head"><div><h1>Sectors</h1><p class="dash-sub" id="secSub">How the UK's scaleup population breaks down by sector.</p></div>
         <div class="dash-filters"><select id="secRegionFilter" class="dd"><option value="">All regions</option></select></div>
       </div>
       <div class="dash-active" id="sectorsActive"></div>
@@ -416,7 +417,7 @@
   <!-- ============================ TAB: INVESTMENT ============================ -->
   <div class="tabpane" id="tab-investment" hidden>
     <div class="dash">
-      <div class="dash-head"><div><h1>Investment &amp; investors</h1><p class="dash-sub">Equity raised, all funding types combined, and who is backing the UK's scaleups.</p></div>
+      <div class="dash-head"><div><h1>Investment &amp; investors</h1><p class="dash-sub" id="invSub">Equity raised, all funding types combined, and who is backing the UK's scaleups.</p></div>
         <div class="dash-filters">
           <select id="invRegionFilter" class="dd"><option value="">All regions</option></select>
           <select id="invSectorFilter" class="dd"><option value="">All sectors</option></select>
@@ -491,7 +492,7 @@
       <div class="help-head"><span>How to read this map</span><button id="helpClose" aria-label="Close">&times;</button></div>
       <div class="help-body">
         <h4>About this dashboard</h4>
-        <p>Explore where the UK's high-growth companies — scaleups — cluster, who funds them, and how they break down by sector and region. Use the tabs at the top; the <strong>Map</strong> tab is interactive.</p>
+        <p id="helpIntro">Explore where the UK's high-growth companies — scaleups — cluster, who funds them, and how they break down by sector and region. Use the tabs at the top; the <strong>Map</strong> tab is interactive.</p>
         <h4>On the map</h4>
         <ul class="help-legend">
           <li><span class="dot" style="background:#2F6DB5"></span><strong>Dots</strong> are individual companies, coloured by sector.</li>
@@ -519,7 +520,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <!-- Controller (dashboard + map) -->
-  <script src="js/gate.js?v=1"></script>
-<script src="js/app.js?v=60"></script>
+  <script src="js/gate.js?v=af889295"></script>
+<script src="js/app.js?v=62"></script>
 </body>
 </html>
