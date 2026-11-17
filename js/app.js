@@ -338,14 +338,15 @@ const DotLayer = L.Layer.extend({
         const pt=m.latLngToLayerPoint([p.lat,p.lng]).subtract(tl);
         // slightly under the sector dot size — the pink already carries the highlight,
         // so the dots don't need extra bulk on top of it
-        const r = fem ? 2.5 : (isNoise ? 1.6 : (byS ? 2.9 : 1.9));
+        const sel = S.dotsAreSelection && !isNoise;
+        const r = fem ? 2.5 : (isNoise ? 1.6 : (byS ? 2.9 : (sel ? 2.7 : 1.9)));
         ctx.beginPath(); ctx.arc(pt.x,pt.y, r, 0, 6.283);
         ctx.fillStyle = fem ? FEM_DOT : (isNoise ? NOISE_COLOR : (byS ? p.color : BASE_DOT));
         // Base layer (no sector) is a light, even wash; sector view is bold + outlined.
-        ctx.globalAlpha = fem ? 0.95 : (isNoise ? 0.4 : (byS ? 0.95 : 0.4));
+        ctx.globalAlpha = fem ? 0.95 : (isNoise ? 0.4 : (byS ? 0.95 : (sel ? 0.92 : 0.4)));
         ctx.fill();
         // crisp black outline only when coloured by sector (fewer, meaningful dots)
-        if(fem || (byS && !isNoise)){ ctx.globalAlpha=0.55; ctx.lineWidth=0.6; ctx.strokeStyle='#000000'; ctx.stroke(); }
+        if(fem || sel || (byS && !isNoise)){ ctx.globalAlpha=0.55; ctx.lineWidth=0.6; ctx.strokeStyle='#000000'; ctx.stroke(); }
       }
     }
     ctx.globalAlpha=1;
@@ -589,6 +590,11 @@ function renderMap(){
   // a subset of it; with no pins to do the marking it would show every company
   // and the filter would look as though it had done nothing.
   const dotRows = (pinMode && !useMarkers) ? list : baseList;
+  // Those stand-in dots are a selection of 3,400, not the 19,138-dot base wash.
+  // Drawn at the base weight (1.9px, 40% opacity) they read as an empty map --
+  // you only knew they were there by hovering one. Flagged so the dot layer
+  // gives them the weight a selection deserves.
+  S.dotsAreSelection = pinMode && !useMarkers;
   dotLayer.setData((S.displayMode==='polygons' || !showDots) ? [] : dotRows);
   // The sector legend and the Points/Polygons/Both switch both only describe the
   // sector cluster layer, so neither is meaningful until a sector is selected.
@@ -891,7 +897,9 @@ function renderFlagSeg(){
   el.querySelectorAll('.seg-btn').forEach(b=>b.addEventListener('click',()=>{
     const k=b.dataset.k;
     if(S.invCats.has(k)) S.invCats.delete(k);
-    else { S.invCats.add(k); S.selInvestors.clear(); renderInvTags(); }
+    else { S.invCats.add(k); S.selInvestors.clear(); renderInvTags();
+           // a category outranks "all investor-backed" in investorCompanySet()
+           S.invAll=false; syncInvAllBtn(); }
     syncFlagSeg(); renderCatField(); syncCatMenu(); renderActiveBar(); onFilterChange(); }));
   syncFlagSeg();
 }
@@ -1557,7 +1565,7 @@ function boot(){
   if(fvClose) fvClose.addEventListener('click',()=>femVideo(false));
 
   // legend
-  $('legendRows').innerHTML=S.sectors.map(sec=>'<div class="lrow">'+sectorIcon(sec,'licon')+esc(sec)+'</div>').join('');
+  $('legendRows').innerHTML=S.sectors.map(sec=>'<div class="lrow"><i style="background:'+(SECTOR_COLORS[sec]||NOISE_COLOR)+'"></i>'+esc(sec)+'</div>').join('');
   $('legendToggle').addEventListener('click',()=>{ const l=$('legend'); const c=l.classList.toggle('collapsed'); $('legendToggle').textContent=c?'Show':'Hide'; });
 
   // display pill
@@ -1631,7 +1639,9 @@ function boot(){
   menu.innerHTML=Object.keys(CATS).filter(k=>!CATS[k].flag && !CATS[k].dev).map(k=>
     '<div class="inv-opt" data-k="'+k+'"><span class="tick"></span>'+esc(CATS[k].label)+'</div>').join('');
   menu.querySelectorAll('.inv-opt:not(.dev)').forEach(opt=>opt.addEventListener('click',()=>{ const k=opt.dataset.k;
-    if(S.invCats.has(k)){ S.invCats.delete(k); } else { S.invCats.add(k); S.selInvestors.clear(); renderInvTags(); }
+    if(S.invCats.has(k)){ S.invCats.delete(k); }
+    else { S.invCats.add(k); S.selInvestors.clear(); renderInvTags();
+           S.invAll=false; syncInvAllBtn(); }
     syncCatMenu(); renderCatField(); onFilterChange(); }));
   $('invCatField').addEventListener('click',e=>{ if(e.target.classList.contains('x')) return; menu.classList.toggle('open'); });
   document.addEventListener('click',e=>{ if(!e.target.closest('.inv-cat')) menu.classList.remove('open'); });
@@ -1642,7 +1652,14 @@ function boot(){
     const m=S.invNames.filter(n=>n.toLowerCase().includes(q)&&!S.selInvestors.has(n)).slice(0,25);
     sug.innerHTML=m.map(n=>'<div data-inv="'+esc(n)+'">'+esc(n)+'<span class="c">'+((S.enriched[n].companies||[]).length)+'</span></div>').join('');
     sug.classList.toggle('show',m.length>0); });
-  sug.addEventListener('click',e=>{ const d=e.target.closest('div[data-inv]'); if(!d) return; S.selInvestors.add(d.getAttribute('data-inv')); S.invCats.clear(); renderCatField(); syncCatMenu(); inp.value=''; sug.classList.remove('show'); renderInvTags(); onFilterChange(); });
+  sug.addEventListener('click',e=>{ const d=e.target.closest('div[data-inv]'); if(!d) return;
+    S.selInvestors.add(d.getAttribute('data-inv'));
+    // A named investor outranks every other investor control, so none of them
+    // may stay lit: the type was being shown as active while ignored.
+    S.invCats.clear(); renderCatField(); syncCatMenu();
+    S.invTypes.clear(); renderTypeField(); syncTypeMenu();
+    S.invAll=false; syncInvAllBtn();
+    inp.value=''; sug.classList.remove('show'); renderInvTags(); onFilterChange(); });
   document.addEventListener('click',e=>{ if(!e.target.closest('.inv-search-wrap')) sug.classList.remove('show'); });
 
   renderRegionList();
