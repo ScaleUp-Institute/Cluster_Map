@@ -2,9 +2,9 @@
  "v": 1,
  "kdf": "PBKDF2-SHA256",
  "iter": 600000,
- "salt": "8Vdw7jU2l3RSa7EdQArMdA==",
+ "salt": "0cR1Z3AofXzhkkkiTeBZrA==",
  "checkText": "scaleup-map-2026",
- "check": "M7R4e/x9+jFSrUJ2eGDZL2tsmTB0VYpMdJXLWKt/ULW/A+Uhvh1EHu6V7BA=",
+ "check": "ocz9sW3dUUk+SEu66cQGkXA/KHLqqfW7cwQUJiOUcNbSeh+jXmHDID7Dm3c=",
  "files": {
   "data/master.json": "data/master.json.enc",
   "data/constituencies.json": "data/constituencies.json.enc"

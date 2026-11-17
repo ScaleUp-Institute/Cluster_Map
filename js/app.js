@@ -577,8 +577,19 @@ function renderMap(){
   // With no sector chosen, investor browsing stays a clean pin-only view;
   // once a sector is chosen the cluster context comes back underneath.
   // ...and the pink dots are the point of the female filter, so they stay on too.
-  const showDots = !pinMode || S.selSectors.size>0 || S.femOnly;
-  dotLayer.setData((S.displayMode==='polygons' || !showDots) ? [] : baseList);
+  //
+  // The dots are only allowed to go away when the pins are actually THERE to
+  // replace them. Hiding them on pinMode alone emptied the map whenever the
+  // selection was bigger than MARKER_CAP -- "Any funding received" is 3,400
+  // companies against a cap of 2,600, so it drew neither pins nor dots while
+  // the panel still reported the count.
+  const showDots = !useMarkers || S.selSectors.size>0 || S.femOnly;
+  // ...and with the pins suppressed, those dots must be the FILTERED set.
+  // baseList deliberately ignores the pin-driving filter so that pins can mark
+  // a subset of it; with no pins to do the marking it would show every company
+  // and the filter would look as though it had done nothing.
+  const dotRows = (pinMode && !useMarkers) ? list : baseList;
+  dotLayer.setData((S.displayMode==='polygons' || !showDots) ? [] : dotRows);
   // The sector legend and the Points/Polygons/Both switch both only describe the
   // sector cluster layer, so neither is meaningful until a sector is selected.
   const lgEl=$('legend'); if(lgEl) lgEl.style.display = S.selSectors.size ? '' : 'none';
