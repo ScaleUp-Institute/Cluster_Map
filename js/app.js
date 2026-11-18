@@ -155,7 +155,7 @@ function applyScope(){
    // "North East Scaleup Map", so the chip only repeated it.
   const p=document.querySelector('.brand .product');
   if(p) p.textContent=SCOPE_LABEL+' Scaleup Map';
-  document.title=SCOPE_LABEL+' Scaleup Map — Scaleup Institute';
+  document.title=SCOPE_LABEL+' Scaleup Map | Scaleup Institute';
   // The regions tab compares twelve regions; there is one.
   const rb=document.querySelector('.dashtabs button[data-tab="regions"]');
   if(rb) rb.hidden=true;
@@ -185,7 +185,7 @@ function applyScope(){
   [['ovSub',    'The '+poss+' high-growth company population at a glance.'],
    ['secSub',   'How the '+poss+' scaleup population breaks down by sector.'],
    ['invSub',   'Equity raised, all funding types combined, and who is backing the '+poss+' scaleups.'],
-   ['helpIntro','Explore where the '+poss+' high-growth companies — scaleups — cluster, who funds them, and how they break down by sector. '+
+   ['helpIntro','Explore where the '+poss+' high-growth companies, known as scaleups, cluster, who funds them, and how they break down by sector. '+
                 'This is the '+SCOPE_LABEL+' edition: it holds that region only. Use the tabs at the top; the Map tab is interactive.']
   ].forEach(([id,txt])=>{ const el=$(id); if(el) el.textContent=txt; });
   drawScopeRegion();
@@ -958,9 +958,6 @@ function labelFundingCounts(){
   const uniq=uniqueCompanies(S.all);
   const m=document.querySelector('#fundAnyBtn .meta');
   if(m) m.textContent='Equity, grant or a named investor \u00b7 '+nf(uniq.filter(fundedAtAll).length);
-  const h=$('invAllHint');
-  if(h) h.textContent=nf(uniq.filter(c=>c.investors&&c.investors.length).length)+
-        ' of those have a named investor';
 }
 /* The pin-colour control only changes pins that are already on the map. */
 function syncOriginHint(){ const h=$('originHint'); if(h) h.hidden=investorActive(); }
@@ -1163,7 +1160,7 @@ function invRow(nm,count,clickable){
 }
 function backedBlock(flag,label,list){
   const ids=S.flags[flag]; const sub=list.filter(c=>ids.has(c.num)); const a=aggregate(sub);
-  return '<div class="backed"><h4>'+label+' — '+nf(a.n)+' companies</h4><div class="m">'+
+  return '<div class="backed"><h4>'+label+': '+nf(a.n)+' companies</h4><div class="m">'+
     '<div><span class="v">'+compact(a.emp)+'</span><span class="l">Employees</span></div>'+
     '<div><span class="v">'+money(a.turn)+'</span><span class="l">Turnover</span></div>'+
     '<div><span class="v">'+a.femPct.toFixed(0)+'%</span><span class="l">Women-led</span></div></div></div>';
@@ -1342,7 +1339,7 @@ function conPopup(c){
     '</div>'+
     '<div class="ph2">Punches above its weight in</div>'+
     '<div class="cp-spec">'+specHtml+'</div>'+
-    '<div class="cp-hint">Click to filter the map — full figures on the right.</div></div>';
+    '<div class="cp-hint">Click to filter the map. Full figures on the right.</div></div>';
 }
 function renderConstituencies(){
   if(conLayer){ map.removeLayer(conLayer); conLayer=null; }
@@ -1546,7 +1543,7 @@ function renderProcList(){
   if(count) count.textContent=nf(rows.length)+' compan'+(rows.length===1?'y':'ies')+(unmapped.length?' · '+nf(mapped.length)+' on map':'');
   body.innerHTML = rows.length ? rows.slice(0,300).map(p=>{
       const bt=p.buyer_type||'Other public body', col=BUYER_COLORS[bt]||'#6C8693', noloc=!hasLoc(p);
-      return '<div class="proc-row'+(S.selectedProc===p.id?' selected':'')+(noloc?' no-loc':'')+'" data-id="'+esc(p.id)+'" title="'+esc(bt)+(noloc?' — no mapped location':'')+'">'+
+      return '<div class="proc-row'+(S.selectedProc===p.id?' selected':'')+(noloc?' no-loc':'')+'" data-id="'+esc(p.id)+'" title="'+esc(bt)+(noloc?', no mapped location':'')+'">'+
         '<span class="p-name">'+esc(p.name)+
           '<span class="p-meta"><span class="sw" style="background:'+col+'"></span>'+esc(bt)+' · '+nf(p.n_contracts||0)+' contract'+((p.n_contracts||0)===1?'':'s')+
           (p.is_sme?' · SME':'')+(noloc?' · <em>not on map</em>':'')+'</span>'+
@@ -1569,7 +1566,7 @@ function renderProcSummary(all, matching, mapped, unmapped){
     '<div class="ps-row"><span>Contract value</span><b>'+pMoney(val)+'</b></div>'+
     '<div class="ps-row"><span>Contracts</span><b>'+nf(contracts)+'</b></div>'+
     (unmapped.length?'<div class="ps-note">'+nf(unmapped.length)+' compan'+(unmapped.length===1?'y is':'ies are')+
-      ' listed but not plotted — they hold public contracts yet are absent from the mapped scaleup population, so they have no location in the source data.</div>':'');
+      ' hold public contracts but have no location on record, so they are counted in the figures above without appearing on the map.</div>':'');
 }
 
 /* =================================================================== ORCHESTRATION */
@@ -1724,17 +1721,7 @@ function boot(){
     makeBarDraggable(abar);
   }
   labelFundingCounts(); syncOriginHint();
-  /* Every explanation in the tool hides behind the little i beside its heading,
-     so the rail and the tables stay readable and the detail is one click away.
-     The text stays in the DOM and is referenced by aria-controls, so a screen
-     reader still reaches it. */
-  document.querySelectorAll('.info-btn').forEach(b=>{
-    const t=$(b.getAttribute('aria-controls')); if(!t) return;
-    b.addEventListener('click',e=>{ e.stopPropagation();
-      const opening=t.hidden; t.hidden=!opening;
-      b.setAttribute('aria-expanded', opening?'true':'false');
-      b.classList.toggle('on', opening); });
-  });
+  initInfoTips();
 
   // show every investor-backed company, without picking a specific investor
   const invAllBtn=$('invAllBtn');
@@ -1808,11 +1795,11 @@ function boot(){
   // export helpers
   function exportMapPNG(){ if(typeof leafletImage!=='function'){ alert('Export unavailable in this browser.'); return; }
     const btn=$('exportBtn'); btn.disabled=true;
-    leafletImage(map,(err,canvas)=>{ btn.disabled=false; if(err||!canvas){ alert('Could not export — some map tiles block image capture.'); return; }
+    leafletImage(map,(err,canvas)=>{ btn.disabled=false; if(err||!canvas){ alert('Could not export. Some map tiles block image capture.'); return; }
       try{ canvas.getContext('2d').drawImage(dotLayer._canvas,0,0); }catch(e){}
-      try{ const a=document.createElement('a'); a.download='uk-scaleup-cluster-map.png'; a.href=canvas.toDataURL('image/png'); a.click(); }catch(e){ alert('Could not export — some map tiles block image capture.'); } }); }
+      try{ const a=document.createElement('a'); a.download='uk-scaleup-cluster-map.png'; a.href=canvas.toDataURL('image/png'); a.click(); }catch(e){ alert('Could not export. Some map tiles block image capture.'); } }); }
   function exportTabPDF(tab){ const pane=$('tab-'+tab); if(!pane) return;
-    if(typeof html2canvas!=='function' || !window.jspdf){ alert('PDF export libraries are still loading — try again in a moment.'); return; }
+    if(typeof html2canvas!=='function' || !window.jspdf){ alert('PDF export libraries are still loading. Try again in a moment.'); return; }
     const btn=$('exportBtn'), old=btn.innerHTML; btn.disabled=true; btn.innerHTML='Exporting…';
     const bg=cssVar('--bg','#ffffff');
     html2canvas(pane,{backgroundColor:bg, scale:2, useCORS:true, windowWidth:pane.scrollWidth, windowHeight:pane.scrollHeight}).then(canvas=>{
@@ -1820,7 +1807,7 @@ function boot(){
       const pw=pdf.internal.pageSize.getWidth(), ph=pdf.internal.pageSize.getHeight(), m=24;
       let iw=pw-m*2, ih=iw*canvas.height/canvas.width;
       if(ih>ph-m*2){ ih=ph-m*2; iw=ih*canvas.width/canvas.height; }
-      pdf.setFontSize(14); pdf.text('UK Scaleup Map — '+tab.charAt(0).toUpperCase()+tab.slice(1), m, 18);
+      pdf.setFontSize(14); pdf.text('UK Scaleup Map: '+tab.charAt(0).toUpperCase()+tab.slice(1), m, 18);
       pdf.addImage(canvas.toDataURL('image/png'),'PNG',(pw-iw)/2, m, iw, ih);
       pdf.save('uk-scaleup-'+tab+'.pdf'); btn.disabled=false; btn.innerHTML=old;
     }).catch(e=>{ console.error(e); alert('Could not export this tab.'); btn.disabled=false; btn.innerHTML=old; });
@@ -1942,6 +1929,70 @@ const aggByRegion=list=>aggBy(list,c=>c.region);
 function mapVal(obj,fn){ const o={}; Object.keys(obj).forEach(k=>o[k]=fn(obj[k])); return o; }
 function topEntries(obj,n){ return Object.keys(obj).map(k=>[k,obj[k]]).sort((a,b)=>b[1]-a[1]).slice(0,n); }
 function dashList(regionVal,sectorVal){ return S.all.filter(c=>{ if(regionVal&&c.region!==regionVal) return false; if(sectorVal&&c.sector!==sectorVal) return false; return true; }); }
+/* ---- the little i beside a heading ----------------------------------------
+   One floating panel, reused by every i, shown while the pointer is on the
+   button or on the panel itself. It sits to the RIGHT of the button, so in the
+   rail it opens over the map rather than pushing the controls down; near the
+   right edge of the window it flips to the left instead. The source text stays
+   in the page, hidden and wired by aria-controls, so a screen reader still
+   reaches it and the panel can be rebuilt from it every time. */
+function initInfoTips(){
+  const btns=[...document.querySelectorAll('.info-btn')];
+  if(!btns.length) return;
+  let pop=$('infoPop');
+  if(!pop){ pop=document.createElement('div'); pop.id='infoPop';
+    pop.className='info-pop'; pop.setAttribute('role','tooltip'); pop.hidden=true;
+    document.body.appendChild(pop); }
+  let open=null, timer=null;
+  const cancel=()=>{ if(timer){ clearTimeout(timer); timer=null; } };
+
+  function place(btn){
+    const r=btn.getBoundingClientRect(), gap=10, pad=12;
+    pop.style.maxWidth=Math.min(300, window.innerWidth-2*pad)+'px';
+    pop.style.left='0px'; pop.style.top='0px';          // measure unclamped
+    const w=pop.offsetWidth, h=pop.offsetHeight;
+    let x=r.right+gap;
+    if(x+w>window.innerWidth-pad) x=Math.max(pad, r.left-gap-w);
+    let y=r.top+r.height/2-h/2;
+    y=Math.max(pad, Math.min(y, window.innerHeight-pad-h));
+    pop.style.left=Math.round(x)+'px'; pop.style.top=Math.round(y)+'px';
+  }
+  function show(btn){
+    cancel();
+    const src=$(btn.getAttribute('aria-controls')); if(!src) return;
+    if(open && open!==btn){ open.classList.remove('on'); open.setAttribute('aria-expanded','false'); }
+    pop.innerHTML=src.innerHTML; pop.hidden=false;
+    btn.classList.add('on'); btn.setAttribute('aria-expanded','true');
+    open=btn; place(btn);
+  }
+  function hide(now){
+    cancel();
+    timer=setTimeout(()=>{ pop.hidden=true;
+      if(open){ open.classList.remove('on'); open.setAttribute('aria-expanded','false'); }
+      open=null; }, now?0:140);
+  }
+  btns.forEach(b=>{
+    b.addEventListener('mouseenter',()=>show(b));
+    b.addEventListener('focus',()=>show(b));
+    b.addEventListener('mouseleave',()=>hide());
+    b.addEventListener('blur',()=>hide(true));
+    // a tap has no hover, so keep the click working on touch
+    b.addEventListener('click',e=>{ e.stopPropagation();
+      if(open===b && !pop.hidden) hide(true); else show(b); });
+  });
+  pop.addEventListener('mouseenter',cancel);
+  pop.addEventListener('mouseleave',()=>hide());
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape') hide(true); });
+  /* The panel is positioned against the window, so it has to follow the button
+     when anything scrolls. Closing on scroll instead would dismiss it whenever
+     the rail still had a little momentum left from the scroll that brought the
+     button into view. */
+  const follow=()=>{ if(!open) return;
+    const r=open.getBoundingClientRect();
+    if(r.bottom<0 || r.top>window.innerHeight) hide(true); else place(open); };
+  window.addEventListener('scroll',follow,true);
+  window.addEventListener('resize',follow);
+}
 function kpiCard(v,l,s){ return '<div class="kpi"><div class="kpi-v">'+v+'</div><div class="kpi-l">'+esc(l)+'</div>'+(s?'<div class="kpi-s">'+esc(s)+'</div>':'')+'</div>'; }
 const ICONS={
   building:'<rect x="5" y="3" width="14" height="18" rx="1.2"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2"/>',
@@ -2425,11 +2476,21 @@ function renderInvestorsDash(){ const names=S.invNames;
   const mapped=uniqueCompanies(S.all);
   const bbb=mapped.filter(c=>S.flags.bbb.has(c.num)).length,
         iuk=mapped.filter(c=>S.flags.iuk.has(c.num)).length;
-  const uk=names.filter(n=>(S.enriched[n].country||'')==='United Kingdom').length;
-  $('invpKpis').innerHTML = kpiCard(nf(names.length),'Investors') + kpiCard(nf(uk),'UK-based') + kpiCard(nf(names.length-uk),'International') + kpiCard(nf(bbb),'British Business Bank-backed', nf(iuk)+' Innovate UK grant recipients');
+  /* An investor with no country on record is not an international one. Taking
+     "International" as everything that is not flagged United Kingdom counted
+     every blank as foreign, which in the North East edition read 81 against the
+     16 actually recorded abroad. The gap is now its own stated figure. */
+  const invCountry=n=>((S.enriched[n]||{}).country||'').trim();
+  const uk=names.filter(n=>invCountry(n)==='United Kingdom').length;
+  const intl=names.filter(n=>invCountry(n) && invCountry(n)!=='United Kingdom').length;
+  const noCountry=names.length-uk-intl;
+  $('invpKpis').innerHTML = kpiCard(nf(names.length),'Investors') + kpiCard(nf(uk),'UK-based') + kpiCard(nf(intl),'International', noCountry?nf(noCountry)+' with no country on record':'') + kpiCard(nf(bbb),'British Business Bank-backed', nf(iuk)+' Innovate UK grant recipients');
   const byType={}; names.forEach(n=>{ const t=(S.enriched[n].type||'Other').trim()||'Other'; byType[t]=(byType[t]||0)+1; });
   const tTop=topEntries(byType,8); doughnut('invpByType', tTop.map(r=>r[0]), tTop.map(r=>r[1]), CAT_PALETTE, nf);
-  const byCountry={}; names.forEach(n=>{ const c=(S.enriched[n].country||'Unknown').trim()||'Unknown'; byCountry[c]=(byCountry[c]||0)+1; });
+  // Investors with no country on record are left out rather than piled into an
+  // "Unknown" bar that outgrew every real country and made the chart about the
+  // gap instead of the geography. The card above states how many they are.
+  const byCountry={}; names.forEach(n=>{ const c=invCountry(n); if(c) byCountry[c]=(byCountry[c]||0)+1; });
   const cTop=topEntries(byCountry,10); hBar('invpByCountry', cTop.map(r=>r[0]), cTop.map(r=>r[1]), '#0e9f86', nf);
   // An investor's company list carries numbers that never reached the map, so
   // its raw length disagrees with every other figure in the tool. Counted
