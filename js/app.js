@@ -2401,16 +2401,24 @@ function renderCompare(dim, th){
 }
 
 /* ---- Investors ---- */
-function renderInvestorsDash(){ const names=S.invNames; const bbb=S.flags.bbb.size, iuk=S.flags.iuk.size;
+function renderInvestorsDash(){ const names=S.invNames;
+  /* Counted against the MAPPED population, not the raw flag lists. The lists
+     carry company numbers that never made it onto the map: Innovate UK has
+     1,936 entries of which 951 are mapped, so the card used to claim 1,936
+     while the rail filter beside it returned 951 -- the card contradicted the
+     filter. British Business Bank is 474 against 470. */
+  const mapped=uniqueCompanies(S.all);
+  const bbb=mapped.filter(c=>S.flags.bbb.has(c.num)).length,
+        iuk=mapped.filter(c=>S.flags.iuk.has(c.num)).length;
   const uk=names.filter(n=>(S.enriched[n].country||'')==='United Kingdom').length;
-  $('invpKpis').innerHTML = kpiCard(nf(names.length),'Investors') + kpiCard(nf(uk),'UK-based') + kpiCard(nf(names.length-uk),'International') + kpiCard(nf(bbb),'BBB-backed companies', nf(iuk)+' Innovate UK-backed');
+  $('invpKpis').innerHTML = kpiCard(nf(names.length),'Investors') + kpiCard(nf(uk),'UK-based') + kpiCard(nf(names.length-uk),'International') + kpiCard(nf(bbb),'On the BBB programme list', nf(iuk)+' on the Innovate UK list');
   const byType={}; names.forEach(n=>{ const t=(S.enriched[n].type||'Other').trim()||'Other'; byType[t]=(byType[t]||0)+1; });
   const tTop=topEntries(byType,8); doughnut('invpByType', tTop.map(r=>r[0]), tTop.map(r=>r[1]), CAT_PALETTE, nf);
   const byCountry={}; names.forEach(n=>{ const c=(S.enriched[n].country||'Unknown').trim()||'Unknown'; byCountry[c]=(byCountry[c]||0)+1; });
   const cTop=topEntries(byCountry,10); hBar('invpByCountry', cTop.map(r=>r[0]), cTop.map(r=>r[1]), '#0e9f86', nf);
   const nTop=names.map(n=>[n,(S.enriched[n].companies||[]).length]).sort((a,b)=>b[1]-a[1]).slice(0,10);
   hBar('invpTop', nTop.map(r=>r[0]), nTop.map(r=>r[1]), '#2F6DB5', nf);
-  hBar('invpFunding', ['BBB-backed','Innovate UK-backed'], [bbb,iuk], ['#D64550','#8E6FCF'], nf);
+  hBar('invpFunding', ['British Business Bank','Innovate UK'], [bbb,iuk], ['#D64550','#8E6FCF'], nf);
   const tRows=names.map(n=>({n,v:S.enriched[n]})).sort((a,b)=>(b.v.companies||[]).length-(a.v.companies||[]).length).slice(0,40);
   renderSortable('invpTable',[
     {label:'Investor',align:'left',html:r=>esc(r.n),sort:r=>r.n},
@@ -2434,6 +2442,12 @@ function renderPublicDash(){ const proc=Object.values(S.procurement||{});
   const bRows=topEntries(buyers,10); hBar('pubBuyers', bRows.map(r=>r[0]), bRows.map(r=>r[1]), '#2F6DB5', nf);
   // Central + local alone leaves ~30% of contract value unattributed (NHS trusts,
   // universities, housing associations, ALBs), so show the remainder explicitly.
+  // This note used to be the literal string "all £6.8B of contract value".
+  // That is the national figure, so the North East edition -- which carries
+  // £110M across 24 suppliers -- captioned its own chart with a number 60x
+  // too big. It is written from the data now.
+  const gsn=$('pubGovSplitNote');
+  if(gsn) gsn.textContent='all '+money(totVal)+' of contract value';
   const central=proc.reduce((a,p)=>a+(+p.gov_central_value||0),0),
         local=proc.reduce((a,p)=>a+(+p.gov_local_value||0),0),
         otherPub=proc.reduce((a,p)=>a+(+p.gov_other_value||0),0);

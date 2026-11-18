@@ -7,7 +7,7 @@
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/css/flag-icons.min.css" />
-  <link rel="stylesheet" href="css/styles.css?v=64" />
+  <link rel="stylesheet" href="css/styles.css?v=68" />
 </head>
 <body>
 <div class="app">
@@ -56,9 +56,9 @@
       <div class="kpi-row kpi-6" id="ovKpis"></div>
       <div class="insight-row" id="ovInsights"></div>
       <div class="chart-grid">
-        <div class="chart-card"><h3>Companies by sector</h3><div class="chart-canvas"><canvas id="ovSectorDoughnut"></canvas></div></div>
+        <div class="chart-card"><h3>Companies by sector <span class="chart-note">a company in several sectors is counted in each</span></h3><div class="chart-canvas"><canvas id="ovSectorDoughnut"></canvas></div></div>
         <div class="chart-card"><h3>Companies by region</h3><div class="chart-canvas"><canvas id="ovRegionBar"></canvas></div></div>
-        <div class="chart-card"><h3>Top investors — companies backed</h3><div class="chart-canvas"><canvas id="ovInvBar"></canvas></div></div>
+        <div class="chart-card"><h3>Top investors <span class="chart-note">companies that name each investor · not amount invested</span></h3><div class="chart-canvas"><canvas id="ovInvBar"></canvas></div></div>
         <div class="chart-card"><h3>Women-led by sector</h3><div class="chart-canvas"><canvas id="ovFemBar"></canvas></div></div>
       </div>
     </div>
@@ -184,8 +184,11 @@
                  are not subsets of one another. -->
             <div class="sub-head sub-head-mt">Public funding received</div>
             <div class="seg" id="flagSeg"></div>
+            <div class="rail-hint">Companies these programmes have backed, <strong>including through
+              delegated funds</strong>. A company can be here without naming the programme as an
+              investor below, which is why the two counts differ.</div>
 
-            <div class="sub-head sub-head-mt">Backed by an investor</div>
+            <div class="sub-head sub-head-mt">Backed by a named investor</div>
             <button id="invAllBtn" class="rail-btn" type="button">Show all investor-backed</button>
             <div class="rail-hint" id="invAllHint"></div>
             <div class="field-label">Investor type</div>
@@ -198,6 +201,9 @@
               <div class="inv-cat-field" id="invCatField"><span class="ph">Any investor group…</span></div>
               <div class="inv-cat-menu" id="invCatMenu"></div>
             </div>
+            <div class="rail-hint">Companies that <strong>name the investor</strong> on their own
+              record. Backing that arrived through a fund manager is credited to that manager,
+              not to whoever supplied the fund.</div>
             <div class="inv-search-wrap">
               <input id="invSearch" type="text" placeholder="Search a specific investor…" autocomplete="off" />
               <div id="invSuggest" class="inv-suggest"></div>
@@ -351,13 +357,13 @@
       <div class="kpi-row" id="secKpis"></div>
       <div class="insight-row" id="secInsights"></div>
       <div class="chart-grid">
-        <div class="chart-card"><h3>Companies by sector</h3><div class="chart-canvas"><canvas id="secCompanies"></canvas></div></div>
+        <div class="chart-card"><h3>Companies by sector <span class="chart-note">a company in several sectors is counted in each</span></h3><div class="chart-canvas"><canvas id="secCompanies"></canvas></div></div>
         <div class="chart-card"><h3>Turnover by sector</h3><div class="chart-canvas"><canvas id="secTurnover"></canvas></div></div>
         <div class="chart-card"><h3>Employees by sector</h3><div class="chart-canvas"><canvas id="secEmployees"></canvas></div></div>
-        <div class="chart-card"><h3>Investment by sector</h3><div class="chart-canvas"><canvas id="secInvestment"></canvas></div></div>
+        <div class="chart-card"><h3>Investment by sector <span class="chart-note">equity raised — excludes debt and grants</span></h3><div class="chart-canvas"><canvas id="secInvestment"></canvas></div></div>
       </div>
       <div class="dash-table-wrap"><div id="secTable"></div></div>
-      <p class="tbl-note">Grant funding is Innovate UK awards, the only grant programme the source data records separately. Equity funding is capital raised. Neither column includes debt, so the two do not sum to total funding.</p>
+      <p class="tbl-note"><strong>Equity funding</strong> is capital raised. <strong>Grant funding</strong> is Innovate UK awards, the only grant programme the source data records separately. Neither includes debt, so the two do not add up to total funding. A company sitting in several sectors is counted in full against each of them, so a column adds up to more than the population total.</p>
     </div>
   </div>
 
@@ -373,10 +379,11 @@
       <div class="chart-grid">
         <div class="chart-card"><h3>Companies by region</h3><div class="chart-canvas"><canvas id="regCompanies"></canvas></div></div>
         <div class="chart-card"><h3>Turnover by region</h3><div class="chart-canvas"><canvas id="regTurnover"></canvas></div></div>
-        <div class="chart-card"><h3>Investment by region</h3><div class="chart-canvas"><canvas id="regInvestment"></canvas></div></div>
+        <div class="chart-card"><h3>Investment by region <span class="chart-note">equity raised — excludes debt and grants</span></h3><div class="chart-canvas"><canvas id="regInvestment"></canvas></div></div>
         <div class="chart-card"><h3>Women-led by region</h3><div class="chart-canvas"><canvas id="regFemale"></canvas></div></div>
       </div>
       <div class="dash-table-wrap"><div id="regTable"></div></div>
+      <p class="tbl-note">Each company is counted once in its own region, so these columns do add up to the population total. Money columns are aggregates, not averages.</p>
     </div>
   </div>
 
@@ -436,7 +443,7 @@
         <div class="chart-card"><h3>All funding by sector <span class="chart-note">equity + debt + grants</span></h3><div class="chart-canvas"><canvas id="invAllBySector"></canvas></div></div>
         <div class="chart-card"><h3>Equity by region</h3><div class="chart-canvas"><canvas id="invByRegion"></canvas></div></div>
         <div class="chart-card"><h3>All funding by region <span class="chart-note">equity + debt + grants</span></h3><div class="chart-canvas"><canvas id="invAllByRegion"></canvas></div></div>
-        <div class="chart-card wide"><h3>Top investors here <span class="chart-note">companies backed within the filters above</span></h3><div class="chart-canvas"><canvas id="invTop"></canvas></div></div>
+        <div class="chart-card wide"><h3>Top investors here <span class="chart-note">companies that name each investor, within the filters above · counts companies, not money</span></h3><div class="chart-canvas"><canvas id="invTop"></canvas></div></div>
       </div>
 
       <div class="dash-head section-head"><div><h2>The investors</h2><p class="dash-sub">Who these funders are — by type, geography and reach. Independent of the filters above.</p></div></div>
@@ -444,8 +451,8 @@
       <div class="chart-grid">
         <div class="chart-card"><h3>Investors by type</h3><div class="chart-canvas"><canvas id="invpByType"></canvas></div></div>
         <div class="chart-card"><h3>Top investor countries</h3><div class="chart-canvas"><canvas id="invpByCountry"></canvas></div></div>
-        <div class="chart-card"><h3>Most active investors <span class="chart-note">across the whole dataset</span></h3><div class="chart-canvas"><canvas id="invpTop"></canvas></div></div>
-        <div class="chart-card"><h3>Publicly-backed businesses</h3><div class="chart-canvas"><canvas id="invpFunding"></canvas></div></div>
+        <div class="chart-card"><h3>Most active investors <span class="chart-note">across the whole dataset · companies that name each investor</span></h3><div class="chart-canvas"><canvas id="invpTop"></canvas></div></div>
+        <div class="chart-card"><h3>Publicly-backed businesses <span class="chart-note">on the programme lists, delegated funds included — not the named-investor count above</span></h3><div class="chart-canvas"><canvas id="invpFunding"></canvas></div></div>
       </div>
       <div class="dash-table-wrap"><div id="invpTable"></div></div>
     </div>
@@ -482,9 +489,9 @@
       <div class="kpi-row" id="pubKpis"></div>
       <div class="insight-row" id="pubInsights"></div>
       <div class="chart-grid">
-        <div class="chart-card"><h3>Where the money comes from <span class="chart-note">all £6.8B of contract value</span></h3><div class="chart-canvas"><canvas id="pubGovSplit"></canvas></div></div>
+        <div class="chart-card"><h3>Where the money comes from <span class="chart-note" id="pubGovSplitNote"></span></h3><div class="chart-canvas"><canvas id="pubGovSplit"></canvas></div></div>
         <div class="chart-card"><h3>Contract value by buyer type <span class="chart-note">from each supplier's largest buyers</span></h3><div class="chart-canvas"><canvas id="pubBuyerType"></canvas></div></div>
-        <div class="chart-card"><h3>Contract value by sector</h3><div class="chart-canvas"><canvas id="pubProcSector"></canvas></div></div>
+        <div class="chart-card"><h3>Contract value by sector <span class="chart-note">each supplier's whole contract value, counted in every sector it sits in</span></h3><div class="chart-canvas"><canvas id="pubProcSector"></canvas></div></div>
         <div class="chart-card"><h3>Most active buyers <span class="chart-note">by number of suppliers</span></h3><div class="chart-canvas"><canvas id="pubBuyers"></canvas></div></div>
       </div>
       <div class="dash-table-wrap"><div id="pubTable"></div></div>
@@ -526,6 +533,6 @@
 
   <!-- Controller (dashboard + map) -->
   <script src="js/gate.js?v=af889295"></script>
-<script src="js/app.js?v=64"></script>
+<script src="js/app.js?v=68"></script>
 </body>
 </html>

@@ -713,3 +713,9 @@ h2,h3,h4{font-family:var(--font-head);}
 .dash-filters .dd-multi{position:relative; min-width:210px;}
 .dash-filters .dd-multi .inv-cat-field{min-height:34px;}
 .tbl-note{margin:8px 2px 0; font-size:11.5px; color:var(--muted); line-height:1.45;}
+
+/* The note drops onto its own line under the chart title. Several of them now
+   say WHICH of two measures the chart draws, which is a sentence rather than an
+   aside, and trailing the title inline left them cramped against the canvas. */
+.chart-card h3 .chart-note{display:block; margin-left:0; margin-top:3px; line-height:1.4;}
+.rail-hint strong{font-weight:700; color:var(--ink-2);}
