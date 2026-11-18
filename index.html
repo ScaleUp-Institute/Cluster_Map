@@ -7,7 +7,7 @@
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/css/flag-icons.min.css" />
-  <link rel="stylesheet" href="css/styles.css?v=72" />
+  <link rel="stylesheet" href="css/styles.css?v=73" />
 </head>
 <body>
 <div class="app">
@@ -433,7 +433,7 @@
   <!-- ============================ TAB: INVESTMENT ============================ -->
   <div class="tabpane" id="tab-investment" hidden>
     <div class="dash">
-      <div class="dash-head"><div><h1>Investment &amp; investors</h1><p class="dash-sub" id="invSub">Equity raised, all funding types combined, and who is backing the UK's scaleups.</p></div>
+      <div class="dash-head"><div><h1>Investment &amp; investors <span class="scope-badge filtered" id="invScopeBadge">Follows your filters</span></h1><p class="dash-sub" id="invSub">Equity raised, all funding types combined, and who is backing the UK's scaleups.</p></div>
         <div class="dash-filters">
           <select id="invRegionFilter" class="dd"><option value="">All regions</option></select>
           <select id="invSectorFilter" class="dd"><option value="">All sectors</option></select>
@@ -447,15 +447,15 @@
         <div class="chart-card"><h3>All funding by sector <span class="chart-note">equity, debt and grants · the eight largest sectors</span></h3><div class="chart-canvas"><canvas id="invAllBySector"></canvas></div></div>
         <div class="chart-card"><h3>Equity by region <span class="chart-note">the ten largest regions</span></h3><div class="chart-canvas"><canvas id="invByRegion"></canvas></div></div>
         <div class="chart-card"><h3>All funding by region <span class="chart-note">equity, debt and grants · the ten largest regions</span></h3><div class="chart-canvas"><canvas id="invAllByRegion"></canvas></div></div>
-        <div class="chart-card wide"><h3>Top investors here <span class="chart-note">companies backed, within the filters above</span></h3><div class="chart-canvas"><canvas id="invTop"></canvas></div></div>
+        <div class="chart-card wide"><h3>Top investors in this selection <span class="chart-note">companies backed<span id="invTopNote"></span></span></h3><div class="chart-canvas"><canvas id="invTop"></canvas></div></div>
       </div>
 
-      <div class="dash-head section-head"><div><h2>The investors</h2><p class="dash-sub">Who these funders are, by type, geography and reach. Independent of the filters above.</p></div></div>
+      <div class="dash-head section-head"><div><h2>The investors <span class="scope-badge all" id="invpScopeBadge">Every investor</span></h2><p class="dash-sub">Who these funders are, by type, geography and reach. This section ignores the filters above and always covers every investor.</p></div></div>
       <div class="kpi-row" id="invpKpis"></div>
       <div class="chart-grid">
         <div class="chart-card"><h3>Investors by type</h3><div class="chart-canvas"><canvas id="invpByType"></canvas></div></div>
         <div class="chart-card"><h3>Top investor countries <span class="chart-note">investors with a country on record</span></h3><div class="chart-canvas"><canvas id="invpByCountry"></canvas></div></div>
-        <div class="chart-card"><h3>Most active investors <span class="chart-note">companies backed across the whole dataset</span></h3><div class="chart-canvas"><canvas id="invpTop"></canvas></div></div>
+        <div class="chart-card"><h3>Most active investors overall <span class="chart-note">companies backed, never filtered</span></h3><div class="chart-canvas"><canvas id="invpTop"></canvas></div></div>
         <div class="chart-card"><h3>Publicly-backed businesses <span class="chart-note">companies backed</span></h3><div class="chart-canvas"><canvas id="invpFunding"></canvas></div></div>
       </div>
       <div class="dash-table-wrap"><div id="invpTable"></div></div>
@@ -537,6 +537,6 @@
 
   <!-- Controller (dashboard + map) -->
   <script src="js/gate.js?v=af889295"></script>
-<script src="js/app.js?v=72"></script>
+<script src="js/app.js?v=73"></script>
 </body>
 </html>

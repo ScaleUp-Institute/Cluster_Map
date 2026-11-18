@@ -436,6 +436,15 @@ h2,h3,h4{font-family:var(--font-head);}
 .dchip-map{appearance:none; border:1px solid var(--line); background:var(--surface); color:var(--accent); font:600 12.5px/1 var(--font-body); padding:7px 12px; border-radius:999px; cursor:pointer; transition:background .15s,border-color .15s;}
 .dchip-map:hover{background:var(--panel-2); border-color:var(--accent);}
 .dchip-hint{color:var(--muted); font-size:12.5px; font-style:italic;}
+/* Which population a section of the Investment tab is drawn from. Two charts
+   there answer the same question of two different sets, so each section says
+   up front which set it is. */
+.scope-badge{display:inline-block; vertical-align:middle; margin-left:10px; padding:4px 10px;
+  border-radius:999px; font:600 11px/1 var(--font-body); letter-spacing:.02em;
+  text-transform:uppercase; white-space:nowrap;}
+.scope-badge.filtered{background:var(--accent-soft); color:var(--accent-ink);
+  border:1px solid var(--accent);}
+.scope-badge.all{background:var(--panel-2); color:var(--muted); border:1px solid var(--line);}
 /* map detail mini chart */
 .detail-chart{position:relative; height:210px; margin-top:4px;}
 /* investor type multiselect + show-all toggle */

@@ -2130,7 +2130,10 @@ function renderOverview(){ const f=xf('overview'), L=fLists(f), s=aggregate(L.k)
   const tSecN=bestOf(secEnt,o=>o.n), tSecInv=bestOf(secEnt,o=>o.inv), tRegN=bestOf(regEnt,o=>o.n), tInv=topEntries(invCount,1)[0];
   $('ovInsights').innerHTML =
     insightCard('building','Leading sector', tSecN?tSecN.k:'—', tSecN?nf(tSecN.o.n)+' companies · '+(s.n?(tSecN.o.n/s.n*100).toFixed(0):0)+'% of all':'', tSecN?SECTOR_COLORS[tSecN.k]:null) +
-    insightCard('pin','Top region', tRegN?regionShort(tRegN.k):'—', tRegN?nf(tRegN.o.n)+' companies':'', '#0e9f86') +
+    /* A region build has one region, so naming its leading region says
+       nothing. Same reason the by-region charts and the Regions tab are gone. */
+    (scoped() ? '' :
+      insightCard('pin','Top region', tRegN?regionShort(tRegN.k):'—', tRegN?nf(tRegN.o.n)+' companies':'', '#0e9f86')) +
     insightCard('coins','Best-funded sector', tSecInv?tSecInv.k:'—', tSecInv?money(tSecInv.o.inv)+' equity raised':'', tSecInv?SECTOR_COLORS[tSecInv.k]:null) +
     insightCard('spark','Most active investor', tInv?tInv[0]:'—', tInv?nf(tInv[1])+' companies backed':'', '#2F6DB5');
   renderChips('overview');
@@ -2220,11 +2223,28 @@ function renderInvestmentDash(){ const f=xf('investment'), L=fLists(f), s=aggreg
   $('invInsights').innerHTML =
     insightCard('coins','Best-funded sector · equity', bSecInv?bSecInv.k:'—', bSecInv?money(bSecInv.o.inv)+' equity raised':'', bSecInv?SECTOR_COLORS[bSecInv.k]:null) +
     insightCard('coins','Best-funded sector · all funding', bSecAll?bSecAll.k:'—', bSecAll?money(bSecAll.o.fund)+(sameSec?' · same leader':' · differs from equity'):'', bSecAll?SECTOR_COLORS[bSecAll.k]:null) +
-    insightCard('pin','Best-funded region · equity', bRegInv?regionShort(bRegInv.k):'—', bRegInv?money(bRegInv.o.inv)+' equity raised':'', '#0e9f86') +
-    insightCard('pin','Best-funded region · all funding', bRegAll?regionShort(bRegAll.k):'—', bRegAll?money(bRegAll.o.fund)+(sameReg?' · same leader':' · differs from equity'):'', '#2F6DB5') +
+    (scoped() ? '' :
+      insightCard('pin','Best-funded region · equity', bRegInv?regionShort(bRegInv.k):'—', bRegInv?money(bRegInv.o.inv)+' equity raised':'', '#0e9f86') +
+      insightCard('pin','Best-funded region · all funding', bRegAll?regionShort(bRegAll.k):'—', bRegAll?money(bRegAll.o.fund)+(sameReg?' · same leader':' · differs from equity'):'', '#2F6DB5')) +
     insightCard('grant','Top Innovate UK sector', bIuk?bIuk.k:'—', bIuk?money(bIuk.o.iuk)+' grants':'', bIuk?SECTOR_COLORS[bIuk.k]:null) +
     insightCard('spark','Most active investor', tInv?tInv[0]:'—', tInv?nf(tInv[1])+' companies backed':'', '#8E6FCF');
   renderChips('investment');
+  /* Both halves of this tab draw a chart of top investors, and with nothing
+     filtered they are the same chart, which reads as a bug. The badge says
+     what this half covers, and when nothing is picked the first chart says
+     outright that it matches the one below. */
+  const whole=uniqueCompanies(S.all).length, here=uniqueCompanies(L.k).length;
+  const narrowed=here<whole;
+  const badge=$('invScopeBadge');
+  if(badge){ badge.textContent = narrowed
+      ? nf(here)+' of '+nf(whole)+' companies'
+      : 'All '+nf(whole)+' companies';
+    badge.classList.toggle('filtered', narrowed);
+    badge.classList.toggle('all', !narrowed); }
+  const tn=$('invTopNote');
+  if(tn) tn.textContent = narrowed
+    ? ' \u00b7 within your current selection'
+    : ' \u00b7 nothing is filtered, so this matches the chart below';
   // The investor section sits on this tab but is independent of its filters, so
   // build it once rather than on every cross-filter click (reset on theme change).
   if(!S._invpDone){ renderInvestorsDash(); S._invpDone=true; }
@@ -2483,8 +2503,9 @@ function renderInvestorsDash(){ const names=S.invNames;
   const invCountry=n=>((S.enriched[n]||{}).country||'').trim();
   const uk=names.filter(n=>invCountry(n)==='United Kingdom').length;
   const intl=names.filter(n=>invCountry(n) && invCountry(n)!=='United Kingdom').length;
-  const noCountry=names.length-uk-intl;
-  $('invpKpis').innerHTML = kpiCard(nf(names.length),'Investors') + kpiCard(nf(uk),'UK-based') + kpiCard(nf(intl),'International', noCountry?nf(noCountry)+' with no country on record':'') + kpiCard(nf(bbb),'British Business Bank-backed', nf(iuk)+' Innovate UK grant recipients');
+  const noCountry=names.length-uk-intl;   // kept out of the country chart below
+  $('invpKpis').innerHTML = kpiCard(nf(names.length),'Investors') + kpiCard(nf(uk),'UK-based') + kpiCard(nf(intl),'International') + kpiCard(nf(bbb),'British Business Bank-backed', nf(iuk)+' Innovate UK grant recipients');
+  const ib=$('invpScopeBadge'); if(ib) ib.textContent='All '+nf(names.length)+' investors';
   const byType={}; names.forEach(n=>{ const t=(S.enriched[n].type||'Other').trim()||'Other'; byType[t]=(byType[t]||0)+1; });
   const tTop=topEntries(byType,8); doughnut('invpByType', tTop.map(r=>r[0]), tTop.map(r=>r[1]), CAT_PALETTE, nf);
   // Investors with no country on record are left out rather than piled into an
@@ -2554,7 +2575,7 @@ function renderPublicDash(){ const proc=Object.values(S.procurement||{});
     insightCard('coins','Largest single supplier', biggest?biggest.name:'—', biggest?money(biggest.total_value)+' across '+nf(biggest.n_contracts||0)+' contracts':'', '#0e9f86') +
     insightCard('building','Biggest buyer group', byT?byT[0]:'—', byT?money(byT[1])+' of contract value':'', byT?BUYER_COLORS[byT[0]]:null) +
     insightCard('users','Most active buyer', bigBuyer?bigBuyer[0]:'—', bigBuyer?nf(bigBuyer[1])+' suppliers on this list':'', '#2F6DB5') +
-    insightCard('grant','Unattributed to central/local', money(otherPub), (totVal?(otherPub/totVal*100).toFixed(0):0)+'% — NHS, universities, housing', '#6C8693');
+    insightCard('grant','Unattributed to central/local', money(otherPub), (totVal?(otherPub/totVal*100).toFixed(0):0)+'% · NHS, universities, housing', '#6C8693');
 }
 
 function applyTheme(mode){ document.documentElement.setAttribute('data-theme',mode); try{ localStorage.setItem('cm_theme',mode); }catch(e){}
