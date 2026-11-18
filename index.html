@@ -7,7 +7,7 @@
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/css/flag-icons.min.css" />
-  <link rel="stylesheet" href="css/styles.css?v=62" />
+  <link rel="stylesheet" href="css/styles.css?v=64" />
 </head>
 <body>
 <div class="app">
@@ -19,7 +19,6 @@
       <span class="names">
         <span class="org">Scaleup Institute</span>
         <span class="product">UK Scaleup Map</span>
-        <span class="scope-tag" id="scopeTag" hidden></span>
       </span>
     </div>
 
@@ -341,7 +340,12 @@
   <div class="tabpane" id="tab-sectors" hidden>
     <div class="dash">
       <div class="dash-head"><div><h1>Sectors</h1><p class="dash-sub" id="secSub">How the UK's scaleup population breaks down by sector.</p></div>
-        <div class="dash-filters"><select id="secRegionFilter" class="dd"><option value="">All regions</option></select></div>
+        <div class="dash-filters">
+          <div class="inv-cat dd-multi" id="secRegionWrap">
+            <div class="inv-cat-field" id="secRegionField"><span class="ph">All regions&hellip;</span></div>
+            <div class="inv-cat-menu" id="secRegionMenu"></div>
+          </div>
+        </div>
       </div>
       <div class="dash-active" id="sectorsActive"></div>
       <div class="kpi-row" id="secKpis"></div>
@@ -353,6 +357,7 @@
         <div class="chart-card"><h3>Investment by sector</h3><div class="chart-canvas"><canvas id="secInvestment"></canvas></div></div>
       </div>
       <div class="dash-table-wrap"><div id="secTable"></div></div>
+      <p class="tbl-note">Grant funding is Innovate UK awards, the only grant programme the source data records separately. Equity funding is capital raised. Neither column includes debt, so the two do not sum to total funding.</p>
     </div>
   </div>
 
@@ -521,6 +526,6 @@
 
   <!-- Controller (dashboard + map) -->
   <script src="js/gate.js?v=af889295"></script>
-<script src="js/app.js?v=62"></script>
+<script src="js/app.js?v=64"></script>
 </body>
 </html>

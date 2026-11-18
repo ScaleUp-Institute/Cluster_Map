@@ -151,19 +151,28 @@ function drawScopeRegion(){
 function applyScope(){
   if(!scoped()) return;
   document.documentElement.setAttribute('data-scope','region');
-  const t=$('scopeTag');
-  if(t){ t.textContent=SCOPE_LABEL; t.hidden=false; }
+  // No scope badge: the product name right above it already reads
+   // "North East Scaleup Map", so the chip only repeated it.
   const p=document.querySelector('.brand .product');
   if(p) p.textContent=SCOPE_LABEL+' Scaleup Map';
   document.title=SCOPE_LABEL+' Scaleup Map — Scaleup Institute';
   // The regions tab compares twelve regions; there is one.
   const rb=document.querySelector('.dashtabs button[data-tab="regions"]');
   if(rb) rb.hidden=true;
+  // Hidden at the client's request. The tab is NOT empty in a region build --
+  // the North East one carries all 27 of its seats, 517 scaleups and their MPs
+  // -- so this is a presentation choice, and deleting these two lines restores
+  // it exactly as it was.
+  const cb=document.querySelector('.dashtabs button[data-tab="constituencies"]');
+  if(cb) cb.hidden=true;
   // The region rail section would offer a single choice that filters nothing.
   const rs=document.querySelector('.rail-sec[data-group="regions"]');
   if(rs) rs.hidden=true;
   // Dashboard "region" dropdowns, same reason.
-  ['secRegionFilter','invRegionFilter'].forEach(id=>{ const el=$(id); if(el) el.hidden=true; });
+  // secRegionWrap is the Sectors tab's multi-region picker (it replaced a
+  // <select id="secRegionFilter">); invRegionFilter is still a plain dropdown.
+  // Both offer one choice in a region build, so neither earns its space.
+  ['secRegionWrap','invRegionFilter'].forEach(id=>{ const el=$(id); if(el) el.hidden=true; });
   // Headings written for a national file. Rewritten rather than removed: a
   // reader needs to know which population every figure on the page is drawn
   // from, and "the UK's scaleups" on a 521-company North East file is wrong.
@@ -1069,7 +1078,9 @@ function resetAllFilters(){
 function renderDetail(){
   const list=getFiltered(); const s=aggregate(list);
   const regs=[...S.selRegions];
-  let name='United Kingdom', kicker='Overview';
+  // On a region build the whole file is one region, so "United Kingdom" would
+  // name a population that is not there.
+  let name = scoped() ? SCOPE_LABEL : 'United Kingdom', kicker='Overview';
   const selCon=(S.selCon!=null)?conList().find(c=>c.code===S.selCon):null;
   if(selCon){ name=selCon.name; kicker=selCon.gov?'Government-held seat':'Constituency'; }
   else if(regs.length===1){ name=regionShort(regs[0]); kicker='Region'; }
@@ -1754,10 +1765,14 @@ function boot(){
   // dashboard tabs + filters
   document.querySelectorAll('.dashtabs button[data-tab]').forEach(btn=>btn.addEventListener('click',()=>setTab(btn.dataset.tab)));
   const regs=ITL1_ORDER.slice();
-  ['invRegionFilter','secRegionFilter'].forEach(id=>{ const sel=$(id); if(sel) regs.forEach(r=>{ const o=document.createElement('option'); o.value=r; o.textContent=regionShort(r); sel.appendChild(o); }); });
+  ['invRegionFilter'].forEach(id=>{ const sel=$(id); if(sel) regs.forEach(r=>{ const o=document.createElement('option'); o.value=r; o.textContent=regionShort(r); sel.appendChild(o); }); });
+  buildSecRegionMenu(); renderSecRegionField();
+  const srf=$('secRegionField'), srm=$('secRegionMenu');
+  if(srf&&srm) srf.addEventListener('click',e=>{ if(e.target.classList.contains('x')) return; srm.classList.toggle('open'); });
+  document.addEventListener('click',e=>{ if(srm && !e.target.closest('#secRegionWrap')) srm.classList.remove('open'); });
   ['invSectorFilter','regSectorFilter'].forEach(id=>{ const sel=$(id); if(sel) S.sectors.forEach(sv=>{ const o=document.createElement('option'); o.value=sv; o.textContent=sv; sel.appendChild(o); }); });
   const onDrop=(id,tab,axis)=>{ const el=$(id); if(el) el.addEventListener('change',e=>{ xf(tab)[axis]=e.target.value||null; renderTab(tab); }); };
-  onDrop('secRegionFilter','sectors','r'); onDrop('regSectorFilter','regions','s');
+  onDrop('regSectorFilter','regions','s');
   onDrop('invRegionFilter','investment','r'); onDrop('invSectorFilter','investment','s');
   ['cdScope','cdParty'].forEach(id=>{ const el=$(id); if(el) el.addEventListener('change',renderConstituenciesDash); });
   document.querySelectorAll('#ccMode button').forEach(b=>b.addEventListener('click',()=>{
@@ -1959,24 +1974,75 @@ function renderTab(t){ if(t==='overview') renderOverview(); else if(t==='sectors
 
 /* ---- cross-filter focus ---- */
 function xf(t){ return S.focus[t]||(S.focus[t]={s:null,r:null}); }
+/* A dashboard tab's region focus used to be one region or none. The Sectors tab
+   now takes several at once, so the focus field holds an ARRAY there while the
+   other tabs still hold a plain string. Everything that reads it goes through
+   here rather than touching f.r, so neither shape has to know about the other. */
+function focusRegions(f){
+  if(!f || !f.r) return [];
+  return Array.isArray(f.r) ? f.r.slice() : [f.r];
+}
+function setFocusRegions(f, list){ f.r = list && list.length ? list.slice() : null; }
+/* ---- the Sectors tab's multi-region control ----
+   Built from the same field/menu pieces as the investor-group picker in the
+   rail, so it behaves the way the one multi-select already in the tool does. */
+function buildSecRegionMenu(){
+  const menu=$('secRegionMenu'); if(!menu) return;
+  menu.innerHTML=ITL1_ORDER.filter(r=>S.all.some(c=>c.region===r)).map(r=>
+    '<div class="inv-opt" data-k="'+esc(r)+'"><span class="tick"></span>'+esc(regionShort(r))+'</div>').join('');
+  menu.querySelectorAll('.inv-opt').forEach(opt=>opt.addEventListener('click',()=>{
+    const f=xf('sectors'), cur=focusRegions(f), r=opt.dataset.k;
+    setFocusRegions(f, cur.includes(r) ? cur.filter(x=>x!==r) : cur.concat([r]));
+    syncSecRegionMenu(); renderSecRegionField(); focusTab('sectors');
+  }));
+  syncSecRegionMenu();
+}
+function syncSecRegionMenu(){
+  const sel=focusRegions(xf('sectors'));
+  document.querySelectorAll('#secRegionMenu .inv-opt').forEach(opt=>{
+    const on=sel.includes(opt.dataset.k); opt.classList.toggle('sel',on);
+    const t=opt.querySelector('.tick'); if(t) t.textContent=on?'✓':'';
+  });
+}
+function renderSecRegionField(){
+  const el=$('secRegionField'); if(!el) return;
+  const sel=focusRegions(xf('sectors'));
+  if(!sel.length){ el.innerHTML='<span class="ph">All regions…</span>'; return; }
+  el.innerHTML=sel.map(r=>'<span class="token">'+esc(regionShort(r))+
+    '<span class="x" data-k="'+esc(r)+'">×</span></span>').join('');
+  el.querySelectorAll('.x').forEach(x=>x.addEventListener('click',ev=>{ ev.stopPropagation();
+    const f=xf('sectors');
+    setFocusRegions(f, focusRegions(f).filter(r=>r!==x.dataset.k));
+    syncSecRegionMenu(); renderSecRegionField(); focusTab('sectors'); }));
+}
+
 function fade(c){ try{ return chroma(c).alpha(0.22).css(); }catch(e){ return c; } }
 function hlColors(keys,colorFn,focusVal){ return keys.map(k=> (!focusVal||k===focusVal)?colorFn(k):fade(colorFn(k))); }
-function fLists(f){ return {
-  s: S.all.filter(c=> !f.r || c.region===f.r),
-  r: S.all.filter(c=> !f.s || c.sector===f.s),
-  k: S.all.filter(c=> (!f.r||c.region===f.r) && (!f.s||c.sector===f.s)) }; }
-function syncDrop(tab){ const f=xf(tab), m={ sectors:{r:'secRegionFilter'}, regions:{s:'regSectorFilter'}, investment:{r:'invRegionFilter',s:'invSectorFilter'} }[tab]||{};
+function fLists(f){
+  const R=focusRegions(f), inR = R.length ? (c=>R.indexOf(c.region)>=0) : (()=>true);
+  return {
+    s: S.all.filter(inR),
+    r: S.all.filter(c=> !f.s || c.sector===f.s),
+    k: S.all.filter(c=> inR(c) && (!f.s||c.sector===f.s)) }; }
+function syncDrop(tab){ const f=xf(tab), m={ regions:{s:'regSectorFilter'}, investment:{r:'invRegionFilter',s:'invSectorFilter'} }[tab]||{};
+  if(tab==='sectors'){ syncSecRegionMenu(); renderSecRegionField(); }
   if(m.r){ const e=$(m.r); if(e) e.value=f.r||''; } if(m.s){ const e=$(m.s); if(e) e.value=f.s||''; } }
 function focusTab(tab){ syncDrop(tab); renderTab(tab); }
-function applyFocusToMap(f){ S.selSectors=new Set(f.s?[f.s]:[]); S.selRegions=new Set(f.r?[f.r]:[]);
+function applyFocusToMap(f){ S.selSectors=new Set(f.s?[f.s]:[]); S.selRegions=new Set(focusRegions(f));
   document.querySelectorAll('#chips .chip').forEach(ch=>ch.setAttribute('aria-pressed',(f.s&&ch.dataset.sector===f.s)?'true':'false'));
   onFilterChange({region:true}); setTab('map'); }
 function renderChips(tab){ const f=xf(tab), el=$(tab+'Active'); if(!el) return; let html='';
   if(f.s) html+='<span class="dchip">'+esc(f.s)+'<span class="x" data-c="s">×</span></span>';
-  if(f.r) html+='<span class="dchip">'+esc(regionShort(f.r))+'<span class="x" data-c="r">×</span></span>';
-  html+= (f.s||f.r) ? '<button class="dchip-map" data-map="1">View on map ↗</button>' : '<span class="dchip-hint">Tip: click a bar or segment to filter this tab</span>';
+  const fr=focusRegions(f);
+  fr.forEach(r=>{ html+='<span class="dchip">'+esc(regionShort(r))+
+    '<span class="x" data-c="r" data-r="'+esc(r)+'">×</span></span>'; });
+  html+= (f.s||fr.length) ? '<button class="dchip-map" data-map="1">View on map ↗</button>' : '<span class="dchip-hint">Tip: click a bar or segment to filter this tab</span>';
   el.innerHTML=html;
-  el.querySelectorAll('.x').forEach(x=>x.addEventListener('click',()=>{ f[x.dataset.c]=null; focusTab(tab); }));
+  el.querySelectorAll('.x').forEach(x=>x.addEventListener('click',()=>{
+    // A region chip clears only its own region; everything else clears the field.
+    if(x.dataset.c==='r' && x.dataset.r) setFocusRegions(f, focusRegions(f).filter(r=>r!==x.dataset.r));
+    else f[x.dataset.c]=null;
+    focusTab(tab); }));
   const mb=el.querySelector('[data-map]'); if(mb) mb.addEventListener('click',()=>applyFocusToMap(f));
 }
 
@@ -2016,7 +2082,11 @@ function renderSectorsDash(){ const f=xf('sectors'), L=fLists(f), s=aggregate(L.
     {label:'Companies',html:r=>nf(r.o.n),sort:r=>r.o.n},
     {label:'Employees',html:r=>compact(r.o.emp),sort:r=>r.o.emp},
     {label:'Turnover',html:r=>money(r.o.turn),sort:r=>r.o.turn},
-    {label:'Investment',html:r=>money(r.o.inv),sort:r=>r.o.inv},
+    {label:'Equity funding',html:r=>money(r.o.inv),sort:r=>r.o.inv},
+    // Grants in this dataset are Innovate UK awards: the source's own Grants_GBP
+    // column and IUK_GBP agree on 949 of the 951 companies that carry either, at
+    // £2.11bn against £2.10bn. So this is the grant figure, not a slice of one.
+    {label:'Grant funding',html:r=>money(r.o.iuk),sort:r=>r.o.iuk},
     {label:'Female',html:r=>(r.o.n?r.o.women/r.o.n*100:0).toFixed(0)+'%',sort:r=>r.o.n?r.o.women/r.o.n:0}
   ], Object.keys(kb).map(k=>({k,o:kb[k]})), {col:1,dir:'desc'});
   const secEnt=Object.keys(kb).map(k=>({k,o:kb[k]}));

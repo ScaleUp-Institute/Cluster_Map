@@ -708,3 +708,8 @@ h2,h3,h4{font-family:var(--font-head);}
 .scope-tag{display:inline-block; margin-top:2px; padding:1px 7px; border-radius:999px;
   background:var(--accent-ink); color:#fff; font-size:10px; font-weight:700;
   letter-spacing:.04em; text-transform:uppercase; line-height:1.6; align-self:flex-start;}
+
+/* ---- multi-select in a dashboard header (Sectors tab region picker) ---- */
+.dash-filters .dd-multi{position:relative; min-width:210px;}
+.dash-filters .dd-multi .inv-cat-field{min-height:34px;}
+.tbl-note{margin:8px 2px 0; font-size:11.5px; color:var(--muted); line-height:1.45;}
