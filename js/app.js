@@ -2402,29 +2402,33 @@ function renderCompare(dim, th){
 
 /* ---- Investors ---- */
 function renderInvestorsDash(){ const names=S.invNames;
-  /* Counted against the MAPPED population, not the raw flag lists. The lists
-     carry company numbers that never made it onto the map: Innovate UK has
-     1,936 entries of which 951 are mapped, so the card used to claim 1,936
-     while the rail filter beside it returned 951 -- the card contradicted the
-     filter. British Business Bank is 474 against 470. */
+  /* Counted against the MAPPED population, not the raw lists, which carry
+     company numbers that never reached the map -- the card used to quote the
+     raw figure while the rail filter beside it returned the mapped one, so the
+     two contradicted each other on the same screen. */
   const mapped=uniqueCompanies(S.all);
   const bbb=mapped.filter(c=>S.flags.bbb.has(c.num)).length,
         iuk=mapped.filter(c=>S.flags.iuk.has(c.num)).length;
   const uk=names.filter(n=>(S.enriched[n].country||'')==='United Kingdom').length;
-  $('invpKpis').innerHTML = kpiCard(nf(names.length),'Investors') + kpiCard(nf(uk),'UK-based') + kpiCard(nf(names.length-uk),'International') + kpiCard(nf(bbb),'On the BBB programme list', nf(iuk)+' on the Innovate UK list');
+  $('invpKpis').innerHTML = kpiCard(nf(names.length),'Investors') + kpiCard(nf(uk),'UK-based') + kpiCard(nf(names.length-uk),'International') + kpiCard(nf(bbb),'British Business Bank-backed', nf(iuk)+' Innovate UK grant recipients');
   const byType={}; names.forEach(n=>{ const t=(S.enriched[n].type||'Other').trim()||'Other'; byType[t]=(byType[t]||0)+1; });
   const tTop=topEntries(byType,8); doughnut('invpByType', tTop.map(r=>r[0]), tTop.map(r=>r[1]), CAT_PALETTE, nf);
   const byCountry={}; names.forEach(n=>{ const c=(S.enriched[n].country||'Unknown').trim()||'Unknown'; byCountry[c]=(byCountry[c]||0)+1; });
   const cTop=topEntries(byCountry,10); hBar('invpByCountry', cTop.map(r=>r[0]), cTop.map(r=>r[1]), '#0e9f86', nf);
-  const nTop=names.map(n=>[n,(S.enriched[n].companies||[]).length]).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  // An investor's company list carries numbers that never reached the map, so
+  // its raw length disagrees with every other figure in the tool. Counted
+  // against the mapped population, as the cards above now are.
+  const onMap=new Set(mapped.map(c=>c.num));
+  const backed=n=>((S.enriched[n]||{}).companies||[]).reduce((a,c)=>a+(onMap.has(normNum(c))?1:0),0);
+  const nTop=names.map(n=>[n,backed(n)]).sort((a,b)=>b[1]-a[1]).slice(0,10);
   hBar('invpTop', nTop.map(r=>r[0]), nTop.map(r=>r[1]), '#2F6DB5', nf);
   hBar('invpFunding', ['British Business Bank','Innovate UK'], [bbb,iuk], ['#D64550','#8E6FCF'], nf);
-  const tRows=names.map(n=>({n,v:S.enriched[n]})).sort((a,b)=>(b.v.companies||[]).length-(a.v.companies||[]).length).slice(0,40);
+  const tRows=names.map(n=>({n,v:S.enriched[n],c:backed(n)})).sort((a,b)=>b.c-a.c).slice(0,40);
   renderSortable('invpTable',[
     {label:'Investor',align:'left',html:r=>esc(r.n),sort:r=>r.n},
     {label:'Type',align:'left',html:r=>esc(r.v.type||'—'),sort:r=>r.v.type||''},
     {label:'Country',align:'left',html:r=>esc(r.v.country||'—'),sort:r=>r.v.country||''},
-    {label:'Companies backed',html:r=>nf((r.v.companies||[]).length),sort:r=>(r.v.companies||[]).length}
+    {label:'Companies backed',html:r=>nf(r.c),sort:r=>r.c}
   ], tRows, {col:3,dir:'desc'});
 }
 

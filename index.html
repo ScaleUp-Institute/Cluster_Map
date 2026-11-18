@@ -7,7 +7,7 @@
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/css/flag-icons.min.css" />
-  <link rel="stylesheet" href="css/styles.css?v=68" />
+  <link rel="stylesheet" href="css/styles.css?v=70" />
 </head>
 <body>
 <div class="app">
@@ -58,7 +58,7 @@
       <div class="chart-grid">
         <div class="chart-card"><h3>Companies by sector <span class="chart-note">a company in several sectors is counted in each</span></h3><div class="chart-canvas"><canvas id="ovSectorDoughnut"></canvas></div></div>
         <div class="chart-card"><h3>Companies by region</h3><div class="chart-canvas"><canvas id="ovRegionBar"></canvas></div></div>
-        <div class="chart-card"><h3>Top investors <span class="chart-note">companies that name each investor · not amount invested</span></h3><div class="chart-canvas"><canvas id="ovInvBar"></canvas></div></div>
+        <div class="chart-card"><h3>Top investors <span class="chart-note">companies backed · counts companies, not money</span></h3><div class="chart-canvas"><canvas id="ovInvBar"></canvas></div></div>
         <div class="chart-card"><h3>Women-led by sector</h3><div class="chart-canvas"><canvas id="ovFemBar"></canvas></div></div>
       </div>
     </div>
@@ -184,9 +184,10 @@
                  are not subsets of one another. -->
             <div class="sub-head sub-head-mt">Public funding received</div>
             <div class="seg" id="flagSeg"></div>
-            <div class="rail-hint">Companies these programmes have backed, <strong>including through
-              delegated funds</strong>. A company can be here without naming the programme as an
-              investor below, which is why the two counts differ.</div>
+            <div class="rail-hint">Companies each body has backed, <strong>delegated funds
+              included</strong> &mdash; British Business Bank mostly invests through fund managers, so
+              most of these companies never name it directly. Searching for it below returns the
+              same companies. Innovate UK awards grants, so it appears only here.</div>
 
             <div class="sub-head sub-head-mt">Backed by a named investor</div>
             <button id="invAllBtn" class="rail-btn" type="button">Show all investor-backed</button>
@@ -201,9 +202,8 @@
               <div class="inv-cat-field" id="invCatField"><span class="ph">Any investor group…</span></div>
               <div class="inv-cat-menu" id="invCatMenu"></div>
             </div>
-            <div class="rail-hint">Companies that <strong>name the investor</strong> on their own
-              record. Backing that arrived through a fund manager is credited to that manager,
-              not to whoever supplied the fund.</div>
+            <div class="rail-hint">Who is recorded as backing the company. Grant-making bodies
+              are not listed here &mdash; they sit under public funding above.</div>
             <div class="inv-search-wrap">
               <input id="invSearch" type="text" placeholder="Search a specific investor…" autocomplete="off" />
               <div id="invSuggest" class="inv-suggest"></div>
@@ -443,7 +443,7 @@
         <div class="chart-card"><h3>All funding by sector <span class="chart-note">equity + debt + grants</span></h3><div class="chart-canvas"><canvas id="invAllBySector"></canvas></div></div>
         <div class="chart-card"><h3>Equity by region</h3><div class="chart-canvas"><canvas id="invByRegion"></canvas></div></div>
         <div class="chart-card"><h3>All funding by region <span class="chart-note">equity + debt + grants</span></h3><div class="chart-canvas"><canvas id="invAllByRegion"></canvas></div></div>
-        <div class="chart-card wide"><h3>Top investors here <span class="chart-note">companies that name each investor, within the filters above · counts companies, not money</span></h3><div class="chart-canvas"><canvas id="invTop"></canvas></div></div>
+        <div class="chart-card wide"><h3>Top investors here <span class="chart-note">companies backed, within the filters above · counts companies, not money</span></h3><div class="chart-canvas"><canvas id="invTop"></canvas></div></div>
       </div>
 
       <div class="dash-head section-head"><div><h2>The investors</h2><p class="dash-sub">Who these funders are — by type, geography and reach. Independent of the filters above.</p></div></div>
@@ -451,8 +451,8 @@
       <div class="chart-grid">
         <div class="chart-card"><h3>Investors by type</h3><div class="chart-canvas"><canvas id="invpByType"></canvas></div></div>
         <div class="chart-card"><h3>Top investor countries</h3><div class="chart-canvas"><canvas id="invpByCountry"></canvas></div></div>
-        <div class="chart-card"><h3>Most active investors <span class="chart-note">across the whole dataset · companies that name each investor</span></h3><div class="chart-canvas"><canvas id="invpTop"></canvas></div></div>
-        <div class="chart-card"><h3>Publicly-backed businesses <span class="chart-note">on the programme lists, delegated funds included — not the named-investor count above</span></h3><div class="chart-canvas"><canvas id="invpFunding"></canvas></div></div>
+        <div class="chart-card"><h3>Most active investors <span class="chart-note">across the whole dataset · companies backed, not money</span></h3><div class="chart-canvas"><canvas id="invpTop"></canvas></div></div>
+        <div class="chart-card"><h3>Publicly-backed businesses <span class="chart-note">delegated funds and grants included · British Business Bank matches its investor entry above</span></h3><div class="chart-canvas"><canvas id="invpFunding"></canvas></div></div>
       </div>
       <div class="dash-table-wrap"><div id="invpTable"></div></div>
     </div>
@@ -533,6 +533,6 @@
 
   <!-- Controller (dashboard + map) -->
   <script src="js/gate.js?v=af889295"></script>
-<script src="js/app.js?v=68"></script>
+<script src="js/app.js?v=70"></script>
 </body>
 </html>
