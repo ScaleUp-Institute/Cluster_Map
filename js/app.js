@@ -173,6 +173,11 @@ function applyScope(){
   // <select id="secRegionFilter">); invRegionFilter is still a plain dropdown.
   // Both offer one choice in a region build, so neither earns its space.
   ['secRegionWrap','invRegionFilter'].forEach(id=>{ const el=$(id); if(el) el.hidden=true; });
+  // Charts that break the population down BY REGION draw a single bar when the
+  // file holds one region. The Regions tab and the region filter are already
+  // gone for the same reason; these three were left behind.
+  ['ovRegionBar','invByRegion','invAllByRegion'].forEach(id=>{
+    const c=$(id), card=c&&c.closest('.chart-card'); if(card) card.hidden=true; });
   // Headings written for a national file. Rewritten rather than removed: a
   // reader needs to know which population every figure on the page is drawn
   // from, and "the UK's scaleups" on a 521-company North East file is wrong.
@@ -1719,6 +1724,17 @@ function boot(){
     makeBarDraggable(abar);
   }
   labelFundingCounts(); syncOriginHint();
+  /* Every explanation in the tool hides behind the little i beside its heading,
+     so the rail and the tables stay readable and the detail is one click away.
+     The text stays in the DOM and is referenced by aria-controls, so a screen
+     reader still reaches it. */
+  document.querySelectorAll('.info-btn').forEach(b=>{
+    const t=$(b.getAttribute('aria-controls')); if(!t) return;
+    b.addEventListener('click',e=>{ e.stopPropagation();
+      const opening=t.hidden; t.hidden=!opening;
+      b.setAttribute('aria-expanded', opening?'true':'false');
+      b.classList.toggle('on', opening); });
+  });
 
   // show every investor-backed company, without picking a specific investor
   const invAllBtn=$('invAllBtn');

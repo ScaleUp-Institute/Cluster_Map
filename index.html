@@ -7,7 +7,7 @@
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/css/flag-icons.min.css" />
-  <link rel="stylesheet" href="css/styles.css?v=70" />
+  <link rel="stylesheet" href="css/styles.css?v=71" />
 </head>
 <body>
 <div class="app">
@@ -182,14 +182,20 @@
             <!-- Funding FLAGS pick companies by what they received. Kept apart from
                  the investor controls below, which pick by who backed them — these
                  are not subsets of one another. -->
-            <div class="sub-head sub-head-mt">Public funding received</div>
+            <div class="sub-head sub-head-mt">Public funding received
+              <button type="button" class="info-btn" aria-expanded="false" aria-controls="hintFlags" aria-label="What this counts">i</button></div>
             <div class="seg" id="flagSeg"></div>
-            <div class="rail-hint">Companies each body has backed, <strong>delegated funds
-              included</strong> &mdash; British Business Bank mostly invests through fund managers, so
-              most of these companies never name it directly. Searching for it below returns the
-              same companies. Innovate UK awards grants, so it appears only here.</div>
+            <div class="rail-hint" id="hintFlags" hidden>Companies each body has backed,
+              <strong>delegated funds included</strong> &mdash; British Business Bank mostly invests
+              through fund managers, so most of these companies never name it directly. Searching
+              for it below returns the same companies. Innovate UK awards grants, so it appears
+              only here.</div>
 
-            <div class="sub-head sub-head-mt">Backed by a named investor</div>
+            <div class="sub-head sub-head-mt">Backed by a named investor
+              <button type="button" class="info-btn" aria-expanded="false" aria-controls="hintInvestors" aria-label="What this counts">i</button></div>
+            <div class="rail-hint" id="hintInvestors" hidden>Who is recorded as backing the
+              company. Grant-making bodies are not listed here &mdash; they sit under public
+              funding above.</div>
             <button id="invAllBtn" class="rail-btn" type="button">Show all investor-backed</button>
             <div class="rail-hint" id="invAllHint"></div>
             <div class="field-label">Investor type</div>
@@ -202,8 +208,6 @@
               <div class="inv-cat-field" id="invCatField"><span class="ph">Any investor group…</span></div>
               <div class="inv-cat-menu" id="invCatMenu"></div>
             </div>
-            <div class="rail-hint">Who is recorded as backing the company. Grant-making bodies
-              are not listed here &mdash; they sit under public funding above.</div>
             <div class="inv-search-wrap">
               <input id="invSearch" type="text" placeholder="Search a specific investor…" autocomplete="off" />
               <div id="invSuggest" class="inv-suggest"></div>
@@ -363,7 +367,8 @@
         <div class="chart-card"><h3>Investment by sector <span class="chart-note">equity raised — excludes debt and grants</span></h3><div class="chart-canvas"><canvas id="secInvestment"></canvas></div></div>
       </div>
       <div class="dash-table-wrap"><div id="secTable"></div></div>
-      <p class="tbl-note"><strong>Equity funding</strong> is capital raised. <strong>Grant funding</strong> is Innovate UK awards, the only grant programme the source data records separately. Neither includes debt, so the two do not add up to total funding. A company sitting in several sectors is counted in full against each of them, so a column adds up to more than the population total.</p>
+      <p class="tbl-head-note">How to read this table <button type="button" class="info-btn" aria-expanded="false" aria-controls="secTableNote" aria-label="What this table means">i</button></p>
+      <p class="tbl-note" id="secTableNote" hidden><strong>Equity funding</strong> is capital raised. <strong>Grant funding</strong> is Innovate UK awards, the only grant programme the source data records separately. Neither includes debt, so the two do not add up to total funding. A company sitting in several sectors is counted in full against each of them, so a column adds up to more than the population total.</p>
     </div>
   </div>
 
@@ -383,7 +388,8 @@
         <div class="chart-card"><h3>Women-led by region</h3><div class="chart-canvas"><canvas id="regFemale"></canvas></div></div>
       </div>
       <div class="dash-table-wrap"><div id="regTable"></div></div>
-      <p class="tbl-note">Each company is counted once in its own region, so these columns do add up to the population total. Money columns are aggregates, not averages.</p>
+      <p class="tbl-head-note">How to read this table <button type="button" class="info-btn" aria-expanded="false" aria-controls="regTableNote" aria-label="What this table means">i</button></p>
+      <p class="tbl-note" id="regTableNote" hidden>Each company is counted once in its own region, so these columns do add up to the population total. Money columns are aggregates, not averages.</p>
     </div>
   </div>
 
@@ -439,10 +445,10 @@
       <div class="kpi-row" id="invKpis"></div>
       <div class="insight-row" id="invInsights"></div>
       <div class="chart-grid">
-        <div class="chart-card"><h3>Equity by sector</h3><div class="chart-canvas"><canvas id="invBySector"></canvas></div></div>
-        <div class="chart-card"><h3>All funding by sector <span class="chart-note">equity + debt + grants</span></h3><div class="chart-canvas"><canvas id="invAllBySector"></canvas></div></div>
-        <div class="chart-card"><h3>Equity by region</h3><div class="chart-canvas"><canvas id="invByRegion"></canvas></div></div>
-        <div class="chart-card"><h3>All funding by region <span class="chart-note">equity + debt + grants</span></h3><div class="chart-canvas"><canvas id="invAllByRegion"></canvas></div></div>
+        <div class="chart-card"><h3>Equity by sector <span class="chart-note">the eight largest &mdash; the Sectors tab lists all of them</span></h3><div class="chart-canvas"><canvas id="invBySector"></canvas></div></div>
+        <div class="chart-card"><h3>All funding by sector <span class="chart-note">equity + debt + grants · the eight largest</span></h3><div class="chart-canvas"><canvas id="invAllBySector"></canvas></div></div>
+        <div class="chart-card"><h3>Equity by region <span class="chart-note">the ten largest</span></h3><div class="chart-canvas"><canvas id="invByRegion"></canvas></div></div>
+        <div class="chart-card"><h3>All funding by region <span class="chart-note">equity + debt + grants · the ten largest</span></h3><div class="chart-canvas"><canvas id="invAllByRegion"></canvas></div></div>
         <div class="chart-card wide"><h3>Top investors here <span class="chart-note">companies backed, within the filters above · counts companies, not money</span></h3><div class="chart-canvas"><canvas id="invTop"></canvas></div></div>
       </div>
 
@@ -533,6 +539,6 @@
 
   <!-- Controller (dashboard + map) -->
   <script src="js/gate.js?v=af889295"></script>
-<script src="js/app.js?v=70"></script>
+<script src="js/app.js?v=71"></script>
 </body>
 </html>
