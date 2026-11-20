@@ -748,3 +748,7 @@ h2,h3,h4{font-family:var(--font-head);}
   font:400 11.5px/1.55 var(--font-body); text-transform:none; letter-spacing:0;}
 .info-pop strong{font-weight:700; color:var(--ink);}
 .info-pop[hidden]{display:none;}
+/* The geographic scope chip: set on the map, shown on every dashboard tab so a
+   tab never quotes figures for somewhere it does not name. */
+.dchip-scope{background:var(--ink); }
+.dchip-scope .x{background:rgba(255,255,255,.28);}

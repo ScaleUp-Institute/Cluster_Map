@@ -165,6 +165,11 @@ function applyScope(){
   // it exactly as it was.
   const cb=document.querySelector('.dashtabs button[data-tab="constituencies"]');
   if(cb) cb.hidden=true;
+  /* The council layer is national: areas.json holds all 361, and a region
+     edition is not shipped one. Hide the control rather than leave it to fail
+     at the fetch. */
+  const as=document.querySelector('.rail-sec[data-group="councils"]');
+  if(as) as.hidden=true;
   // The region rail section would offer a single choice that filters nothing.
   const rs=document.querySelector('.rail-sec[data-group="regions"]');
   if(rs) rs.hidden=true;
@@ -261,6 +266,11 @@ const S = {
   displayMode: 'both', view: 'clusters', tab:'map', rendered: [], hulls: [], markersShown: false,
   focus:{}, compareMode:'regions', compareRegions:new Set(), compareSectors:new Set(),
   conData:null, conMode:'off', conParty:'', conQuery:'', selCon:null, selConIdx:-1,
+  /* Councils and city regions. selArea is the code of whichever one is picked,
+     at whichever level; _areaSet is the council indexes it covers, which is one
+     index for a council and all its members for a city region. Everything that
+     filters reads _areaSet, so neither level needs its own test. */
+  areaData:null, areaLevel:'off', areaQuery:'', selArea:null, _areaSet:null,
   ccMode:'seats', ccSeats:new Set(), ccParties:new Set(),
   detailOpen:false, detailUserClosed:false
 };
@@ -590,9 +600,11 @@ function getFiltered(opts){
   const useRegion=!opts.ignoreRegion && S.selRegions.size>0;
   const invSet=(!opts.ignoreInvestor && investorMode()) ? (S._invSet||investorCompanySet()) : null;
   const conIdx=(!opts.ignoreCon && S.selCon!=null) ? S.selConIdx : -1;
+  const areaSet=(!opts.ignoreArea && S.selArea!=null) ? S._areaSet : null;
   const size=!opts.ignoreSize && sizeActive();
   return S.all.filter(c=>{
     if(conIdx>=0 && c.conIdx!==conIdx) return false;
+    if(areaSet && !areaSet.has(c.ladIdx)) return false;
     if(S.selSectors.size && !S.selSectors.has(c.sector)) return false;
     if(useRegion && (!c.region || !S.selRegions.has(c.region))) return false;
     if(invSet && !invSet.has(c.num)) return false;
@@ -1073,6 +1085,7 @@ function resetAllFilters(){
   S.selSectors.clear(); S.selRegions.clear(); S.selInvestors.clear();
   S.invCats.clear(); S.invTypes.clear(); S.invAll=false; S.femOnly=false; S.fundAny=false;
   S.selCon=null; S.selConIdx=-1;
+  S.selArea=null; S._areaSet=null; renderAreas();
   resetSize(); syncFemBtn(); femVideo(false); syncFundAnyBtn(); syncInvAllBtn(); syncFlagSeg();
   syncSectorChips(); renderTypeField(); syncTypeMenu(); renderInvTags(); renderCatField(); syncCatMenu();
   onFilterChange({region:true});
@@ -1084,7 +1097,9 @@ function renderDetail(){
   // name a population that is not there.
   let name = scoped() ? SCOPE_LABEL : 'United Kingdom', kicker='Overview';
   const selCon=(S.selCon!=null)?conList().find(c=>c.code===S.selCon):null;
-  if(selCon){ name=selCon.name; kicker=selCon.gov?'Government-held seat':'Constituency'; }
+  const selArea=currentArea();
+  if(selArea){ name=selArea.name; kicker=(S.areaLevel==='city')?'City region':'Council area'; }
+  else if(selCon){ name=selCon.name; kicker=selCon.gov?'Government-held seat':'Constituency'; }
   else if(regs.length===1){ name=regionShort(regs[0]); kicker='Region'; }
   else if(regs.length>1){ name=regs.length+' regions'; kicker='Regions'; }
   const sub=[nf(s.n)+' companies'];
@@ -1238,6 +1253,185 @@ function mpAvatar(c, small){
     (c.photo?'<img src="'+esc(c.photo)+'" alt="'+esc(c.mp||'')+'" onerror="this.remove()">':'')+
     '</span>';
 }
+/* ===================================================== COUNCILS & CITY REGIONS
+   Two levels of one geography. A council area is what a council governs, which
+   is the unit a conversation with one of them starts from; a city region is the
+   economic area around it, taken from the grouping SUI maintains in
+   lad_data.csv, and is summed from its member councils so the two levels can
+   never disagree.
+
+   Loaded on demand, like the constituencies: it is a third of the data file and
+   most sessions never open it. A build that was not shipped one (every region
+   edition) hides the control in applyScope and never gets here. */
+let areaLayer=null;
+function loadAreas(){
+  if(S.areaData) return Promise.resolve(S.areaData);
+  if(S._areaLoading) return S._areaLoading;
+  const el=$('areaStatus'); if(el) el.textContent='Loading councils…';
+  S._areaLoading=getJSON('data/areas.json').then(d=>{
+    S.areaData=d;
+    // companyCouncil is index-aligned to master.companies, exactly as
+    // companyConstituency is, and S.all is built from that array in order.
+    const map=d.companyCouncil||[];
+    S.all.forEach((c,i)=>{ c.ladIdx=(map[i]==null?-1:map[i]); });
+    areaPrepareStats();
+    if(el) el.textContent='';
+    return d;
+  }).catch(e=>{ console.error('council load failed',e);
+    if(el) el.textContent='Could not load council data.'; throw e; });
+  return S._areaLoading;
+}
+function areaCouncils(){ return (S.areaData&&S.areaData.councils)||[]; }
+function areaCities(){ return (S.areaData&&S.areaData.cityRegions)||[]; }
+function areaList(){ return S.areaLevel==='city' ? areaCities() : areaCouncils(); }
+function areaGeo(){ if(!S.areaData) return null;
+  return S.areaLevel==='city' ? S.areaData.cityGeo : S.areaData.geo; }
+function currentArea(){
+  if(S.selArea==null || !S.areaData) return null;
+  return areaList().find(a=>a.code===S.selArea)||null;
+}
+/* Rank within the level being shown, so a council is ranked against councils
+   and a city region against city regions. */
+function areaPrepareStats(){
+  [areaCouncils(), areaCities()].forEach(list=>{
+    list.slice().sort((a,b)=>b.companies-a.companies).forEach((a,i)=>{ a._rank=i+1; });
+    const max=list.reduce((m,a)=>Math.max(m,a.companies||0),0);
+    list.forEach(a=>{ a._max=max; });
+  });
+  // council code -> its index, so a city region can name its members cheaply
+  S._areaByCode={}; areaCouncils().forEach((c,i)=>{ S._areaByCode[c.code]=i; });
+}
+/* The set of council indexes a selection covers: one for a council, all of its
+   members for a city region. One test then serves both levels. */
+function areaSetFor(a){
+  if(!a) return null;
+  const out=new Set();
+  if(S.areaLevel==='city'){ (a.councils||[]).forEach(code=>{
+      const i=S._areaByCode[code]; if(i!=null) out.add(i); }); }
+  else { const i=S._areaByCode[a.code]; if(i!=null) out.add(i); }
+  return out;
+}
+function areaMatches(a){
+  if(!S.areaQuery) return true;
+  const q=S.areaQuery.toLowerCase();
+  return (a.name||'').toLowerCase().includes(q) ||
+         (a.city||'').toLowerCase().includes(q);
+}
+function areaShown(){ return S.areaLevel==='off' ? [] : areaList().filter(areaMatches); }
+/* One hue, with scaleup density on the fill, so the outline reads as geography
+   rather than competing with the party colours the seats layer uses. */
+function areaStyle(a, sel){
+  const dark=document.documentElement.getAttribute('data-theme')==='dark';
+  const line=dark?'#7fe6d3':'#0a7a67';
+  const max=Math.sqrt(Math.max(a._max||1,1));
+  const dens=Math.sqrt(Math.max(a.companies||0,0))/max;
+  /* A selected area is marked by its OUTLINE, not by a heavy fill. The point of
+     selecting one is to look at the companies inside it, and a 0.5 fill over
+     them left the dots barely readable at council zoom. */
+  return { color: sel?line:(dark?'#4a6f86':'#5f7688'), weight: sel?3.5:0.7,
+           opacity: sel?1:0.75, fillColor:'#2F6DB5',
+           fillOpacity: sel?0.12:(0.10+0.42*dens) };
+}
+function areaPopup(a){
+  const rank=a._rank||0, total=areaList().length||1;
+  const pct=total>1 ? Math.floor((total-rank)/(total-1)*100) : 100;
+  const unit=S.areaLevel==='city'?'city regions':'councils';
+  const womenPct=a.companies?((a.women/a.companies)*100).toFixed(0):'0';
+  return '<div class="popup con-popup">'+
+    '<div class="ph">'+esc(a.name)+'</div>'+
+    (S.areaLevel==='city'
+      ? '<div class="cp-role">'+nf((a.councils||[]).length)+' councils</div>'
+      : (a.city ? '<div class="cp-role">in '+esc(a.city)+'</div>' : ''))+
+    '<div class="cp-rank">'+
+      '<div class="cp-rank-top"><b>#'+nf(rank)+'</b> of '+nf(total)+' '+unit+' by scaleups'+
+        '<span class="cp-pct">ahead of '+pct+'% of '+unit+'</span></div>'+
+      '<div class="cp-rank-bar"><i style="width:'+pct+'%"></i></div>'+
+    '</div>'+
+    '<div class="cp-stats">'+
+      '<div><b>'+nf(a.companies)+'</b><span>scaleups</span></div>'+
+      '<div><b>'+pMoney(a.turnover)+'</b><span>turnover</span></div>'+
+      '<div><b>'+pMoney(a.investment)+'</b><span>equity</span></div>'+
+    '</div>'+
+    '<div class="cp-stats">'+
+      '<div><b>'+compact(a.employees)+'</b><span>employees</span></div>'+
+      '<div><b>'+nf(a.backed)+'</b><span>investor-backed</span></div>'+
+      '<div><b>'+womenPct+'%</b><span>women-led</span></div>'+
+    '</div>'+
+    (a.topSectors&&a.topSectors.length
+      ? '<div class="ph2">Biggest sectors</div><div class="cp-spec">'+
+        a.topSectors.map(k=>'<div class="cp-spec-row"><span class="cp-spec-name">'+
+          swatch(SECTOR_COLORS[k])+esc(k)+'</span></div>').join('')+'</div>'
+      : '')+
+    '<div class="cp-hint">Click to filter the map. Full figures on the right.</div></div>';
+}
+function renderAreas(){
+  if(areaLayer){ map.removeLayer(areaLayer); areaLayer=null; }
+  renderAreaList();
+  const shown=areaShown();
+  if(!shown.length || !S.areaData) return;
+  const byCode={}; shown.forEach(a=>{ byCode[a.code]=a; });
+  areaLayer=L.geoJSON(areaGeo(),{
+    filter:f=>!!byCode[f.properties.code],
+    style:f=>areaStyle(byCode[f.properties.code], S.selArea===f.properties.code),
+    onEachFeature:(f,layer)=>{ const a=byCode[f.properties.code]; if(!a) return;
+      layer.bindPopup(()=>areaPopup(a),{maxWidth:330});
+      layer.on('mouseover',()=>{ if(S.selArea!==a.code) layer.setStyle({weight:2, opacity:1}); });
+      layer.on('mouseout',()=>{ if(S.selArea!==a.code) layer.setStyle(areaStyle(a,false)); });
+      layer.on('click',()=>{ selectArea(S.selArea===a.code?null:a.code); });
+    }}).addTo(map);
+  areaLayer.bringToBack();
+  if(typeof scopeLayer!=='undefined' && scopeLayer) scopeLayer.bringToBack();
+}
+function selectArea(code){
+  S.selArea=code;
+  const a=currentArea();
+  S._areaSet=areaSetFor(a);
+  /* Zoom from the DATA, not from the drawn layer. The layer holds only what
+     the search box currently matches, so reading bounds off it left the map
+     wherever it was whenever the selection came from anywhere else. */
+  if(a){
+    const geo=areaGeo();
+    const feat=geo && (geo.features||[]).find(f=>f.properties.code===code);
+    if(feat){
+      try{
+        const b=L.geoJSON(feat).getBounds();
+        if(b && b.isValid()) map.fitBounds(b,{padding:[40,40], maxZoom:11});
+      }catch(e){}
+    }
+  }
+  styleAreaSelection(); renderAreaList();
+  onFilterChange({region:true});
+}
+function styleAreaSelection(){
+  if(!areaLayer) return;
+  const byCode={}; areaList().forEach(a=>{ byCode[a.code]=a; });
+  areaLayer.eachLayer(l=>{ const code=l.feature&&l.feature.properties.code, a=byCode[code];
+    if(a) l.setStyle(areaStyle(a, S.selArea===code)); });
+}
+function renderAreaList(){
+  const st=$('areaSummary'), list=$('areaResults');
+  if(st){ st.innerHTML = S.areaLevel==='off' ? ''
+    : '<b>'+nf(areaShown().length)+'</b> of '+nf(areaList().length)+
+      (S.areaLevel==='city'?' city regions':' councils')+
+      (S.selArea!=null?' · 1 selected':''); }
+  if(!list) return;
+  if(S.areaLevel==='off'){ list.innerHTML=''; return; }
+  const shown=areaShown();
+  const rows=shown.slice().sort((a,b)=>b.companies-a.companies).slice(0,40);
+  list.innerHTML = rows.length ? rows.map(a=>
+    '<div class="con-row'+(S.selArea===a.code?' selected':'')+'" data-code="'+esc(a.code)+'">'+
+      '<span class="c-name">'+esc(a.name)+
+        '<span class="c-meta">'+pMoney(a.turnover)+' turnover'+
+        (S.areaLevel==='city' ? ' · '+nf((a.councils||[]).length)+' councils'
+                              : (a.city?' · '+esc(a.city):''))+'</span></span>'+
+      '<span class="c-val">'+nf(a.companies)+'</span></div>').join('')
+    + (shown.length>40?'<div class="proc-empty">Showing the 40 largest of '+nf(shown.length)+'.</div>':'')
+    : '<div class="proc-empty">Nothing matches that search.</div>';
+  list.querySelectorAll('.con-row').forEach(r=>r.addEventListener('click',()=>{
+    const code=r.getAttribute('data-code'); selectArea(S.selArea===code?null:code); }));
+}
+function afterAreaChange(){ renderAreas(); onFilterChange({region:true}); }
+
 let conLayer=null;
 
 function loadConstituencies(){
@@ -1440,6 +1634,7 @@ function companyVisible(id){ const n=normNum(id); const c=S.byNum[n]; if(!c) ret
      recomputed (recomputed here as a fallback for the procurement-only
      handlers, which do not go through onFilterChange). */
   if(S.selCon!=null && S.selConIdx>=0 && c.conIdx!==S.selConIdx) return false;
+  if(S.selArea!=null && S._areaSet && !S._areaSet.has(c.ladIdx)) return false;
   if(investorMode()){ const set=S._invSet||investorCompanySet(); if(!set.has(n)) return false; }
   if(S.femOnly && !c.women) return false;
   if(S.fundAny && !fundedAtAll(c)) return false;
@@ -1618,7 +1813,7 @@ function runDemo(){
   })();
 }
 function syncFemBtn(){ const b=$('femBtn'); if(b) b.setAttribute('aria-pressed', S.femOnly?'true':'false'); }
-function hasActiveFilter(){ return S.selSectors.size>0 || S.selRegions.size>0 || investorActive() || S.femOnly || S.selCon!=null || S.fundAny || sizeActive(); }
+function hasActiveFilter(){ return S.selSectors.size>0 || S.selRegions.size>0 || investorActive() || S.femOnly || S.selCon!=null || S.selArea!=null || S.fundAny || sizeActive(); }
 function openDetail(){ S.detailOpen=true; $('detail').classList.add('open'); const t=$('detailToggle'); if(t) t.classList.add('active'); setTimeout(()=>{ try{ map.invalidateSize({pan:false}); }catch(e){} },300); }
 function closeDetail(){ S.detailOpen=false; $('detail').classList.remove('open'); const t=$('detailToggle'); if(t) t.classList.remove('active'); setTimeout(()=>{ try{ map.invalidateSize({pan:false}); }catch(e){} },300); }
 function onFilterChange(o){ o=o||{};
@@ -1626,7 +1821,11 @@ function onFilterChange(o){ o=o||{};
   renderMap(); renderDetail(); renderRegionList(); renderActiveBar(); syncOriginHint();
   if(o.region) renderRegionBoundary(); renderEco();
   if(S.conMode!=='off') styleConSelection();
+  if(S.areaLevel!=='off') styleAreaSelection();
   refreshPrimes(); refreshProcurement();
+  // A geographic selection changes what the tabs are drawn from, so whichever
+  // one is open has to be redrawn with it rather than waiting to be revisited.
+  if(S.tab && S.tab!=='map') renderTab(S.tab);
   // On-demand right panel: open automatically when a filter is active, unless the
   // user has deliberately closed it; collapse (and reset that intent) when nothing is active.
   if(hasActiveFilter()){ if(!S.detailUserClosed) openDetail(); }
@@ -1675,6 +1874,24 @@ function boot(){
   $('ecoSelect').addEventListener('change',renderEco);
 
   // MPs & constituencies — data is fetched on first use, not at page load
+  const areaLevelSel=$('areaLevel'), areaSearch=$('areaSearch');
+  if(areaLevelSel) areaLevelSel.addEventListener('change',()=>{
+    S.areaLevel=areaLevelSel.value;
+    /* Changing level invalidates the selection: a council code is not a city
+       region code, so keeping it would filter to nothing. The search box goes
+       with it, since a query typed against one level usually matches nothing
+       at the other and leaves an empty list with no explanation. */
+    S.selArea=null; S._areaSet=null;
+    S.areaQuery=''; if(areaSearch) areaSearch.value='';
+    if(S.areaLevel==='off'){ renderAreas(); onFilterChange({region:true}); return; }
+    loadAreas().then(afterAreaChange).catch(()=>{});
+  });
+  if(areaSearch) areaSearch.addEventListener('input',()=>{
+    S.areaQuery=areaSearch.value.trim();
+    if(S.areaLevel==='off') return;
+    loadAreas().then(()=>renderAreas()).catch(()=>{});
+  });
+
   const conModeSel=$('conMode'), conPartySel=$('conParty'), conSearch=$('conSearch');
   function afterConChange(){
     if(conPartySel && !conPartySel.dataset.filled && S.conData){
@@ -2085,12 +2302,33 @@ function renderSecRegionField(){
 
 function fade(c){ try{ return chroma(c).alpha(0.22).css(); }catch(e){ return c; } }
 function hlColors(keys,colorFn,focusVal){ return keys.map(k=> (!focusVal||k===focusVal)?colorFn(k):fade(colorFn(k))); }
+/* The geographic drill-down in force, if any: a council, a city region or a
+   seat. Returns null when the tabs should cover everything in the file. */
+function geoScope(){
+  const a=(typeof currentArea==='function') ? currentArea() : null;
+  if(a && S._areaSet) return {
+    kind:(S.areaLevel==='city'?'City region':'Council area'), name:a.name,
+    clear:()=>selectArea(null),
+    test:c=>S._areaSet.has(c.ladIdx) };
+  if(S.selCon!=null && S.selConIdx>=0){
+    const c=conList().find(x=>x.code===S.selCon);
+    if(c) return { kind:'Constituency', name:c.name,
+      clear:()=>selectConstituency(null),
+      test:x=>x.conIdx===S.selConIdx };
+  }
+  return null;
+}
+/* What every dashboard tab is drawn from. The whole file normally; the chosen
+   area or seat when one is picked, so a tab cannot contradict the panel beside
+   it. The tab's own controls then narrow further inside that. */
+function scopeBase(){ const g=geoScope(); return g ? S.all.filter(g.test) : S.all; }
 function fLists(f){
+  const base=scopeBase();
   const R=focusRegions(f), inR = R.length ? (c=>R.indexOf(c.region)>=0) : (()=>true);
   return {
-    s: S.all.filter(inR),
-    r: S.all.filter(c=> !f.s || c.sector===f.s),
-    k: S.all.filter(c=> inR(c) && (!f.s||c.sector===f.s)) }; }
+    s: base.filter(inR),
+    r: base.filter(c=> !f.s || c.sector===f.s),
+    k: base.filter(c=> inR(c) && (!f.s||c.sector===f.s)) }; }
 function syncDrop(tab){ const f=xf(tab), m={ regions:{s:'regSectorFilter'}, investment:{r:'invRegionFilter',s:'invSectorFilter'} }[tab]||{};
   if(tab==='sectors'){ syncSecRegionMenu(); renderSecRegionField(); }
   if(m.r){ const e=$(m.r); if(e) e.value=f.r||''; } if(m.s){ const e=$(m.s); if(e) e.value=f.s||''; } }
@@ -2099,6 +2337,12 @@ function applyFocusToMap(f){ S.selSectors=new Set(f.s?[f.s]:[]); S.selRegions=ne
   document.querySelectorAll('#chips .chip').forEach(ch=>ch.setAttribute('aria-pressed',(f.s&&ch.dataset.sector===f.s)?'true':'false'));
   onFilterChange({region:true}); setTab('map'); }
 function renderChips(tab){ const f=xf(tab), el=$(tab+'Active'); if(!el) return; let html='';
+  /* The scope chip comes first and is styled apart: it is set on the map, not
+     on this tab, so without it a tab shows figures for somewhere the reader
+     cannot see named anywhere on the tab. */
+  const g=geoScope();
+  if(g) html+='<span class="dchip dchip-scope" title="'+esc(g.kind)+'">'+esc(g.name)+
+    '<span class="x" data-c="geo">×</span></span>';
   if(f.s) html+='<span class="dchip">'+esc(f.s)+'<span class="x" data-c="s">×</span></span>';
   const fr=focusRegions(f);
   fr.forEach(r=>{ html+='<span class="dchip">'+esc(regionShort(r))+
@@ -2106,6 +2350,9 @@ function renderChips(tab){ const f=xf(tab), el=$(tab+'Active'); if(!el) return; 
   html+= (f.s||fr.length) ? '<button class="dchip-map" data-map="1">View on map ↗</button>' : '<span class="dchip-hint">Tip: click a bar or segment to filter this tab</span>';
   el.innerHTML=html;
   el.querySelectorAll('.x').forEach(x=>x.addEventListener('click',()=>{
+    // The scope chip is not this tab's to hold, so clearing it goes back to
+    // whichever control set it and lets that redraw everything.
+    if(x.dataset.c==='geo'){ const gg=geoScope(); if(gg) gg.clear(); return; }
     // A region chip clears only its own region; everything else clears the field.
     if(x.dataset.c==='r' && x.dataset.r) setFocusRegions(f, focusRegions(f).filter(r=>r!==x.dataset.r));
     else f[x.dataset.c]=null;
@@ -2233,7 +2480,7 @@ function renderInvestmentDash(){ const f=xf('investment'), L=fLists(f), s=aggreg
      filtered they are the same chart, which reads as a bug. The badge says
      what this half covers, and when nothing is picked the first chart says
      outright that it matches the one below. */
-  const whole=uniqueCompanies(S.all).length, here=uniqueCompanies(L.k).length;
+  const whole=uniqueCompanies(S.all).length, here=uniqueCompanies(L.k).length;   // whole file, so a scope reads as a narrowing
   const narrowed=here<whole;
   const badge=$('invScopeBadge');
   if(badge){ badge.textContent = narrowed

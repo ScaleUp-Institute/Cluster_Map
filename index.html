@@ -7,7 +7,7 @@
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/css/flag-icons.min.css" />
-  <link rel="stylesheet" href="css/styles.css?v=73" />
+  <link rel="stylesheet" href="css/styles.css?v=75" />
 </head>
 <body>
 <div class="app">
@@ -144,6 +144,31 @@
           <div class="sec-body">
             <div class="sub-head"><span>Regions &amp; nations</span><div class="linkbtns"><button class="linkbtn" id="regAll">All</button><button class="linkbtn" id="regNone">Clear</button></div></div>
             <div class="region-list" id="regionList"></div>
+          </div>
+        </section>
+
+        <!-- Councils sit between regions and constituencies because that is where
+             they sit in size: a region holds many councils, a council holds a few
+             seats. The two levels are the same geography at two scales, so they
+             share one control rather than becoming two rail sections. -->
+        <section class="rail-sec collapsible collapsed" data-group="councils">
+          <button class="sec-head sec-toggle" type="button"><h2>Councils &amp; city regions</h2><span class="chev">▾</span></button>
+          <div class="sec-body">
+            <div class="field-label">Show on map
+              <button type="button" class="info-btn" aria-expanded="false" aria-controls="hintAreas" aria-label="What this shows">i</button></div>
+            <div class="rail-hint" id="hintAreas" hidden>Outlines every council area or city region on the map. Pick one, from the list or by clicking the map, to show its figures and filter everything to it.</div>
+            <select id="areaLevel" class="dd" aria-label="Show councils or city regions">
+              <option value="off">Off</option>
+              <option value="council">Council areas</option>
+              <option value="city">City regions</option>
+            </select>
+            <div class="field-label">Find</div>
+            <div class="inv-search-wrap">
+              <input id="areaSearch" type="text" placeholder="Search a council or city region…" autocomplete="off" />
+            </div>
+            <div id="areaStatus" class="con-status"></div>
+            <div id="areaSummary" class="proc-summary"></div>
+            <div id="areaResults" class="con-results"></div>
           </div>
         </section>
 
@@ -536,6 +561,6 @@
 
   <!-- Controller (dashboard + map) -->
   <script src="js/gate.js?v=af889295"></script>
-<script src="js/app.js?v=73"></script>
+<script src="js/app.js?v=75"></script>
 </body>
 </html>
